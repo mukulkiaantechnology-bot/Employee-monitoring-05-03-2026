@@ -1,0 +1,194 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum TaskStatus {
+  BACKLOG
+  IN_PROGRESS
+  QA
+  COMPLETED
+}
+
+enum PayrollStatus {
+  PAID
+  UNPAID
+}
+
+model User {
+  id         String    @id @default(uuid())
+  email      String    @unique
+  password   String
+  role       Role      @default(EMPLOYEE)
+  employee   Employee? @relation(fields: [employeeId], references: [id])
+  employeeId String?   @unique
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@map("users")
+}
+
+model Organization {
+  id               String            @id @default(uuid())
+  legalName        String
+  workspaceId      String            @unique @default(uuid())
+  industry         String?
+  organizationSize String?
+  timeZone         String            @default("UTC")
+  workStartTime    String            @default("09:00")
+  workEndTime      String            @default("18:00")
+  workDays         String            @default("Monday,Tuesday,Wednesday,Thursday,Friday")
+  teams            Team[]
+  employees        Employee[]
+  projects         Project[]
+  complianceSetting ComplianceSetting?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@map("organizations")
+}
+
+model Team {
+  id             String       @id @default(uuid())
+  name           String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  employees      Employee[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("teams")
+}
+
+model Employee {
+  id             String         @id @default(uuid())
+  name           String
+  email          String         @unique
+  role           Role           @default(EMPLOYEE)
+  workLocation   String?
+  hourlyRate     Float          @default(0.0)
+  user           User?
+  team           Team?          @relation(fields: [teamId], references: [id])
+  teamId         String?
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  organizationId String
+  tasks          Task[]
+  attendance     Attendance[]
+  activityLogs   ActivityLog[]
+  locationLogs   LocationLog[]
+  payrollRecords PayrollRecord[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@map("employees")
+}
+
+model Project {
+  id             String       @id @default(uuid())
+  name           String
+  billableRate   Float        @default(0.0)
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  tasks          Task[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("projects")
+}
+
+model Task {
+  id         String     @id @default(uuid())
+  name       String
+  status     TaskStatus @default(BACKLOG)
+  priority   String     @default("MEDIUM")
+  dueDate    DateTime?
+  project    Project    @relation(fields: [projectId], references: [id])
+  projectId  String
+  employee   Employee?  @relation(fields: [employeeId], references: [id])
+  employeeId String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@map("tasks")
+}
+
+model Attendance {
+  id         String   @id @default(uuid())
+  date       DateTime @db.Date
+  clockIn    DateTime
+  clockOut   DateTime?
+  status     String   @default("PRESENT")
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  employeeId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("attendance")
+}
+
+model ActivityLog {
+  id           String   @id @default(uuid())
+  appWebsite   String
+  isProductive Boolean  @default(true)
+  category     String?
+  timeSpent    Int      @default(0) // In seconds or minutes
+  timestamp    DateTime @default(now())
+  employee     Employee @relation(fields: [employeeId], references: [id])
+  employeeId   String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("activity_logs")
+}
+
+model LocationLog {
+  id         String   @id @default(uuid())
+  latitude   Float
+  longitude  Float
+  isMoving   Boolean  @default(false)
+  timestamp  DateTime @default(now())
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  employeeId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("location_logs")
+}
+
+model PayrollRecord {
+  id         String        @id @default(uuid())
+  totalHours Float         @default(0.0)
+  amount     Float         @default(0.0)
+  status     PayrollStatus @default(UNPAID)
+  employee   Employee      @relation(fields: [employeeId], references: [id])
+  employeeId String
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@map("payroll_records")
+}
+
+model ComplianceSetting {
+  id                String       @id @default(uuid())
+  organization      Organization @relation(fields: [organizationId], references: [id])
+  organizationId    String       @unique
+  gdprEnabled       Boolean      @default(false)
+  twoFactorEnabled  Boolean      @default(false)
+  encryptionEnabled Boolean      @default(false)
+  consentPercentage Float        @default(0.0)
+  retentionPeriod   Int          @default(30) // In days
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@map("compliance_settings")
+}
