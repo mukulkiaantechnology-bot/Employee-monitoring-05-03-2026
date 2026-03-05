@@ -104,6 +104,11 @@ const getMe = async (userId) => {
         throw new Error('User not found');
     }
 
+    // Flatten organization data if employee exists
+    if (user.employee && user.employee.organization) {
+        user.organization = user.employee.organization;
+    }
+
     return user;
 };
 
