@@ -1,9 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
-export function CreateTeamModal({ isOpen, onClose, onCreateTeam }) {
+export function CreateTeamModal({ isOpen, onClose, onCreateTeam, initialData }) {
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
+
+    useEffect(() => {
+        if (initialData) {
+            setName(initialData.name || '');
+            setDescription(initialData.description || '');
+        } else {
+            setName('');
+            setDescription('');
+        }
+    }, [initialData, isOpen]);
 
     if (!isOpen) return null;
 
@@ -21,7 +31,9 @@ export function CreateTeamModal({ isOpen, onClose, onCreateTeam }) {
             <div className="relative w-full max-w-lg bg-white dark:bg-slate-950 rounded-xl shadow-2xl animate-scale-in overflow-hidden">
                 {/* Header */}
                 <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                    <h2 className="text-xl font-bold text-slate-700 dark:text-slate-200">Create New Team</h2>
+                    <h2 className="text-xl font-bold text-slate-700 dark:text-slate-200">
+                        {initialData ? 'Edit Team' : 'Create New Team'}
+                    </h2>
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
                         <X size={20} />
                     </button>
@@ -66,11 +78,10 @@ export function CreateTeamModal({ isOpen, onClose, onCreateTeam }) {
                         <button
                             type="submit"
                             disabled={!name.trim()}
-                            className={`px-8 py-2.5 rounded-lg text-xs font-black uppercase tracking-tight transition-all ${
-                                name.trim() 
-                                ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-none' 
-                                : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed'
-                            }`}
+                            className={`px-8 py-2.5 rounded-lg text-xs font-black uppercase tracking-tight transition-all ${name.trim()
+                                    ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-none'
+                                    : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed'
+                                }`}
                         >
                             Save
                         </button>

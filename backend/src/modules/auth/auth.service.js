@@ -22,7 +22,7 @@ const register = async (userData) => {
         // 1. Create Employee
         const employee = await tx.employee.create({
             data: {
-                name,
+                fullName: name, // Fixed: fullName instead of name
                 email,
                 role,
                 organizationId,
@@ -42,9 +42,8 @@ const register = async (userData) => {
         });
 
         // Generate Token
-        const token = generateToken({ userId: user.id, role: user.role });
-
-        return { token, user: { id: user.id, email: user.email, role: user.role, employeeId: employee.id } };
+        const token = generateToken({ userId: user.id, role: user.role, organizationId: employee.organizationId });
+        return { token, user: { id: user.id, email: user.email, role: user.role, employeeId: employee.id, organizationId: employee.organizationId } };
     });
 };
 
@@ -66,7 +65,11 @@ const login = async (email, password) => {
         throw new Error('Invalid email or password');
     }
 
-    const token = generateToken({ userId: user.id, role: user.role });
+    const token = generateToken({
+        userId: user.id,
+        role: user.role,
+        organizationId: user.employee?.organizationId
+    });
 
     return {
         token,
@@ -75,6 +78,7 @@ const login = async (email, password) => {
             email: user.email,
             role: user.role,
             employeeId: user.employeeId,
+            organizationId: user.employee?.organizationId,
         },
     };
 };
@@ -107,6 +111,7 @@ const getMe = async (userId) => {
     // Flatten organization data if employee exists
     if (user.employee && user.employee.organization) {
         user.organization = user.employee.organization;
+        user.organizationId = user.employee.organizationId;
     }
 
     return user;

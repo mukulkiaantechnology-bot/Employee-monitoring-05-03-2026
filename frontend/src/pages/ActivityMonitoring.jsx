@@ -29,34 +29,37 @@ const LegendItem = ({ color, label, isStriped, isHashed, isOutline }) => (
 );
 
 export function ActivityMonitoring() {
-    const { activityLogs, employees } = useRealTime();
+    const { activityLogs, employees, stats } = useRealTime();
     const [activeTab, setActiveTab] = useState('Timeline');
     const [activitySearch, setActivitySearch] = useState('');
     const [zoomLevel, setZoomLevel] = useState(1);   // 0.75 | 1 | 1.5
     const [viewMode, setViewMode] = useState('normal'); // 'normal' | 'compact'
 
-    const handleZoomIn  = () => setZoomLevel(z => Math.min(2, +(z + 0.25).toFixed(2)));
+    const handleZoomIn = () => setZoomLevel(z => Math.min(2, +(z + 0.25).toFixed(2)));
     const handleZoomOut = () => setZoomLevel(z => Math.max(0.5, +(z - 0.25).toFixed(2)));
-    const handleReset   = () => { setZoomLevel(1); setActivitySearch(''); };
+    const handleReset = () => { setZoomLevel(1); setActivitySearch(''); };
 
     const timelineHours = [
         '12:00 AM', '02:00 AM', '04:00 AM', '06:00 AM', '08:00 AM',
         '10:00 AM', '12:00 PM', '02:00 PM', '04:00 PM', '06:00 PM', '08:00 PM'
     ];
 
-    const logsData = (activityLogs || []).map(act => ({
-        date: 'Feb 26, 2026',
-        startTime: act.startTime,
-        endTime: act.endTime,
-        duration: act.duration,
-        employee: act.employee,
-        computer: act.computer,
-        app: act.app,
-        appIcon: act.app?.includes('Chrome') ? Globe : act.app?.includes('VS Code') ? Monitor : Monitor,
-        website: act.website,
-        webIcon: Globe,
-        hasAction: Math.random() > 0.5
-    }));
+    const logsData = (stats.empMetrics || []).flatMap(emp => {
+        const log = emp.logs || {};
+        return (log.rawLogs || []).map(act => ({
+            date: log.date || 'Today',
+            startTime: act.startTime || '—',
+            endTime: act.endTime || '—',
+            duration: act.duration || 0,
+            employee: emp.name,
+            computer: act.computer || 'N/A',
+            app: act.appWebsite || 'Unknown',
+            appIcon: act.appWebsite?.includes('Chrome') ? Globe : Monitor,
+            website: act.appWebsite?.includes('.') ? act.appWebsite : null,
+            webIcon: Globe,
+            hasAction: act.activityType === 'ACTIVE'
+        }));
+    });
 
     return (
         <div className="min-h-screen bg-[#fcfdfe] dark:bg-slate-950 pb-12 px-2 sm:px-4 lg:px-8 transition-colors duration-200">
@@ -103,18 +106,17 @@ export function ActivityMonitoring() {
                     {activeTab === 'Timeline' && (
                         <>
                             <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-1">
-                                <button onClick={handleZoomIn}  title="Zoom In"  className={`p-1.5 rounded-md transition-colors text-primary-600 dark:text-primary-400 ${zoomLevel >= 2 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}><ZoomIn size={16} /></button>
-                                <button onClick={handleReset}   title="Reset"   className="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-primary-600 dark:text-primary-400 rounded-md transition-colors"><RotateCcw size={16} /></button>
+                                <button onClick={handleZoomIn} title="Zoom In" className={`p-1.5 rounded-md transition-colors text-primary-600 dark:text-primary-400 ${zoomLevel >= 2 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}><ZoomIn size={16} /></button>
+                                <button onClick={handleReset} title="Reset" className="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-primary-600 dark:text-primary-400 rounded-md transition-colors"><RotateCcw size={16} /></button>
                                 <button onClick={handleZoomOut} title="Zoom Out" className={`p-1.5 rounded-md transition-colors text-primary-600 dark:text-primary-400 ${zoomLevel <= 0.5 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}><ZoomOut size={16} /></button>
                             </div>
                             <button
                                 onClick={() => setViewMode(v => v === 'normal' ? 'compact' : 'normal')}
                                 title={viewMode === 'normal' ? 'Compact View' : 'Normal View'}
-                                className={`p-2 border rounded-lg transition-colors shadow-sm ${
-                                    viewMode === 'compact'
-                                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30 text-primary-600'
-                                        : 'border-slate-200 dark:border-slate-800 text-primary-600 dark:text-primary-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                                }`}
+                                className={`p-2 border rounded-lg transition-colors shadow-sm ${viewMode === 'compact'
+                                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30 text-primary-600'
+                                    : 'border-slate-200 dark:border-slate-800 text-primary-600 dark:text-primary-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                                    }`}
                             >
                                 <LayoutGrid size={18} strokeWidth={2.5} />
                             </button>
@@ -160,33 +162,47 @@ export function ActivityMonitoring() {
                                 ))}
                             </div>
 
-                            {employees
+                            {(stats.empMetrics || [])
                                 .filter(emp => (emp.name?.toLowerCase() ?? '').includes(activitySearch.toLowerCase()))
-                                .slice(0, 8).map((emp, empIdx) => (
-                                <React.Fragment key={emp.id}>
-                                    <div className={`col-span-3 border-b border-r border-slate-50 dark:border-slate-800 flex items-center gap-4 ${viewMode === 'compact' ? 'p-3' : 'p-6'}`}>
-                                        <div className="h-10 w-10 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center border border-slate-200">
-                                            <img src={emp.avatar} alt="" className="h-full w-full object-cover" />
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-none">{emp.name}</p>
-                                            <p className="text-[10px] font-bold text-emerald-500 mt-1">92% utilization</p>
-                                        </div>
-                                    </div>
-                                    <div className="col-span-9 grid grid-cols-11 border-b border-slate-50 dark:border-slate-800 relative">
-                                        {/* Activity blocks based on index to look varied */}
-                                        <div className="absolute top-[10%] w-[30%] h-[80%] flex gap-[1px]" style={{ left: `${10 + (empIdx * 7) % 40}%` }}>
-                                            {Array.from({ length: 12 }).map((_, i) => (
-                                                <div key={i} className={cn("flex-1", i % 4 === 0 ? "bg-primary-300 dark:bg-primary-500/60" : "bg-primary-300/40 opacity-30")}></div>
-                                            ))}
-                                        </div>
-                                        {empIdx % 2 === 0 && (
-                                            <div className="absolute top-[10%] w-[15%] h-[80%] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 opacity-20" style={{ left: `${60 + (empIdx * 10) % 20}%`, backgroundImage: 'repeating-linear-gradient(45deg, #cbd5e1 0, #cbd5e1 1px, transparent 0, transparent 50%)', backgroundSize: '10px 10px' }}></div>
-                                        )}
-                                        {Array.from({ length: 11 }).map((_, i) => <div key={i} className="border-r border-slate-50/50 dark:border-slate-800/50"></div>)}
-                                    </div>
-                                </React.Fragment>
-                            ))}
+                                .map((emp, empIdx) => {
+                                    const buckets = emp.logs?.intradayBuckets || [];
+                                    return (
+                                        <React.Fragment key={emp.id}>
+                                            <div className={`col-span-3 border-b border-r border-slate-50 dark:border-slate-800 flex items-center gap-4 ${viewMode === 'compact' ? 'p-3' : 'p-6'}`}>
+                                                <div className="h-10 w-10 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center border border-slate-200">
+                                                    <img src={emp.avatar || `https://ui-avatars.com/api/?name=${emp.name}`} alt="" className="h-full w-full object-cover" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-none">{emp.name}</p>
+                                                    <p className="text-[10px] font-bold text-emerald-500 mt-1">{emp.utilization}% utilization</p>
+                                                </div>
+                                            </div>
+                                            <div className="col-span-9 grid grid-cols-11 border-b border-slate-50 dark:border-slate-800 relative">
+                                                {/* Actual Activity blocks from intradayBuckets */}
+                                                <div className="absolute inset-0 flex">
+                                                    {buckets.slice(0, 22).map((bucket, i) => (
+                                                        <div key={i} className="flex-1 flex flex-col justify-center px-[1px]">
+                                                            {bucket.active > 0 && (
+                                                                <div
+                                                                    className="bg-primary-300 dark:bg-primary-500/60 rounded-sm"
+                                                                    style={{ height: `${Math.min(100, (bucket.active / 60) * 100)}%` }}
+                                                                    title={`${bucket.name}: ${bucket.active}m active`}
+                                                                ></div>
+                                                            )}
+                                                            {bucket.idle > 0 && (
+                                                                <div
+                                                                    className="bg-slate-200 dark:bg-slate-700/50 rounded-sm mt-[1px]"
+                                                                    style={{ height: `${Math.min(20, (bucket.idle / 60) * 100)}%`, opacity: 0.5 }}
+                                                                ></div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                {Array.from({ length: 11 }).map((_, i) => <div key={i} className="border-r border-slate-50/50 dark:border-slate-800/50 z-10 pointer-events-none"></div>)}
+                                            </div>
+                                        </React.Fragment>
+                                    );
+                                })}
                         </div>
                     </div>
                 </div>

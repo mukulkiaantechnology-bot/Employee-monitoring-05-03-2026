@@ -1,20 +1,9 @@
 import apiClient from './apiClient';
 
 const organizationService = {
-    getOrganization: async () => {
-        const response = await apiClient.get('/organization');
-        return response.data;
-    },
-
-    updateOrganization: async (id, data) => {
-        const response = await apiClient.put(`/organization/${id}`, data);
-        return response.data;
-    },
-
-    createOrganization: async (data) => {
-        const response = await apiClient.post('/organization', data);
-        return response.data;
-    }
+    getOrganization: () => apiClient.get('/organization').then(res => res.data),
+    updateOrganization: (id, data) => apiClient.put(`/organization/${id}`, data).then(res => res.data),
+    createOrganization: (data) => apiClient.post('/organization', data).then(res => res.data),
 };
 
 export default organizationService;

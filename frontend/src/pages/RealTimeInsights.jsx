@@ -5,8 +5,8 @@ import { GlobalCalendar } from '../components/GlobalCalendar';
 import { useRealTime } from '../hooks/RealTimeContext';
 
 const statusColors = {
-    online:  'bg-emerald-400',
-    idle:    'bg-amber-400',
+    online: 'bg-emerald-400',
+    idle: 'bg-amber-400',
     offline: 'bg-slate-300 dark:bg-slate-600',
 };
 
@@ -46,8 +46,8 @@ export function RealTimeInsights() {
         );
     }, [employees, search]);
 
-    const onlineEmps  = employees.filter(e => e.status === 'online');
-    const idleEmps    = employees.filter(e => e.status === 'idle');
+    const onlineEmps = employees.filter(e => e.status === 'online');
+    const idleEmps = employees.filter(e => e.status === 'idle');
     const presentToday = onlineEmps.length + idleEmps.length;
 
     const handleAddEmployee = (emp) => { addEmployee(emp); setIsModalOpen(false); };
@@ -73,11 +73,11 @@ export function RealTimeInsights() {
 
             {/* Stat Cards */}
             <div className="flex flex-wrap gap-4 mb-8">
-                <InsightStatCard title="Present Today"         value={presentToday}         total={employees.length}  icon={Users}       color="text-slate-400"   subLabel={`${employees.length} total employees`} />
-                <InsightStatCard title="Currently Active"      value={onlineEmps.length}    icon={Zap}          color="text-emerald-500" subLabel={`${stats.online} online`} />
-                <InsightStatCard title="Idle"                  value={idleEmps.length}      icon={Clock}        color="text-amber-500"   subLabel="Inactive employees" />
-                <InsightStatCard title="Offline"               value={stats.offline}        icon={TrendingDown} color="text-rose-500"    subLabel="Not tracked today" />
-                <InsightStatCard title="Productivity Today"    value={`${stats.summary?.productivity ?? 0}%`} icon={Activity} color="text-violet-500" subLabel="vs. active time" />
+                <InsightStatCard title="Present Today" value={presentToday} total={employees.length} icon={Users} color="text-slate-400" subLabel={`${employees.length} total employees`} />
+                <InsightStatCard title="Currently Active" value={onlineEmps.length} icon={Zap} color="text-emerald-500" subLabel={`${stats.online} online`} />
+                <InsightStatCard title="Idle" value={idleEmps.length} icon={Clock} color="text-amber-500" subLabel="Inactive employees" />
+                <InsightStatCard title="Offline" value={stats.offline} icon={TrendingDown} color="text-rose-500" subLabel="Not tracked today" />
+                <InsightStatCard title="Productivity Today" value={`${stats.summary?.productivity ?? 0}%`} icon={Activity} color="text-violet-500" subLabel="vs. active time" />
             </div>
 
             {/* Filters */}
@@ -128,11 +128,10 @@ export function RealTimeInsights() {
                                     </td>
                                     <td className="px-6 py-4 font-bold text-slate-600 dark:text-slate-300">{emp.team || '—'}</td>
                                     <td className="px-6 py-4">
-                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                                            emp.status === 'online'  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' :
-                                            emp.status === 'idle'    ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400' :
-                                            'bg-slate-100 text-slate-500 dark:bg-slate-800'
-                                        }`}>
+                                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${emp.status === 'online' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' :
+                                                emp.status === 'idle' ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400' :
+                                                    'bg-slate-100 text-slate-500 dark:bg-slate-800'
+                                            }`}>
                                             <span className={`h-1.5 w-1.5 rounded-full ${statusColors[emp.status] || statusColors.offline}`} />
                                             {emp.status}
                                         </span>
@@ -141,18 +140,18 @@ export function RealTimeInsights() {
                                         <div className="flex items-center gap-3">
                                             <div className="flex-1 max-w-[80px] h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                                                 <div className="h-full bg-violet-500 rounded-full transition-all"
-                                                    style={{ width: `${emp.productivityScore || 75}%` }} />
+                                                    style={{ width: `${emp.productivityScore || 0}%` }} />
                                             </div>
-                                            <span className="font-black text-slate-700 dark:text-slate-300 min-w-[32px]">{emp.productivityScore || 75}%</span>
+                                            <span className="font-black text-slate-700 dark:text-slate-300 min-w-[32px]">{emp.productivityScore || 0}%</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
                                             <div className="flex-1 max-w-[80px] h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                                                 <div className="h-full bg-indigo-400 rounded-full transition-all"
-                                                    style={{ width: `${emp.utilizationScore || 80}%` }} />
+                                                    style={{ width: `${emp.utilizationScore || 0}%` }} />
                                             </div>
-                                            <span className="font-black text-slate-700 dark:text-slate-300 min-w-[32px]">{emp.utilizationScore || 80}%</span>
+                                            <span className="font-black text-slate-700 dark:text-slate-300 min-w-[32px]">{emp.utilizationScore || 0}%</span>
                                         </div>
                                     </td>
                                 </tr>

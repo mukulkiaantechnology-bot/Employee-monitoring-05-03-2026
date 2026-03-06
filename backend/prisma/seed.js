@@ -58,21 +58,25 @@ async function main() {
     for (const userData of usersToCreate) {
         let employeeId = null;
 
-        // Only create Employee record for EMPLOYEE role
-        if (userData.role === 'EMPLOYEE') {
-            const employee = await prisma.employee.upsert({
-                where: { email: userData.email },
-                update: {},
-                create: {
-                    name: userData.name,
-                    email: userData.email,
-                    role: userData.role,
-                    organizationId: organization.id,
-                    teamId: team.id,
-                },
-            });
-            employeeId = employee.id;
-        }
+        // Create Employee record for EVERY user (Admin, Manager, Employee)
+        // This ensures organizationId and other profile details are accessible
+        const employee = await prisma.employee.upsert({
+            where: { email: userData.email },
+            update: {
+                fullName: userData.name,
+                role: userData.role,
+                organizationId: organization.id,
+                teamId: userData.role === 'EMPLOYEE' ? team.id : null,
+            },
+            create: {
+                fullName: userData.name,
+                email: userData.email,
+                role: userData.role,
+                organizationId: organization.id,
+                teamId: userData.role === 'EMPLOYEE' ? team.id : null,
+            },
+        });
+        employeeId = employee.id;
 
         // Create User (All roles)
         await prisma.user.upsert({
@@ -89,7 +93,7 @@ async function main() {
                 employeeId: employeeId,
             },
         });
-        console.log(`User created: ${userData.email} (${userData.role}) ${employeeId ? 'with Employee entry' : 'without Employee entry'}`);
+        console.log(`User created: ${userData.email} (${userData.role}) with Employee entry ${employeeId}`);
     }
 
     console.log('Seeding completed!');

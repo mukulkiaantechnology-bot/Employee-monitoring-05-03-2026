@@ -17,6 +17,8 @@ import {
     X,
     Eye,
     EyeOff,
+    Edit,
+    Trash2,
     UserPlus,
     Bell,
     UserCheck,
@@ -25,7 +27,9 @@ import {
     Lock,
     Clock
 } from 'lucide-react';
-import { useRealTime } from '../hooks/RealTimeContext';
+import { useNavigate } from 'react-router-dom';
+import { useEmployeeStore } from '../store/employeeStore';
+import { useTeamStore } from '../store/teamStore';
 import { AddEmployeeModal } from '../components/AddEmployeeModal';
 import { GlobalCalendar } from '../components/GlobalCalendar';
 import { clsx } from 'clsx';
@@ -267,6 +271,142 @@ const MergeEmployeesModal = ({ isOpen, onClose, employees, onMerge }) => {
                 <div className="flex gap-3 pt-4">
                     <button onClick={onClose} className="flex-1 py-4 text-xs font-black uppercase text-slate-400 hover:text-slate-600 transition-all">Cancel</button>
                     <button onClick={handleMerge} className="flex-1 py-4 bg-primary-600 text-white rounded-2xl text-xs font-black uppercase tracking-wider hover:bg-primary-700 shadow-xl transition-all">Merge Employees</button>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
+const EditEmployeeModal = ({ isOpen, onClose, employee, onUpdate }) => {
+    const { teams } = useTeamStore();
+    const [formData, setFormData] = useState({
+        fullName: '',
+        email: '',
+        teamId: '',
+        location: '',
+        hourlyRate: 0,
+        status: ''
+    });
+
+    useEffect(() => {
+        if (employee) {
+            setFormData({
+                fullName: employee.name || employee.fullName,
+                email: employee.email,
+                teamId: employee.teamId || '',
+                location: employee.location || 'Remote',
+                hourlyRate: employee.hourlyRate || 0,
+                status: employee.status.toUpperCase()
+            });
+        }
+    }, [employee, isOpen]);
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onUpdate(employee.id, formData);
+        onClose();
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Edit Employee" subtitle={employee?.name} maxWidth="max-w-md">
+            <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Full Name</label>
+                    <input
+                        type="text"
+                        value={formData.fullName}
+                        onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                        className="w-full h-11 px-4 rounded-xl border-2 border-slate-100 bg-slate-50 text-xs font-bold outline-none focus:border-primary-500 transition-all"
+                        required
+                    />
+                </div>
+                <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Email</label>
+                    <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full h-11 px-4 rounded-xl border-2 border-slate-100 bg-slate-50 text-xs font-bold outline-none focus:border-primary-500 transition-all"
+                        required
+                    />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Team</label>
+                        <select
+                            value={formData.teamId}
+                            onChange={(e) => setFormData({ ...formData, teamId: e.target.value })}
+                            className="w-full h-11 px-4 rounded-xl border-2 border-slate-100 bg-slate-50 text-xs font-bold outline-none focus:border-primary-500 transition-all appearance-none"
+                        >
+                            <option value="">Select Team</option>
+                            {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Status</label>
+                        <select
+                            value={formData.status}
+                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                            className="w-full h-11 px-4 rounded-xl border-2 border-slate-100 bg-slate-50 text-xs font-bold outline-none focus:border-primary-500 transition-all appearance-none"
+                        >
+                            <option value="ACTIVE">Active</option>
+                            <option value="INVITED">Invited</option>
+                            <option value="OFFLINE">Offline</option>
+                            <option value="IDLE">Idle</option>
+                            <option value="DEACTIVATED">Deactivated</option>
+                        </select>
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Hourly Rate ($)</label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            value={formData.hourlyRate}
+                            onChange={(e) => setFormData({ ...formData, hourlyRate: parseFloat(e.target.value) })}
+                            className="w-full h-11 px-4 rounded-xl border-2 border-slate-100 bg-slate-50 text-xs font-bold outline-none focus:border-primary-500 transition-all"
+                        />
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Location</label>
+                        <input
+                            type="text"
+                            value={formData.location}
+                            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                            className="w-full h-11 px-4 rounded-xl border-2 border-slate-100 bg-slate-50 text-xs font-bold outline-none focus:border-primary-500 transition-all"
+                        />
+                    </div>
+                </div>
+                <div className="flex gap-3 pt-4">
+                    <button type="button" onClick={onClose} className="flex-1 py-4 text-xs font-black uppercase text-slate-400 hover:text-slate-600">Cancel</button>
+                    <button type="submit" className="flex-1 py-4 bg-primary-600 text-white rounded-2xl text-xs font-black uppercase tracking-wider hover:bg-primary-700 shadow-xl transition-all">Save Changes</button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
+
+const DeleteConfirmationModal = ({ isOpen, onClose, employee, onConfirm }) => {
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Delete Employee" subtitle="Security Confirmation" maxWidth="max-w-md">
+            <div className="space-y-6">
+                <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100 text-center">
+                    <p className="text-sm font-bold text-rose-700">
+                        Are you sure you want to delete <span className="font-black underline">{employee?.name}</span>?
+                    </p>
+                    <p className="text-[11px] text-rose-500 mt-2">
+                        This will deactivate the employee and stop all monitoring activities.
+                    </p>
+                </div>
+                <div className="flex gap-3">
+                    <button onClick={onClose} className="flex-1 py-4 text-xs font-black uppercase text-slate-400 hover:text-slate-600 transition-all">Cancel</button>
+                    <button
+                        onClick={() => { onConfirm(employee.id); onClose(); }}
+                        className="flex-1 py-4 bg-rose-600 text-white rounded-2xl text-xs font-black uppercase tracking-wider hover:bg-rose-700 shadow-xl transition-all"
+                    >
+                        Yes, Delete
+                    </button>
                 </div>
             </div>
         </Modal>
@@ -556,7 +696,11 @@ const AdvancedCalendar = ({ isOpen, onClose, selectedPreset, onSelectPreset, tri
     return createPortal(calendarContent, document.body);
 };
 
-const EmployeeRow = ({ employee, onSelect, onTransparencyClick, visibleColumns }) => {
+const EmployeeRow = ({ employee, onSelect, onTransparencyClick, onEdit, onDelete, visibleColumns }) => {
+    const navigate = useNavigate();
+    const [showOptions, setShowOptions] = useState(false);
+    const optionsRef = useRef(null);
+
     const statusColor =
         employee.status === 'active' || employee.status === 'online' ? 'bg-emerald-500' :
             employee.status === 'pending' ? 'bg-amber-500' :
@@ -565,6 +709,16 @@ const EmployeeRow = ({ employee, onSelect, onTransparencyClick, visibleColumns }
                         employee.status === 'deactivated' ? 'bg-rose-500' :
                             employee.status === 'merged' ? 'bg-purple-500' : 'bg-slate-300';
 
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (optionsRef.current && !optionsRef.current.contains(event.target)) {
+                setShowOptions(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
     return (
         <>
             {/* ── MOBILE CARD (hidden on md+) ── */}
@@ -572,7 +726,7 @@ const EmployeeRow = ({ employee, onSelect, onTransparencyClick, visibleColumns }
                 <td className="p-4" colSpan={99}>
                     <div
                         className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-4 flex flex-col gap-3 active:scale-[0.98] transition-transform cursor-pointer"
-                        onClick={() => onSelect(employee)}
+                        onClick={() => navigate(`/admin/employees/${employee.id}`)}
                     >
                         {/* Header row: avatar + name + status */}
                         <div className="flex items-center gap-3">
@@ -603,33 +757,27 @@ const EmployeeRow = ({ employee, onSelect, onTransparencyClick, visibleColumns }
                                     <span className="text-[11px] font-black text-slate-700 dark:text-slate-200 truncate">{employee.location || '—'}</span>
                                 </div>
                             )}
-                            {visibleColumns.includes('Work Time') && (
-                                <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-2.5 flex flex-col gap-1">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Work</span>
-                                    <span className="text-[11px] font-black text-slate-700 dark:text-slate-200">0h 00m</span>
-                                </div>
-                            )}
-                            {visibleColumns.includes('Manual Time') && (
-                                <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-2.5 flex flex-col gap-1">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Manual</span>
-                                    <span className="text-[11px] font-black text-slate-700 dark:text-slate-200">0h 00m</span>
-                                </div>
-                            )}
-                            {visibleColumns.includes('Computer Act.') && (
-                                <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-2.5 flex flex-col gap-1">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Computer</span>
-                                    <span className="text-[11px] font-black text-slate-700 dark:text-slate-200">0h 00m</span>
-                                </div>
-                            )}
+                            <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-2.5 flex flex-col gap-1">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Work</span>
+                                <span className="text-[11px] font-black text-slate-700 dark:text-slate-200">0h 00m</span>
+                            </div>
                         </div>
 
-                        {/* Action button */}
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onTransparencyClick(employee); }}
-                            className="w-full py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary-600 hover:border-primary-100 transition-all flex items-center justify-center gap-2"
-                        >
-                            <Eye size={14} /> Privacy Dashboard
-                        </button>
+                        {/* Action buttons */}
+                        <div className="flex gap-2">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); navigate(`/admin/employees/${employee.id}`); }}
+                                className="flex-1 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary-600 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Eye size={14} /> View
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onEdit(employee); }}
+                                className="flex-1 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Edit size={14} /> Edit
+                            </button>
+                        </div>
                     </div>
                 </td>
             </tr>
@@ -637,7 +785,7 @@ const EmployeeRow = ({ employee, onSelect, onTransparencyClick, visibleColumns }
             {/* ── DESKTOP TABLE ROW (hidden below md) ── */}
             <tr
                 className="hidden md:table-row group hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200 border-b border-slate-50 dark:border-slate-800 last:border-0"
-                onClick={() => onSelect(employee)}
+                onClick={() => navigate(`/admin/employees/${employee.id}`)}
             >
                 {visibleColumns.includes('User') && (
                     <td className="px-6 py-5">
@@ -685,21 +833,50 @@ const EmployeeRow = ({ employee, onSelect, onTransparencyClick, visibleColumns }
                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{employee.status}</span>
                     </div>
                 </td>
-                <td className="px-6 py-5 text-right">
-                    <div className="flex items-center justify-end gap-2">
+                <td className="px-6 py-5 text-right relative">
+                    <div className="flex items-center justify-end gap-[10px]" ref={optionsRef}>
                         <button
                             onClick={(e) => { e.stopPropagation(); onTransparencyClick(employee); }}
-                            className="h-9 w-9 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center text-slate-400 hover:text-primary-600 hover:border-primary-100 dark:hover:border-primary-900/50 transition-all group/btn"
-                            title="View Transparency"
+                            className="h-9 w-9 rounded-full border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center text-slate-400 hover:text-primary-600 hover:border-primary-100 transition-all group/btn"
+                            title="Transparency Dashboard"
+                        >
+                            <Shield size={18} className="group-hover/btn:scale-110 transition-transform" />
+                        </button>
+
+                        <button
+                            onClick={(e) => { e.stopPropagation(); navigate(`/admin/employees/${employee.id}`); }}
+                            className="h-9 w-9 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-sm group/btn"
+                            title="View Profile"
                         >
                             <Eye size={18} className="group-hover/btn:scale-110 transition-transform" />
                         </button>
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onSelect(employee); }}
-                            className="h-9 w-9 rounded-xl bg-slate-50 dark:bg-slate-800 hidden md:flex items-center justify-center text-slate-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-primary-50 dark:hover:bg-primary-900/30 hover:text-primary-600 dark:hover:text-primary-400 shadow-sm"
-                        >
-                            <ChevronRight size={18} />
-                        </button>
+
+                        <div className="relative">
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setShowOptions(!showOptions); }}
+                                className="h-9 w-9 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-sm"
+                            >
+                                <MoreVertical size={18} />
+                            </button>
+
+                            {showOptions && (
+                                <div className="absolute right-0 bottom-full mb-2 z-[110] w-48 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 p-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); onEdit(employee); setShowOptions(false); }}
+                                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-left"
+                                    >
+                                        <Edit size={16} className="text-amber-500" /> Edit Employee
+                                    </button>
+                                    <div className="h-px bg-slate-50 dark:bg-slate-800 my-1 mx-2" />
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); onDelete(employee); setShowOptions(false); }}
+                                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all text-left"
+                                    >
+                                        <Trash2 size={16} /> Delete Employee
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </td>
             </tr>
@@ -708,45 +885,46 @@ const EmployeeRow = ({ employee, onSelect, onTransparencyClick, visibleColumns }
 };
 
 export function EmployeeManagement() {
-    const { employees, teams, addEmployee, deleteEmployee, updateEmployee, mergeEmployees } = useRealTime();
+    const navigate = useNavigate();
+    const { employees, fetchEmployees, updateEmployee, removeEmployee, isLoading } = useEmployeeStore();
+    const { teams, fetchTeams } = useTeamStore();
 
+    // UI States
     const [selectedEmployee, setSelectedEmployee] = useState(null);
     const [transparencyEmployee, setTransparencyEmployee] = useState(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filterStatus, setFilterStatus] = useState('All'); // All, online, idle, offline
+    const [editingEmployee, setEditingEmployee] = useState(null);
+    const [deletingEmployee, setDeletingEmployee] = useState(null);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showMergeModal, setShowMergeModal] = useState(false);
     const [isPrivacyExpanded, setIsPrivacyExpanded] = useState(false);
+    const [showColumnDropdown, setShowColumnDropdown] = useState(false);
 
-    // --- New State for Enterprise Features ---
-    const [activeTab, setActiveTab] = useState('Active'); // Active, Pending, Deactivated, Merged
-    const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-    const [selectedPreset, setSelectedPreset] = useState('Yesterday');
-    const [startDate, setStartDate] = useState(null);
-    const [endDate, setEndDate] = useState(null);
+    // Filter & Pagination States
+    const [activeTab, setActiveTab] = useState('Active');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(8);
     const [visibleColumns, setVisibleColumns] = useState([
         'User', 'Team', 'Location', 'Work Time', 'Manual Time', 'Computer Act.',
         'Productive', 'Unproductive', 'Neutral', 'Idle', 'Break', 'Utilization',
         'Agent Version', 'Created'
     ]);
-    const [showMergeModal, setShowMergeModal] = useState(false);
-    const [showColumnDropdown, setShowColumnDropdown] = useState(false);
-    const [mergeFrom, setMergeFrom] = useState('');
-    const [mergeInto, setMergeInto] = useState('');
-    const [addEmployeeStep, setAddEmployeeStep] = useState(1);
-    const [computerType, setComputerType] = useState(null);
-    const [invitations, setInvitations] = useState([{ email: '', name: '', team: 'Engineering' }]);
-    const [currentPage, setCurrentPage] = useState(1);
-    const calendarTriggerRef = useRef(null);
 
-    const [itemsPerPage, setItemsPerPage] = useState(8);
+    useEffect(() => {
+        fetchEmployees();
+        fetchTeams();
+    }, [fetchEmployees, fetchTeams]);
 
+    // Filtering Logic
     const filteredEmployees = employees.filter(emp => {
         const q = searchQuery.toLowerCase();
         const matchesSearch = (emp.name?.toLowerCase() ?? '').includes(q) ||
             (emp.team?.toLowerCase() ?? '').includes(q) ||
             (emp.email?.toLowerCase() ?? '').includes(q);
-        const matchesTab = activeTab === 'Active' ? ['active', 'idle', 'offline'].includes(emp.status) :
-            activeTab === 'Pending' ? emp.status === 'pending' :
+        const matchesTab = activeTab === 'Active' ? ['active', 'idle', 'offline', 'online'].includes(emp.status) :
+            activeTab === 'Pending' ? ['pending', 'invited'].includes(emp.status) :
                 activeTab === 'Deactivated' ? emp.status === 'deactivated' :
                     emp.status === 'merged';
         return matchesSearch && matchesTab;
@@ -757,46 +935,68 @@ export function EmployeeManagement() {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedEmployees = filteredEmployees.slice(startIndex, startIndex + itemsPerPage);
 
-    const handleAddEmployee = (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-
-        const newEmp = {
-            name: formData.get('name'),
-            role: formData.get('role'),
-            team: formData.get('team') || 'Engineering',
-            email: `${formData.get('name').toLowerCase().replace(/\s+/g, '.')}@shoppeal.tech`,
-            location: 'Remote',
-            status: 'active'
-        };
-        addEmployee(newEmp);
-        setShowAddModal(false);
+    // Handlers
+    const handleUpdateEmployee = async (id, data) => {
+        try {
+            await updateEmployee(id, data);
+        } catch (error) {
+            console.error('Update failed:', error);
+        }
     };
 
-    const handleDelete = (id) => {
-        if (confirm('Are you sure you want to deactivate this employee?')) {
-            deleteEmployee(id);
-            setSelectedEmployee(null);
+    const handleDeleteEmployee = async (id) => {
+        try {
+            await removeEmployee(id);
+            setShowDeleteModal(false);
+            setDeletingEmployee(null);
+        } catch (error) {
+            console.error('Delete failed:', error);
         }
     };
 
     return (
         <div className="relative space-y-6 pb-20 max-w-full overflow-x-hidden box-border px-4 md:px-0">
-            {/* Transparency Modal */}
+            {/* Modals */}
             <TransparencyModal
                 isOpen={!!transparencyEmployee}
                 onClose={() => setTransparencyEmployee(null)}
                 employee={transparencyEmployee}
             />
 
+            <AddEmployeeModal
+                isOpen={showAddModal}
+                onClose={() => setShowAddModal(false)}
+            />
+
+            <EditEmployeeModal
+                isOpen={showEditModal}
+                onClose={() => { setShowEditModal(false); setEditingEmployee(null); }}
+                employee={editingEmployee}
+                onUpdate={handleUpdateEmployee}
+            />
+
+            <DeleteConfirmationModal
+                isOpen={showDeleteModal}
+                onClose={() => { setShowDeleteModal(false); setDeletingEmployee(null); }}
+                employee={deletingEmployee}
+                onConfirm={handleDeleteEmployee}
+            />
+
+            <MergeEmployeesModal
+                isOpen={showMergeModal}
+                onClose={() => setShowMergeModal(false)}
+                employees={employees}
+                onMerge={(from, into) => {
+                    // Logic for merging (assumed available in store or elsewhere)
+                    console.log(`Merging ${from} into ${into}`);
+                    setActiveTab('Merged');
+                }}
+            />
+
+            {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                    {/* <div className="h-12 w-12 shrink-0 rounded-2xl bg-primary-600 text-white flex items-center justify-center shadow-lg">
-                        <UserCheck size={24} />
-                    </div> */}
-                    <div>
-                        <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Employees</h1>
-                    </div>
+                <div>
+                    <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Employees</h1>
                 </div>
                 <div className="flex items-center gap-3">
                     <button
@@ -820,13 +1020,15 @@ export function EmployeeManagement() {
                 toggleExpand={() => setIsPrivacyExpanded(!isPrivacyExpanded)}
             />
 
+            {/* Table Container */}
             <div className="rounded-[2.5rem] border border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-950 shadow-xl overflow-hidden">
+                {/* Tabs */}
                 <div className="px-6 md:px-8 pt-6 overflow-x-auto">
                     <div className="flex items-center gap-8 border-b border-slate-100 dark:border-slate-800 min-w-max">
                         {['Active', 'Pending', 'Deactivated', 'Merged'].map((tab) => (
                             <button
                                 key={tab}
-                                onClick={() => setActiveTab(tab)}
+                                onClick={() => { setActiveTab(tab); setCurrentPage(1); }}
                                 className={cn(
                                     "pb-4 text-xs font-black uppercase tracking-widest transition-all relative",
                                     activeTab === tab
@@ -842,8 +1044,9 @@ export function EmployeeManagement() {
                         ))}
                     </div>
                 </div>
+
+                {/* Filter Bar */}
                 <div className="p-4 md:p-6 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950">
-                    {/* Filter bar — stacks vertically on mobile, side-by-side on desktop */}
                     <div className="flex flex-wrap items-center gap-3">
                         <GlobalCalendar />
 
@@ -853,12 +1056,11 @@ export function EmployeeManagement() {
                                 type="text"
                                 placeholder="Search employees..."
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                                 className="w-full rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 pl-9 pr-4 py-2.5 text-xs font-bold dark:text-slate-200 focus:border-primary-500 focus:bg-white dark:focus:bg-slate-800 focus:outline-none transition-all"
                             />
                         </div>
 
-                        {/* Action buttons always at the end */}
                         <div className="flex items-center gap-2 ml-auto">
                             <button className="h-10 w-10 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition-all">
                                 <Filter size={18} />
@@ -906,6 +1108,8 @@ export function EmployeeManagement() {
                         </div>
                     </div>
                 </div>
+
+                {/* Table */}
                 <div className="overflow-x-auto">
                     <table className="w-full text-left">
                         <thead className="hidden md:table-header-group">
@@ -927,12 +1131,14 @@ export function EmployeeManagement() {
                                     employee={emp}
                                     onSelect={setSelectedEmployee}
                                     onTransparencyClick={setTransparencyEmployee}
+                                    onEdit={(e) => { setEditingEmployee(e); setShowEditModal(true); }}
+                                    onDelete={(e) => { setDeletingEmployee(e); setShowDeleteModal(true); }}
                                     visibleColumns={visibleColumns}
                                 />
                             ))}
-                            {filteredEmployees.length === 0 && (
+                            {filteredEmployees.length === 0 && !isLoading && (
                                 <tr className="block md:table-row">
-                                    <td colSpan="5" className="px-6 py-20 text-center block md:table-cell">
+                                    <td colSpan="99" className="px-6 py-20 text-center block md:table-cell">
                                         <div className="flex flex-col items-center justify-center opacity-50">
                                             <div className="h-16 w-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 text-slate-400">
                                                 <Search size={32} />
@@ -943,11 +1149,18 @@ export function EmployeeManagement() {
                                     </td>
                                 </tr>
                             )}
+                            {isLoading && (
+                                <tr className="block md:table-row">
+                                    <td colSpan="99" className="px-6 py-20 text-center block md:table-cell">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
 
-                {/* Pagination Controls */}
+                {/* Pagination */}
                 {totalPages > 1 && (
                     <div className="px-8 py-6 border-t border-slate-50 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-800/20 flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">
@@ -957,9 +1170,9 @@ export function EmployeeManagement() {
                             <button
                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                 disabled={currentPage === 1}
-                                className="h-9 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:border-primary-500 hover:text-primary-600 disabled:opacity-50 disabled:hover:border-slate-200 transition-all flex items-center gap-2"
+                                className="h-9 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:border-primary-500 disabled:opacity-50 transition-all flex items-center gap-2"
                             >
-                                <ChevronRight size={14} className="rotate-180" /> Previous
+                                <ChevronLeft size={14} /> Previous
                             </button>
 
                             <div className="flex items-center gap-1 mx-2">
@@ -982,7 +1195,7 @@ export function EmployeeManagement() {
                             <button
                                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                                 disabled={currentPage === totalPages}
-                                className="h-9 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:border-primary-500 hover:text-primary-600 disabled:opacity-50 disabled:hover:border-slate-200 transition-all flex items-center gap-2"
+                                className="h-9 px-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 hover:border-primary-500 disabled:opacity-50 transition-all flex items-center gap-2"
                             >
                                 Next <ChevronRight size={14} />
                             </button>
@@ -991,32 +1204,16 @@ export function EmployeeManagement() {
                 )}
             </div>
 
-            {/* Multi-step Add Employee Modal */}
-            <AddEmployeeModal
-                isOpen={showAddModal}
-                onClose={() => setShowAddModal(false)}
-            />
-
-            {/* Merge Employees Modal */}
-            <MergeEmployeesModal
-                isOpen={showMergeModal}
-                onClose={() => setShowMergeModal(false)}
-                employees={employees}
-                onMerge={(from, into) => {
-                    mergeEmployees(from, into);
-                    setActiveTab('Merged');
-                }}
-            />
-            {/* Employee Actions Drawer */}
+            {/* Side Drawer */}
             <EmployeeActionsDrawer
                 isOpen={!!selectedEmployee}
                 onClose={() => setSelectedEmployee(null)}
                 employee={selectedEmployee}
                 onUpdateStatus={(id, status) => {
-                    updateEmployee(id, { status });
+                    handleUpdateEmployee(id, { status });
                     setSelectedEmployee(null);
                 }}
             />
-        </div >
+        </div>
     );
 }

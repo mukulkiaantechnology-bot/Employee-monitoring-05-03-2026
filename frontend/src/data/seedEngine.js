@@ -99,6 +99,7 @@ function buildEnrichedEmployees() {
             productiveHours: `${String(Math.floor(productivityScore * 8 / 100)).padStart(2, '0')}:${String(randBetween(rng, 0, 59)).padStart(2, '0')}`,
             unproductiveHours: `0${randBetween(rng, 0, 3)}:${String(randBetween(rng, 0, 59)).padStart(2, '0')}`,
             utilization: utilizationScore,
+            isSeed: true
         };
     });
 }
@@ -145,6 +146,7 @@ export function buildAttendanceLogs(employees) {
                 shift: 'Day Shift',
                 late,
                 earlyLeave,
+                isSeed: true
             });
         }
     });
@@ -196,6 +198,7 @@ export function buildActivityLogs(employees) {
                 productivityPct: Math.round((productiveH / activeHours) * 100),
                 utilizationPct: Math.round((activeHours / workHours) * 100),
                 intradayBuckets,
+                isSeed: true
             });
         }
     });
@@ -458,6 +461,7 @@ export function generateSeedData() {
                 employees.filter(e => e.team === name).reduce((s, e) => s + e.productivityScore, 0) /
                 Math.max(1, employees.filter(e => e.team === name).length)
             ),
+            isSeed: true
         })),
         projects: PROJECTS_LIST.map((name, i) => {
             const projectTasks = tasks.filter(t => t.project === name);

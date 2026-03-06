@@ -67,7 +67,7 @@ const EmployeeTable = ({ title, data, type }) => (
             <table className="w-full text-left text-xs">
                 <thead className="bg-[#fcfdfe] dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800">
                     <tr>
-                        <th className="px-4 py-2.5">Employee</th>
+                        <th className="px-4 py-2.5">{title.includes('Team') ? 'Team' : 'Employee'}</th>
                         <th className="px-4 py-2.5 text-right">Productive (h)</th>
                         <th className="px-4 py-2.5 text-right">Unproductive (h)</th>
                         <th className="px-4 py-2.5 text-right">Utilization {type === 'up' ? '↑' : '↓'}</th>
@@ -154,13 +154,7 @@ export function Dashboard() {
     const navigate = useNavigate();
 
     const handleDownload = () => {
-        const empMetricsData = stats.empMetrics || contextEmployees.slice(0, 10).map(emp => ({
-            name: emp.name,
-            team: emp.team || 'N/A',
-            productive: '00:00',
-            unproductive: '00:00',
-            utilization: emp.utilizationScore || 80,
-        }));
+        const empMetricsData = stats.empMetrics || [];
         const headers = ['Employee Name', 'Team', 'Productive (h)', 'Unproductive (h)', 'Utilization (%)'];
         const rows = empMetricsData.map(e => [e.name, e.team, e.productive, e.unproductive, e.utilization]);
         const csvContent = [headers, ...rows].map(r => r.join(',')).join('\n');
@@ -193,15 +187,15 @@ export function Dashboard() {
     ];
 
     // Use analytics engine output from context
-    const empMetrics = stats.empMetrics || contextEmployees.slice(0, 5).map(emp => ({ ...emp, initials: emp.name.slice(0, 2).toUpperCase(), productive: '00:00', unproductive: '00:00', utilization: emp.utilizationScore || 80 }));
-    const employees = empMetrics.slice(0, 5);
-    const teams = contextTeams.map(team => ({
-        initials: team.name.substring(0, 2).toUpperCase(),
-        name: team.name,
+    const employeesProd = stats.topProductive || [];
+    const employeesUnprod = stats.topUnproductive || [];
+    const teams = (stats.departmentStats || []).map(dept => ({
+        initials: dept.name.substring(0, 2).toUpperCase(),
+        name: dept.name,
         team: '',
-        productive: `${team.productivity || 80}%`,
-        unproductive: `${100 - (team.productivity || 80)}%`,
-        utilization: team.productivity || 80,
+        productive: `${dept.productivity}%`,
+        unproductive: `${100 - dept.productivity}%`,
+        utilization: dept.productivity,
     }));
 
     const appUsage = stats.appUsage || [];
@@ -322,12 +316,11 @@ export function Dashboard() {
                 </div>
             </div>
 
-            {/* Performance Rankings */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-8">
-                <EmployeeTable title="Top Productive Employees" data={employees} type="up" />
-                <EmployeeTable title="Top Unproductive Employees" data={employees} type="up" />
+                <EmployeeTable title="Top Productive Employees" data={employeesProd} type="up" />
+                <EmployeeTable title="Top Unproductive Employees" data={employeesUnprod} type="down" />
                 <EmployeeTable title="Top Productive Teams" data={teams} type="up" />
-                <EmployeeTable title="Top Unproductive Teams" data={teams} type="up" />
+                <EmployeeTable title="Top Unproductive Teams" data={[...teams].sort((a, b) => a.utilization - b.utilization)} type="down" />
             </div>
 
             {/* Analytical Insights */}

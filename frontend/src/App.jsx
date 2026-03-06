@@ -5,6 +5,7 @@ import { TimeAndAttendance } from './pages/TimeAndAttendance';
 import { ActivityMonitoring } from './pages/ActivityMonitoring';
 import { ScreenshotMonitoring } from './pages/ScreenshotMonitoring';
 import { EmployeeManagement } from './pages/EmployeeManagement';
+import { EmployeeProfile } from './pages/EmployeeProfile';
 import { Settings } from './pages/Settings';
 // Attendance is now part of TimeAndAttendance
 import { LocationTracking } from './pages/LocationTracking';
@@ -141,6 +142,7 @@ function App() {
                                     <Route path="payroll" element={<Payroll />} />
                                     <Route path="alerts" element={<Alerts />} />
                                     <Route path="employees" element={<EmployeeManagement />} />
+                                    <Route path="employees/:id" element={<EmployeeProfile />} />
                                     <Route path="teams" element={<Teams />} />
                                     <Route path="projects" element={<Projects />} />
                                     <Route path="settings" element={<Settings />} />

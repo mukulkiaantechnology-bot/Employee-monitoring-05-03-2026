@@ -1,48 +1,92 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Users, Search, Download, LayoutGrid, MoreVertical, TrendingUp, Plus, X } from 'lucide-react';
 import { CreateTeamModal } from '../components/CreateTeamModal';
-import { useRealTime } from '../hooks/RealTimeContext';
+import { useTeamStore } from '../store/teamStore';
+import { useEmployeeStore } from '../store/employeeStore';
+import { useAuthStore } from '../store/authStore';
+import { useOrganizationStore } from '../store/organizationStore';
 
 export function Teams() {
-    const { teams: contextTeams, employees, activityLogs, stats, addTeam, deleteTeam } = useRealTime();
+    const { teams: contextTeams, fetchTeams, addTeam, updateTeam, deleteTeam, isLoading } = useTeamStore();
+    const { employees, fetchEmployees } = useEmployeeStore();
+    const { user } = useAuthStore();
+    const { organization, fetchOrganization } = useOrganizationStore();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [editingTeam, setEditingTeam] = useState(null);
     const [search, setSearch] = useState('');
     const [openMenu, setOpenMenu] = useState(null);
 
-    const teams = useMemo(() => contextTeams.map(team => {
-        const members = employees.filter(e => e.team === team.name);
-        const onlineCount = members.filter(e => e.status === 'online').length;
-        const recentLogs = activityLogs.filter(l => members.some(m => m.id === l.employeeId)).slice(0, members.length * 5);
-        const totalProd = recentLogs.reduce((s, l) => s + l.productiveHours, 0);
-        const totalAct = recentLogs.reduce((s, l) => s + l.activeHours, 0);
-        const totalWork = recentLogs.reduce((s, l) => s + l.workHours, 0);
-        const productivity = totalAct > 0 ? Math.round((totalProd / totalAct) * 100) : team.productivity || 80;
-        const utilization = totalWork > 0 ? Math.round((totalAct / totalWork) * 100) : 80;
-        const prodH = recentLogs.reduce((s, l) => s + l.productiveHours, 0);
-        const unprodH = recentLogs.reduce((s, l) => s + l.unproductiveHours, 0);
-        const neutralH = recentLogs.reduce((s, l) => s + l.neutralHours, 0);
-        const idleH = recentLogs.reduce((s, l) => s + l.idleHours, 0);
-        const formatH = v => `${String(Math.floor(v)).padStart(2, '0')}:${String(Math.round((v % 1) * 60)).padStart(2, '0')}`;
+    useEffect(() => {
+        fetchTeams();
+        fetchEmployees();
+        if (!organization) fetchOrganization();
+    }, [fetchTeams, fetchEmployees, fetchOrganization, organization]);
+
+    const teamsData = useMemo(() => contextTeams.map(team => {
+        const initials = team.name.substring(0, 2).toUpperCase();
         return {
             ...team,
-            memberCount: members.length,
-            onlineCount,
-            initials: team.name.substring(0, 2).toUpperCase(),
-            productivity,
-            utilization,
+            initials,
             stats: {
-                work: formatH(totalWork / Math.max(1, members.length)),
-                comp: formatH(totalAct / Math.max(1, members.length)),
+                work: '00:00',
+                comp: '00:00',
                 manual: '00:00',
-                prod: formatH(prodH / Math.max(1, members.length)),
-                unprod: formatH(unprodH / Math.max(1, members.length)),
-                neutral: formatH(neutralH / Math.max(1, members.length)),
-                idle: formatH(idleH / Math.max(1, members.length)),
+                prod: '00:00',
+                unprod: '00:00',
+                neutral: '00:00',
+                idle: '00:00',
             },
         };
-    }).filter(t => !search || t.name.toLowerCase().includes(search.toLowerCase())), [contextTeams, employees, activityLogs, search]);
+    }).filter(t => !search || t.name.toLowerCase().includes(search.toLowerCase())), [contextTeams, search]);
 
-    const handleCreateTeam = (teamData) => { addTeam(teamData); setIsModalOpen(false); };
+    const handleCreateTeam = async (teamData) => {
+        if (editingTeam) {
+            try {
+                await updateTeam(editingTeam.id, teamData);
+                setIsModalOpen(false);
+                setEditingTeam(null);
+            } catch (error) {
+                console.error("Failed to update team:", error);
+            }
+            return;
+        }
+
+        // Priority: store, then user, then employees fallback
+        const orgId = organization?.id ||
+            user?.organizationId ||
+            employees?.[0]?.organizationId;
+
+        if (!orgId) {
+            console.error("No organization ID found. Cannot create team.");
+            alert("No organization found. Please contact support.");
+            return;
+        }
+
+        try {
+            await addTeam({
+                ...teamData,
+                organizationId: orgId
+            });
+            setIsModalOpen(false);
+        } catch (error) {
+            console.error("Failed to create team:", error);
+        }
+    };
+
+    const handleEditClick = (team) => {
+        setEditingTeam(team);
+        setIsModalOpen(true);
+        setOpenMenu(null);
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setEditingTeam(null);
+    };
+
+    if (isLoading && contextTeams.length === 0) {
+        return <div className="min-h-screen flex items-center justify-center">Loading teams...</div>;
+    }
 
     return (
         <div className="min-h-screen bg-[#fcfdfe] dark:bg-slate-950 pb-12 px-2 sm:px-4 lg:px-8">
@@ -55,7 +99,7 @@ export function Teams() {
                         {employees.length} employees · {contextTeams.length} teams
                     </div>
                 </div>
-                <button onClick={() => setIsModalOpen(true)}
+                <button onClick={() => { setEditingTeam(null); setIsModalOpen(true); }}
                     className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg text-xs font-black transition-all shadow-lg uppercase tracking-wider flex items-center gap-2">
                     <Plus size={14} /> Create New Team
                 </button>
@@ -64,8 +108,6 @@ export function Teams() {
             {/* Summary Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
                 {contextTeams.map(team => {
-                    const m = employees.filter(e => e.team === team.name);
-                    const online = m.filter(e => e.status === 'online').length;
                     return (
                         <div key={team.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
                             <div className="flex items-center gap-2 mb-3">
@@ -74,12 +116,12 @@ export function Teams() {
                                 </div>
                                 <span className="text-xs font-black text-slate-700 dark:text-white">{team.name}</span>
                             </div>
-                            <p className="text-xs font-bold text-slate-400">{m.length} members · <span className="text-emerald-500">{online} online</span></p>
+                            <p className="text-xs font-bold text-slate-400">{team.memberCount || 0} members · <span className="text-emerald-500">{team.onlineCount || 0} online</span></p>
                             <div className="mt-2 flex items-center gap-2">
                                 <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                    <div className="h-full bg-violet-500 rounded-full" style={{ width: `${team.productivity || 80}%` }} />
+                                    <div className="h-full bg-violet-500 rounded-full" style={{ width: `${team.productivity || 0}%` }} />
                                 </div>
-                                <span className="text-[10px] font-black text-slate-500">{team.productivity || 80}%</span>
+                                <span className="text-[10px] font-black text-slate-500">{team.productivity || 0}%</span>
                             </div>
                         </div>
                     );
@@ -114,7 +156,7 @@ export function Teams() {
 
             {/* Team Rows */}
             <div className="space-y-3">
-                {teams.map((team, idx) => (
+                {teamsData.map((team, idx) => (
                     <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 grid grid-cols-12 items-center hover:shadow-md transition-all group relative">
                         <div className="col-span-3 flex items-center gap-4">
                             <div className={`h-11 w-11 rounded-full flex items-center justify-center text-xs font-black text-white ${team.color || 'bg-blue-500'} transition-transform group-hover:scale-105`}>
@@ -136,9 +178,9 @@ export function Teams() {
 
                         <div className="col-span-2 flex items-center gap-2 px-2">
                             <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                <div className="h-full bg-violet-500 rounded-full transition-all duration-500" style={{ width: `${team.productivity}%` }} />
+                                <div className="h-full bg-violet-500 rounded-full transition-all duration-500" style={{ width: `${team.productivity || 0}%` }} />
                             </div>
-                            <span className="text-xs font-black text-slate-600 dark:text-slate-300 min-w-[32px]">{team.productivity}%</span>
+                            <span className="text-xs font-black text-slate-600 dark:text-slate-300 min-w-[32px]">{team.productivity || 0}%</span>
                             <div className="relative">
                                 <button onClick={() => setOpenMenu(openMenu === idx ? null : idx)}
                                     className="text-slate-300 hover:text-slate-600 transition-colors p-1">
@@ -146,7 +188,8 @@ export function Teams() {
                                 </button>
                                 {openMenu === idx && (
                                     <div className="absolute right-0 top-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 py-1 min-w-[120px]">
-                                        <button className="w-full text-left px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">Edit Team</button>
+                                        <button onClick={() => handleEditClick(team)}
+                                            className="w-full text-left px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">Edit Team</button>
                                         <button onClick={() => { deleteTeam(team.id); setOpenMenu(null); }}
                                             className="w-full text-left px-4 py-2 text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20">Delete</button>
                                     </div>
@@ -157,11 +200,16 @@ export function Teams() {
                 ))}
             </div>
 
-            {teams.length === 0 && (
+            {contextTeams.length === 0 && (
                 <div className="py-16 text-center text-slate-400 font-bold text-sm">No teams found.</div>
             )}
 
-            <CreateTeamModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onCreateTeam={handleCreateTeam} />
+            <CreateTeamModal
+                isOpen={isModalOpen}
+                onClose={handleCloseModal}
+                onCreateTeam={handleCreateTeam}
+                initialData={editingTeam}
+            />
         </div>
     );
 }

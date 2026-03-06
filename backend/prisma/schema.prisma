@@ -13,6 +13,19 @@ enum Role {
   EMPLOYEE
 }
 
+enum ActivityType {
+  ACTIVE
+  IDLE
+  MANUAL
+  SYSTEM
+}
+
+enum ProductivityType {
+  PRODUCTIVE
+  NEUTRAL
+  UNPRODUCTIVE
+}
+
 enum TaskStatus {
   BACKLOG
   IN_PROGRESS
@@ -38,6 +51,20 @@ model User {
   @@map("users")
 }
 
+enum ComputerType {
+  COMPANY
+  PERSONAL
+}
+
+enum EmployeeStatus {
+  INVITED
+  ACTIVE
+  OFFLINE
+  IDLE
+  DEACTIVATED
+  MERGED
+}
+
 model Organization {
   id               String            @id @default(uuid())
   legalName        String
@@ -51,6 +78,7 @@ model Organization {
   teams            Team[]
   employees        Employee[]
   projects         Project[]
+  activityLogs     ActivityLog[]
   complianceSetting ComplianceSetting?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
@@ -61,6 +89,8 @@ model Organization {
 model Team {
   id             String       @id @default(uuid())
   name           String
+  description    String?
+  color          String?      @default("bg-blue-500")
   organization   Organization @relation(fields: [organizationId], references: [id])
   organizationId String
   employees      Employee[]
@@ -72,11 +102,14 @@ model Team {
 
 model Employee {
   id             String         @id @default(uuid())
-  name           String
+  fullName       String
   email          String         @unique
   role           Role           @default(EMPLOYEE)
-  workLocation   String?
+  location       String?        @default("Remote")
+  computerType   ComputerType   @default(COMPANY)
+  status         EmployeeStatus @default(ACTIVE)
   hourlyRate     Float          @default(0.0)
+  avatar         String?
   user           User?
   team           Team?          @relation(fields: [teamId], references: [id])
   teamId         String?
@@ -137,16 +170,18 @@ model Attendance {
 }
 
 model ActivityLog {
-  id           String   @id @default(uuid())
-  appWebsite   String
-  isProductive Boolean  @default(true)
-  category     String?
-  timeSpent    Int      @default(0) // In seconds or minutes
-  timestamp    DateTime @default(now())
-  employee     Employee @relation(fields: [employeeId], references: [id])
-  employeeId   String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String           @id @default(uuid())
+  activityType   ActivityType     @default(ACTIVE)
+  productivity   ProductivityType @default(NEUTRAL)
+  duration       Int              @default(0) // In seconds
+  timestamp      DateTime         @default(now())
+  appWebsite     String?          @default("Unknown")
+  employee       Employee         @relation(fields: [employeeId], references: [id])
+  employeeId     String
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  organizationId String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   @@map("activity_logs")
 }

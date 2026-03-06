@@ -10,19 +10,13 @@ import {
     teamProductivity,
 } from '../store/analyticsEngine';
 import { useAuthStore } from '../store/authStore';
-import {
-    buildAttendanceLogs,
-    buildActivityLogs,
-    buildAppUsageLogs,
-    buildLocationLogs,
-    buildScreenshots,
-    buildTasks,
-    buildAlerts,
-    buildPayrollData
-} from '../data/seedEngine';
+import employeeService from '../services/employeeService';
+import activityService from '../services/activityService';
+import teamService from '../services/teamService';
 
 const RealTimeContext = createContext();
-const STORAGE_KEY = 'ems_state_v5'; // bumped to force fresh seed update
+const STORAGE_KEY = 'ems_state_v5';
+const TODAY = new Date().toISOString().split('T')[0];
 
 const formatTime = (totalSeconds) => {
     const h = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
@@ -30,8 +24,6 @@ const formatTime = (totalSeconds) => {
     const s = (totalSeconds % 60).toString().padStart(2, '0');
     return `${h}:${m}:${s}`;
 };
-
-const TODAY = new Date('2026-02-28').toISOString().split('T')[0];
 
 export function RealTimeProvider({ children }) {
     // Generate seed data once on module load
@@ -179,42 +171,197 @@ export function RealTimeProvider({ children }) {
         return () => clearInterval(interval);
     }, [isLoading]);
 
+    // Live backend employee sync
+    useEffect(() => {
+        if (isLoading || !isAuthenticated) return;
+
+        const syncEmployees = async () => {
+            try {
+                const res = await employeeService.getEmployees();
+                if (res.success && res.data) {
+                    setState(prev => {
+                        const backendEmployees = res.data.map(emp => {
+                            const name = emp.fullName || emp.name || 'Unknown User';
+                            return {
+                                ...emp,
+                                name: name,
+                                initials: name.split(' ').map(n => n[0]).join('').toUpperCase(),
+                                team: emp.team?.name || emp.team || 'General',
+                                status: 'offline', // Default, will be overridden by seed logic or live simulation
+                            };
+                        });
+
+                        // Discard ALL seed employees when backend data is available
+                        const mergedEmployees = [...backendEmployees];
+
+                        // Keep only non-seed employees from local state (if any real ones were added manually/differently)
+                        prev.employees.forEach(e => {
+                            if (!e.isSeed && !mergedEmployees.some(be => be.id === e.id || be.email === e.email)) {
+                                mergedEmployees.push(e);
+                            }
+                        });
+
+                        return {
+                            ...prev,
+                            employees: mergedEmployees
+                        };
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to sync employees:', err);
+            }
+        };
+
+        syncEmployees();
+    }, [isLoading, isAuthenticated]);
+
+    // Live backend team sync
+    useEffect(() => {
+        if (isLoading || !isAuthenticated) return;
+
+        const syncTeams = async () => {
+            try {
+                const res = await teamService.getTeams();
+                if (res.success && res.data) {
+                    setState(prev => {
+                        const backendTeams = res.data.map(t => ({ ...t, isSeed: false }));
+                        // Discard ALL seed teams when backend data is available
+                        return {
+                            ...prev,
+                            teams: backendTeams
+                        };
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to sync teams:', err);
+            }
+        };
+
+        syncTeams();
+    }, [isLoading, isAuthenticated]);
+
+    // Live backend activity sync
+    useEffect(() => {
+        if (isLoading || !isAuthenticated) return;
+
+        const syncLogs = async () => {
+            try {
+                const res = await activityService.getOrganizationSummary();
+                if (res.success && res.data) {
+                    setState(prev => {
+                        // Merge backend logs into existing activityLogs
+                        // Replace any existing summary if we have a fresh one from backend
+                        // Discard ALL seed logs when backend summary is available
+                        const backendLogs = res.data;
+                        const mergedLogs = [...backendLogs];
+
+                        // Keep only non-seed logs from local state
+                        prev.activityLogs.forEach(l => {
+                            if (!l.isSeed && !mergedLogs.some(bl => bl.employeeId === l.employeeId && bl.date === l.date)) {
+                                mergedLogs.push(l);
+                            }
+                        });
+
+                        return {
+                            ...prev,
+                            activityLogs: mergedLogs
+                        };
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to sync activity logs:', err);
+            }
+        };
+
+        const interval = setInterval(syncLogs, 30000); // Sync every 30s
+        syncLogs(); // Initial sync
+
+        return () => clearInterval(interval);
+    }, [isLoading, isAuthenticated]);
+
     // ─── COMPUTED ANALYTICS ──────────────────────────────────────────────────
 
     const stats = useMemo(() => {
         const { employees, activityLogs, selectedDate } = state;
-        const live = liveEmployeeStats(employees);
-        const summary = computeSummaryStats(activityLogs, selectedDate);
-        const trend = weeklyProductivityTrend(activityLogs);
-        const intraday = intradayActivity(activityLogs, selectedDate);
-        const appUsage = appUsageByCategory(state.appUsageLogs, 7);
 
-        // Team breakdown
-        const teamBreakdown = ['Engineering', 'Sales', 'HR', 'Operations'].map(name => ({
-            name,
-            productivity: teamProductivity(employees, name, activityLogs),
-            active: employees.filter(e => e.team === name && e.status === 'online').length,
-            total: employees.filter(e => e.team === name).length,
-        }));
-
-        // Top productive / unproductive employees (by today's logs)
+        // 1. Calculate empMetrics FIRST (today's logs for each employee)
         const todayLogs = activityLogs.filter(l => l.date === selectedDate);
         const empMetrics = employees.map(emp => {
             const log = todayLogs.find(l => l.employeeId === emp.id);
+            const fullName = emp.fullName || emp.name || 'Unknown User';
+
+            // Determine status based on presence of log today
+            let status = emp.status || 'offline';
+            if (log) {
+                status = log.activeHours > 0 ? 'online' : (log.idleHours > 0 ? 'idle' : 'offline');
+            }
+
             return {
                 ...emp,
-                initials: emp.name.split(' ').map(n => n[0]).join('').toUpperCase(),
-                team: emp.team || 'General',
+                name: fullName,
+                initials: fullName.split(' ').map(n => n[0]).join('').toUpperCase(),
+                team: emp.team?.name || emp.team || 'General',
+                status,
                 productive: log ? `${String(Math.floor(log.productiveHours)).padStart(2, '0')}:${String(Math.round((log.productiveHours % 1) * 60)).padStart(2, '0')}` : '00:00',
                 unproductive: log ? `${String(Math.floor(log.unproductiveHours)).padStart(2, '0')}:${String(Math.round((log.unproductiveHours % 1) * 60)).padStart(2, '0')}` : '00:00',
-                utilization: log ? log.utilizationPct : emp.utilizationScore || 75,
-                productivity: log ? log.productivityPct : emp.productivityScore || 75,
+                utilization: log ? log.utilizationPct : (emp.utilizationScore || 0),
+                productivity: log ? log.productivityPct : (emp.productivityScore || 0),
+                productivityScore: log ? log.productivityPct : (emp.productivityScore || 0),
+                utilizationScore: log ? log.utilizationPct : (emp.utilizationScore || 0),
                 productiveHours: log?.productiveHours || 0,
                 unproductiveHours: log?.unproductiveHours || 0,
             };
         });
 
-        const totalPayroll = state.payrollData.reduce((s, p) => s + p.grossPayValue, 0);
+        // 2. Base analytics on the enriched empMetrics
+        const summary = computeSummaryStats(activityLogs, selectedDate);
+        const trend = weeklyProductivityTrend(activityLogs);
+        const intraday = intradayActivity(activityLogs, selectedDate);
+        const appUsage = appUsageByCategory(state.appUsageLogs, 7);
+        const live = liveEmployeeStats(empMetrics);
+
+        // 3. Team breakdown using actual teams (Filter out seed data if real data exists)
+        const realTeams = state.teams.filter(t => !t.isSeed);
+        const activeRealEmps = empMetrics.filter(e => !e.isSeed);
+
+        // If we have real teams or real employees, use ONLY those names.
+        // Otherwise fallback to seed names (state.teams will have them if no real teams synced)
+        const useRealOnly = realTeams.length > 0 || activeRealEmps.length > 0;
+
+        let teamNames;
+        if (useRealOnly) {
+            // Get names from real teams OR teams mentioned by real employees
+            teamNames = [...new Set([
+                ...realTeams.map(t => t.name),
+                ...activeRealEmps.map(e => e.team)
+            ])].filter(name =>
+                name &&
+                name !== 'General' &&
+                !['Engineering', 'Sales', 'HR', 'Operations'].includes(name)
+            );
+
+            // If we filtered EVERYTHING out but we have real data, at least show the real ones
+            if (teamNames.length === 0 && useRealOnly) {
+                teamNames = [...new Set([
+                    ...realTeams.map(t => t.name),
+                    ...activeRealEmps.map(e => e.team)
+                ])].filter(name => name && name !== 'General');
+            }
+        } else {
+            teamNames = [...new Set([
+                ...state.teams.map(t => t.name),
+                ...empMetrics.map(e => e.team)
+            ])].filter(Boolean);
+        }
+
+        const teamBreakdown = teamNames.map(name => ({
+            name,
+            productivity: teamProductivity(empMetrics, name, activityLogs),
+            active: empMetrics.filter(e => e.team === name && e.status === 'online').length,
+            total: empMetrics.filter(e => e.team === name).length,
+        }));
+
+        const totalPayroll = (state.payrollData || []).reduce((s, p) => s + (p.grossPayValue || 0), 0);
         const avgHourlyRate = Math.round(employees.reduce((s, e) => s + (e.hourlyRate || 50), 0) / Math.max(1, employees.length));
 
         return {
@@ -406,13 +553,13 @@ export function RealTimeProvider({ children }) {
     // Projects
     const addProject = useCallback((project) => {
         const id = Date.now();
-        const p = { 
-            ...project, 
-            id, 
-            progress: 0, 
-            color: project.color || 'bg-indigo-500', 
-            status: 'Planning', 
-            taskCount: 5 + Math.floor(Math.random() * 5) 
+        const p = {
+            ...project,
+            id,
+            progress: 0,
+            color: project.color || 'bg-indigo-500',
+            status: 'Planning',
+            taskCount: 5 + Math.floor(Math.random() * 5)
         };
 
         // Generate dummy tasks for this project
@@ -435,8 +582,8 @@ export function RealTimeProvider({ children }) {
             });
         }
 
-        setState(prev => ({ 
-            ...prev, 
+        setState(prev => ({
+            ...prev,
             projects: [p, ...prev.projects],
             tasks: [...projectTasks, ...prev.tasks]
         }));
@@ -513,9 +660,11 @@ export function RealTimeProvider({ children }) {
 
     // Filtered data based on role
     const filteredData = useMemo(() => {
+        const currentEmployees = stats.empMetrics; // Use enriched employees
+
         if (!isAuthenticated || role === 'Admin') {
             return {
-                employees: state.employees,
+                employees: currentEmployees,
                 tasks: state.tasks,
                 projects: state.projects,
                 teams: state.teams,
@@ -524,32 +673,31 @@ export function RealTimeProvider({ children }) {
         }
 
         if (role === 'Manager') {
-            // Managers see employees in their assigned teams (simulated first 2 teams)
             const allowedTeamIds = state.teams.slice(0, 2).map(t => t.id);
-            const filteredEmployees = state.employees.filter(e => allowedTeamIds.includes(e.teamId));
+            const filteredEmployees = currentEmployees.filter(e => allowedTeamIds.includes(e.teamId));
             return {
                 employees: filteredEmployees,
                 tasks: state.tasks.filter(t => filteredEmployees.find(e => e.id === t.employeeId)),
-                projects: state.projects, 
+                projects: state.projects,
                 teams: state.teams.filter(t => allowedTeamIds.includes(t.id)),
                 activityLogs: state.activityLogs.filter(l => filteredEmployees.find(e => e.id === l.employeeId)),
             };
         }
 
         if (role === 'Employee') {
-            // Employees see only themselves (simulated as Alex Johnson for now)
-            const targetId = 1; 
+            const targetEmail = user?.email;
+            const filteredEmployees = currentEmployees.filter(e => e.email === targetEmail);
             return {
-                employees: state.employees.filter(e => e.id === targetId),
-                tasks: state.tasks.filter(t => t.employeeId === targetId),
-                projects: state.projects.filter(p => p.employees?.includes(targetId)),
-                teams: [], 
-                activityLogs: state.activityLogs.filter(l => l.employeeId === targetId),
+                employees: filteredEmployees,
+                tasks: state.tasks.filter(t => t.assigneeId === filteredEmployees[0]?.id),
+                projects: state.projects.filter(p => p.employees?.includes(filteredEmployees[0]?.id)),
+                teams: [],
+                activityLogs: state.activityLogs.filter(l => l.employeeId === filteredEmployees[0]?.id),
             };
         }
 
-        return state;
-    }, [state, role, isAuthenticated]);
+        return { ...state, employees: currentEmployees };
+    }, [state, role, isAuthenticated, stats.empMetrics]);
 
     const contextValue = useMemo(() => ({
         // State

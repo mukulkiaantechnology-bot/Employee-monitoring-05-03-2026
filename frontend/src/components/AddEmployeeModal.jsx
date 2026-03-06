@@ -1,11 +1,17 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Monitor, User, Info, Download, ChevronRight, Apple, Laptop, Copy, Check, Plus, Trash2 } from 'lucide-react';
-import { useRealTime } from '../hooks/RealTimeContext';
+import { useEmployeeStore } from '../store/employeeStore';
+import { useTeamStore } from '../store/teamStore';
+import { useAuthStore } from '../store/authStore';
+import { useOrganizationStore } from '../store/organizationStore';
 import { logAction } from '../utils/logAction';
 
 export function AddEmployeeModal({ isOpen, onClose }) {
-    const { addEmployee, teams } = useRealTime();
+    const { inviteEmployee, fetchEmployees } = useEmployeeStore();
+    const { teams } = useTeamStore();
+    const { user } = useAuthStore();
+    const { organization } = useOrganizationStore();
     const [step, setStep] = useState('choice'); // choice, company, personal
     const [copied, setCopied] = useState(false);
     const [personalEmployees, setPersonalEmployees] = useState([
@@ -249,9 +255,9 @@ export function AddEmployeeModal({ isOpen, onClose }) {
                                 }}
                                 className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-2 text-xs dark:text-slate-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all appearance-none cursor-pointer"
                             >
-                                <option value="Default team">Default team</option>
+                                <option value="">Select team</option>
                                 {teams.map(t => (
-                                    <option key={t.id} value={t.name}>{t.name}</option>
+                                    <option key={t.id} value={t.id}>{t.name}</option>
                                 ))}
                             </select>
                         </div>
@@ -305,19 +311,37 @@ export function AddEmployeeModal({ isOpen, onClose }) {
                         Cancel
                     </button>
                     <button
-                        onClick={() => {
-                            personalEmployees.forEach(emp => {
+                        onClick={async () => {
+                            const orgId = organization?.id || user?.organizationId;
+                            if (!orgId) {
+                                alert("No organization ID found. Please try logging in again.");
+                                return;
+                            }
+
+                            for (const emp of personalEmployees) {
                                 if (emp.email && emp.name) {
-                                    addEmployee({
-                                        ...emp,
-                                        status: 'pending',
-                                        avatar: `https://i.pravatar.cc/150?u=${emp.id}`,
+                                    // Use first team as default if none selected or "Default team" remains
+                                    const selectedTeamId = (emp.team === 'Default team' || !emp.team)
+                                        ? teams[0]?.id
+                                        : emp.team;
+
+                                    if (!selectedTeamId) {
+                                        console.warn("No team found for employee:", emp.name);
+                                        continue;
+                                    }
+
+                                    await inviteEmployee({
+                                        fullName: emp.name,
+                                        email: emp.email,
+                                        teamId: selectedTeamId,
                                         location: emp.location || 'Remote',
-                                        role: 'Employee'
+                                        computerType: 'PERSONAL',
+                                        organizationId: orgId
                                     });
-                                    logAction('Jane Smith', 'Owner', 'Create', 'Employee', `Invited new employee: "${emp.name}" to team "${emp.team}"`);
+                                    logAction(user?.name || 'Admin', 'Owner', 'Create', 'Employee', `Invited new employee: "${emp.name}"`);
                                 }
-                            });
+                            }
+                            await fetchEmployees();
                             onClose();
                         }}
                         className="px-6 py-2 bg-indigo-600 text-white rounded-lg text-xs font-black uppercase tracking-tight shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-colors"
