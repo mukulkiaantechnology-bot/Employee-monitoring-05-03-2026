@@ -13,6 +13,8 @@ import { useAuthStore } from '../store/authStore';
 import employeeService from '../services/employeeService';
 import activityService from '../services/activityService';
 import teamService from '../services/teamService';
+import taskService from '../services/taskService';
+import projectService from '../services/projectService';
 
 const RealTimeContext = createContext();
 const STORAGE_KEY = 'ems_state_v5';
@@ -31,8 +33,8 @@ export function RealTimeProvider({ children }) {
 
     const [state, setState] = useState({
         employees: seedData.employees,
-        tasks: seedData.tasks,
-        projects: seedData.projects,
+        tasks: [],
+        projects: [],
         teams: seedData.teams,
         // Logs
         activityLogs: seedData.activityLogs,
@@ -279,6 +281,78 @@ export function RealTimeProvider({ children }) {
         return () => clearInterval(interval);
     }, [isLoading, isAuthenticated]);
 
+    // Live backend tasks sync
+    useEffect(() => {
+        if (isLoading || !isAuthenticated) return;
+
+        const syncTasks = async () => {
+            try {
+                const res = await taskService.getTasks();
+                if (res.success && res.data) {
+                    setState(prev => ({
+                        ...prev,
+                        tasks: res.data.map(task => ({
+                            id: task.id,
+                            title: task.name,
+                            project: task.project.name,
+                            projectId: task.projectId,
+                            priority: task.priority,
+                            assignee: task.employee ? task.employee.fullName : 'Unassigned',
+                            assigneeId: task.employeeId,
+                            status: task.status === 'BACKLOG' ? 'To Do' : (task.status === 'IN_PROGRESS' ? 'In Progress' : (task.status === 'QA' ? 'Review' : 'Completed')),
+                            progress: task.status === 'COMPLETED' ? 100 : (task.status === 'QA' ? 80 : (task.status === 'IN_PROGRESS' ? 40 : 0)),
+                            dueDate: task.dueDate ? task.dueDate.split('T')[0] : 'No Date',
+                            timeSpent: '0h' // Simplified for now
+                        }))
+                    }));
+                }
+            } catch (err) {
+                console.error('Failed to sync tasks:', err);
+            }
+        };
+
+        const interval = setInterval(syncTasks, 30000);
+        syncTasks();
+
+        return () => clearInterval(interval);
+    }, [isLoading, isAuthenticated]);
+
+    // Live backend projects sync
+    useEffect(() => {
+        if (isLoading || !isAuthenticated) return;
+
+        const syncProjects = async () => {
+            try {
+                const res = await projectService.getProjects();
+                if (res.success && res.data) {
+                    setState(prev => {
+                        const backendProjects = res.data.map(p => ({
+                            id: p.id,
+                            name: p.projectName || p.name,
+                            client: p.client || 'Internal',
+                            progress: parseInt(p.progress) || 0,
+                            status: p.status || 'Active',
+                            color: p.color || 'bg-indigo-500',
+                            taskCount: p.tasks || 0,
+                            memberIds: p.assignments?.map(a => a.employeeId) || [],
+                            isSeed: false
+                        }));
+
+                        return { ...prev, projects: backendProjects };
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to sync projects:', err);
+            }
+        };
+
+        const interval = setInterval(syncProjects, 30000);
+        syncProjects();
+
+        return () => clearInterval(interval);
+    }, [isLoading, isAuthenticated]);
+
+
     // ─── COMPUTED ANALYTICS ──────────────────────────────────────────────────
 
     const stats = useMemo(() => {
@@ -512,43 +586,99 @@ export function RealTimeProvider({ children }) {
     }, []);
 
     // Tasks
-    const addTask = useCallback((task) => {
-        const t = { ...task, id: Date.now(), status: task.status || 'To Do', progress: 0 };
-        setState(prev => ({ ...prev, tasks: [t, ...prev.tasks] }));
-        addNotification(`Task "${task.title}" created`, 'success');
-    }, [addNotification]);
-
-    const updateTaskStatus = useCallback((taskId, status, progress) => {
-        setState(prev => {
-            const task = prev.tasks.find(t => t.id === taskId);
-            if (!task) return prev;
-
-            // If task is moving to Completed, boost assignee productivity
-            let updatedEmployees = prev.employees;
-            if (status === 'Completed' && task.status !== 'Completed') {
-                updatedEmployees = prev.employees.map(e => {
-                    if (e.id === task.assigneeId || e.name === task.assignee) {
-                        const newScore = Math.min(99, (e.productivityScore || 85) + 2);
-                        return { ...e, productivityScore: newScore };
-                    }
-                    return e;
-                });
-            }
-
-            return {
-                ...prev,
-                employees: updatedEmployees,
-                tasks: prev.tasks.map(t => t.id === taskId ? { ...t, status, progress: progress ?? (status === 'Completed' ? 100 : t.progress) } : t)
+    const addTask = useCallback(async (task) => {
+        try {
+            // Map frontend statuses back to backend enums
+            const statusMap = {
+                'To Do': 'BACKLOG',
+                'In Progress': 'IN_PROGRESS',
+                'Review': 'QA',
+                'Completed': 'COMPLETED'
             };
-        });
-        if (status === 'Completed') {
-            addNotification(`Task completed! Productivity score increased for assignee.`, 'success');
+
+            const backendTask = {
+                name: task.title,
+                projectId: task.projectId,
+                employeeId: task.assigneeId,
+                priority: task.priority?.toUpperCase() || 'MEDIUM',
+                status: statusMap[task.status] || 'BACKLOG',
+                dueDate: task.dueDate
+            };
+
+            const res = await taskService.createTask(backendTask);
+            if (res.success) {
+                const newTask = {
+                    ...task,
+                    id: res.data.id,
+                    status: task.status || 'To Do'
+                };
+                setState(prev => ({ ...prev, tasks: [newTask, ...prev.tasks] }));
+                addNotification(`Task "${task.title}" created`, 'success');
+            }
+        } catch (error) {
+            console.error('Failed to add task:', error);
+            addNotification('Failed to create task', 'alert');
         }
     }, [addNotification]);
 
-    const deleteTask = useCallback((id) => {
-        setState(prev => ({ ...prev, tasks: prev.tasks.filter(t => t.id !== id) }));
-    }, []);
+    const updateTaskStatus = useCallback(async (taskId, status, progress) => {
+        try {
+            // Map frontend statuses back to backend enums
+            const statusMap = {
+                'To Do': 'BACKLOG',
+                'In Progress': 'IN_PROGRESS',
+                'Review': 'QA',
+                'Completed': 'COMPLETED'
+            };
+
+            const backendStatus = statusMap[status] || 'BACKLOG';
+            const res = await taskService.updateTaskStatus(taskId, backendStatus);
+
+            if (res.success) {
+                setState(prev => {
+                    const task = prev.tasks.find(t => t.id === taskId);
+                    if (!task) return prev;
+
+                    // If task is moving to Completed, boost assignee productivity
+                    let updatedEmployees = prev.employees;
+                    if (status === 'Completed' && task.status !== 'Completed') {
+                        updatedEmployees = prev.employees.map(e => {
+                            if (e.id === task.assigneeId || e.name === task.assignee) {
+                                const newScore = Math.min(99, (e.productivityScore || 85) + 2);
+                                return { ...e, productivityScore: newScore };
+                            }
+                            return e;
+                        });
+                    }
+
+                    return {
+                        ...prev,
+                        employees: updatedEmployees,
+                        tasks: prev.tasks.map(t => t.id === taskId ? { ...t, status, progress: progress ?? (status === 'Completed' ? 100 : t.progress) } : t)
+                    };
+                });
+                if (status === 'Completed') {
+                    addNotification(`Task completed! Productivity score increased for assignee.`, 'success');
+                }
+            }
+        } catch (error) {
+            console.error('Failed to update task status:', error);
+            addNotification('Failed to update task status', 'alert');
+        }
+    }, [addNotification]);
+
+    const deleteTask = useCallback(async (id) => {
+        try {
+            const res = await taskService.deleteTask(id);
+            if (res.success) {
+                setState(prev => ({ ...prev, tasks: prev.tasks.filter(t => t.id !== id) }));
+                addNotification('Task deleted', 'info');
+            }
+        } catch (error) {
+            console.error('Failed to delete task:', error);
+            addNotification('Failed to delete task', 'alert');
+        }
+    }, [addNotification]);
 
     // Projects
     const addProject = useCallback((project) => {

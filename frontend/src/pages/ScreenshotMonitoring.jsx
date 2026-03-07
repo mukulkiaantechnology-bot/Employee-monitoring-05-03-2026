@@ -39,6 +39,7 @@ import {
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useRealTime } from '../hooks/RealTimeContext';
+import screenshotService from '../services/screenshotService';
 
 const cn = (...inputs) => twMerge(clsx(inputs));
 
@@ -82,27 +83,7 @@ const ToggleSwitch = memo(({ label, enabled, onChange }) => (
 
 ToggleSwitch.displayName = 'ToggleSwitch';
 
-// --- Data Lists for Filters ---
-const employeesList = [
-  { id: 1, name: "Anil", team: "Engineering" },
-  { id: 2, name: "Annu", team: "Marketing" },
-  { id: 3, name: "Rehan", team: "Design" },
-  { id: 4, name: "Soni", team: "Sales" }
-];
-
-const teamsList = [
-  { id: 1, name: "Default team" },
-  { id: 2, name: "Engineering" },
-  { id: 3, name: "Marketing" },
-  { id: 4, name: "Design" }
-];
-
-const projectsList = [
-  { id: 1, name: "Website Redesign" },
-  { id: 2, name: "Mobile App" },
-  { id: 3, name: "Internal Tools" }
-];
-
+// Keep static utility lists for filter labels only
 const appsList = [
   { id: 1, name: "Chrome" },
   { id: 2, name: "VS Code" },
@@ -135,22 +116,7 @@ const categoryList = [
   { id: 3, name: "Personal" }
 ];
 
-const dummyScreenshots = Array.from({ length: 16 }, (_, i) => ({
-  id: i + 1,
-  employeeId: (i % 4) + 1,
-  employee: ["Anil", "Annu", "Rehan", "Soni"][i % 4],
-  team: ["Engineering", "Marketing", "Design", "Sales"][i % 4],
-  app: ["Chrome", "Figma", "VS Code", "Excel"][i % 4],
-  project: ["CRM", "Landing Page", "Dashboard", "Analytics"][i % 4],
-  task: ["UI Fix", "Design", "API", "Report"][i % 4],
-  productivity: ["productive", "neutral", "unproductive"][i % 3],
-  type: ["automatic", "manual"][i % 2],
-  category: ["work", "review", "testing"][i % 3],
-  timestamp: new Date(2026, 1, 20 + (i % 7)).toISOString(),
-  image: "https://picsum.photos/400/250?random=" + (i + 1)
-}));
-
-const ScreenshotCard = memo(({ id, employee, timestamp, image, isBlurred, app, productivity, onDelete, viewMode, onDownload, globalBlur, onView, project, task, team, category, type }) => {
+const ScreenshotCard = memo(({ id, employee, timestamp, image, isBlurred, app, productivity, onDelete, viewMode, onDownload, globalBlur, onView, project, task, team, category, type, onBlurToggle }) => {
   const [localBlur, setLocalBlur] = useState(isBlurred);
   const effectiveBlur = globalBlur || localBlur;
   const time = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -159,10 +125,12 @@ const ScreenshotCard = memo(({ id, employee, timestamp, image, isBlurred, app, p
     onView({ id, time, url: image, isBlurred, employee, localBlur, effectiveBlur, app, productivity });
   }, [onView, id, time, image, isBlurred, employee, localBlur, effectiveBlur, app, productivity]);
 
-  const handleBlurToggle = useCallback((e) => {
+  const handleBlurToggle = useCallback(async (e) => {
     e.stopPropagation();
     setLocalBlur(prev => !prev);
-  }, []);
+    // Persist blur state to backend
+    if (onBlurToggle) onBlurToggle(id);
+  }, [id, onBlurToggle]);
 
   const handleDownloadClick = useCallback((e) => {
     e.stopPropagation();
@@ -501,7 +469,29 @@ const GenericSelectionModal = memo(({
 GenericSelectionModal.displayName = 'GenericSelectionModal';
 
 export function ScreenshotMonitoring() {
-  const { screenshots, employees, teams: contextTeams, projects: contextProjects, deleteScreenshot, addNotification } = useRealTime();
+  const { employees: contextEmployees, teams: contextTeams, projects: contextProjects, deleteScreenshot, addNotification } = useRealTime();
+
+  // Real backend screenshots state
+  const [backendScreenshots, setBackendScreenshots] = useState([]);
+  const [loadingScreenshots, setLoadingScreenshots] = useState(true);
+
+  // Derived employee list from real backend data
+  const employeesList = useMemo(() =>
+    contextEmployees.filter(e => !e.isSeed).map(e => ({ id: e.id, name: e.name || e.fullName })),
+    [contextEmployees]
+  );
+
+  // Derived teams list from real backend data
+  const teamsList = useMemo(() =>
+    contextTeams.filter(t => !t.isSeed).map(t => ({ id: t.id, name: t.name })),
+    [contextTeams]
+  );
+
+  // Derived projects list from real backend data
+  const projectsList = useMemo(() =>
+    contextProjects.map(p => ({ id: p.id, name: p.name })),
+    [contextProjects]
+  );
 
   // State for new controls
   const [randomScreenshots, setRandomScreenshots] = useState(true);
@@ -569,9 +559,20 @@ export function ScreenshotMonitoring() {
   const [selectedFilterCategory, setSelectedFilterCategory] = useState(null);
   const [selectedFilterValue, setSelectedFilterValue] = useState('');
 
-  // Use global screenshots
-  const localScreenshots = screenshots;
-  const setLocalScreenshots = () => {}; // No-op since we use global state
+  // Use backend screenshots as the primary source
+  const localScreenshots = useMemo(() => backendScreenshots.map(s => ({
+    ...s,
+    id: s.id,
+    employee: s.employee?.fullName || s.employee || 'Unknown',
+    team: s.employee?.team?.name || 'General',
+    image: s.imageUrl,
+    timestamp: s.capturedAt || s.createdAt,
+    productivity: (s.productivity || 'NEUTRAL').toLowerCase(),
+    isBlurred: s.blurred || false,
+    type: 'automatic',
+  })), [backendScreenshots]);
+
+  const setLocalScreenshots = () => { }; // No-op — we'll reload from backend
 
   // Debounce search query
   useEffect(() => {
@@ -739,8 +740,21 @@ export function ScreenshotMonitoring() {
   }, [isLoadingArchive, timelineDate]);
 
   const handleDelete = useCallback((id) => {
-    if (confirm('Delete this screenshot permanently?')) deleteScreenshot(id);
+    if (confirm('Delete this screenshot permanently?')) {
+      deleteScreenshot(id);
+      setBackendScreenshots(prev => prev.filter(s => s.id !== id));
+    }
   }, [deleteScreenshot]);
+
+  const handleBlurToggleBackend = useCallback(async (id) => {
+    try {
+      await screenshotService.toggleBlur(id);
+      // Update local state to reflect change
+      setBackendScreenshots(prev => prev.map(s => s.id === id ? { ...s, blurred: !s.blurred } : s));
+    } catch (err) {
+      console.error('Failed to toggle blur:', err);
+    }
+  }, []);
 
   const handleDownload = useCallback((url) => {
     alert("Downloading encrypted screenshot...");
@@ -764,37 +778,26 @@ export function ScreenshotMonitoring() {
 
   const isToday = timelineDate.toDateString() === new Date().toDateString();
 
-  // 4. Effects
-  // Auto-load data for new dates if none exists
+  // Fetch real screenshots from backend
   useEffect(() => {
-    const year = timelineDate.getFullYear();
-    const month = String(timelineDate.getMonth() + 1).padStart(2, '0');
-    const day = String(timelineDate.getDate()).padStart(2, '0');
-    const targetDate = `${year}-${month}-${day}`;
-    const hasData = localScreenshots.some(s => s.date === targetDate);
-
-    if (!hasData) {
-      const mockItems = Array.from({ length: 8 }).map((_, i) => ({
-        id: `auto-${targetDate}-${i}`,
-        id_val: `auto-${targetDate}-${i}`,
-        time: `${9 + Math.floor(i / 2)}:${(i % 2) * 30 + 15} AM`,
-        date: targetDate,
-        url: `https://images.unsplash.com/photo-${1517694712202 + i}-14dd9538aa97?auto=format&fit=crop&q=80&w=800`,
-        employee: ['Jane Smith', 'Sarah Brown', 'Alex Johnson', 'Mike Wilson'][i % 4],
-        isBlurred: Math.random() > 0.7,
-        status: 'Active',
-        department: 'Development',
-        employeeId: (i % 4) + 1
-      }));
-      setLocalScreenshots(prev => [...prev, ...mockItems]);
-    }
-  }, [timelineDate]); // Only trigger on date change
-
-  useEffect(() => {
-    if (localScreenshots.length === 0 && screenshots.length > 0) {
-      setLocalScreenshots(screenshots);
-    }
-  }, [screenshots, localScreenshots.length]);
+    const fetchScreenshots = async () => {
+      setLoadingScreenshots(true);
+      try {
+        const res = await screenshotService.getScreenshots();
+        if (res.success && res.data) {
+          setBackendScreenshots(res.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch screenshots:', err);
+      } finally {
+        setLoadingScreenshots(false);
+      }
+    };
+    fetchScreenshots();
+    // Refresh every minute to pick up simulator-generated screenshots
+    const interval = setInterval(fetchScreenshots, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -1224,6 +1227,7 @@ export function ScreenshotMonitoring() {
                     globalBlur={globalBlur}
                     onDelete={handleDelete}
                     onDownload={handleDownload}
+                    onBlurToggle={handleBlurToggleBackend}
                     onView={(data) => handleViewScreenshot(data, index)}
                   />
                 </div>

@@ -110,7 +110,7 @@ export function Sidebar({ collapsed, setCollapsed, onMobileClose }) {
                     // Inject Reports group before Payroll (which is key 'payroll') or at a reasonable spot
                     // In our case, if 'reports' is allowed (Admin or Manager), we show it.
                     const isReportsAllowed = hasAccess('reports');
-                    
+
                     // Simple logic: if this is the first item after 'Tasks', inject Reports
                     const showReportsBefore = item.key === 'payroll' || item.key === 'settings';
                     const isLastItemInGroup = item.key === 'tasks';

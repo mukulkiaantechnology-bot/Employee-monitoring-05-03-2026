@@ -5,6 +5,12 @@ const organizationRoutes = require('../modules/organization/organization.routes'
 const teamsRoutes = require('../modules/teams/teams.routes');
 const employeesRoutes = require('../modules/employees/employees.routes');
 const activityRoutes = require('../modules/activity/activity.routes');
+const screenshotsRoutes = require('../modules/screenshots/screenshots.routes');
+const analyticsRoutes = require('../modules/analytics/analytics.routes');
+const productivityRoutes = require('../modules/productivity/productivity.routes');
+const attendanceRoutes = require('../modules/attendance/attendance.routes');
+const projectsRoutes = require('../modules/projects/projects.routes');
+const tasksRoutes = require('../modules/tasks/tasks.routes');
 const { successResponse } = require('../utils/response');
 
 // Routes
@@ -13,6 +19,12 @@ router.use('/organization', organizationRoutes);
 router.use('/teams', teamsRoutes);
 router.use('/employees', employeesRoutes);
 router.use('/activity', activityRoutes);
+router.use('/screenshots', screenshotsRoutes);
+router.use('/analytics', analyticsRoutes);
+router.use('/productivity', productivityRoutes);
+router.use('/attendance', attendanceRoutes);
+router.use('/projects', projectsRoutes);
+router.use('/tasks', tasksRoutes);
 router.get('/health', (req, res) => {
     return successResponse(res, null, 'Backend Running', 200);
 });

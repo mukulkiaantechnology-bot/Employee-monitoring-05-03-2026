@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { X, Search, Check } from 'lucide-react';
+import { useProjectStore } from '../store/projectStore';
 
-export function NewProjectModal({ isOpen, onClose, onSave, employees = [], teams = [] }) {
+export function NewProjectModal({ isOpen, onClose, employees = [], teams = [] }) {
+    const { createProject } = useProjectStore();
     const [billRateType, setBillRateType] = useState('Project');
     const [projectName, setProjectName] = useState('');
     const [projectBillRate, setProjectBillRate] = useState('0');
@@ -10,7 +12,7 @@ export function NewProjectModal({ isOpen, onClose, onSave, employees = [], teams
     const [showError, setShowError] = useState(false);
 
     const filteredEmployees = useMemo(() => {
-        return employees.filter(emp => 
+        return employees.filter(emp =>
             emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             emp.team.toLowerCase().includes(searchQuery.toLowerCase())
         );
@@ -19,36 +21,35 @@ export function NewProjectModal({ isOpen, onClose, onSave, employees = [], teams
     if (!isOpen) return null;
 
     const toggleEmployee = (empId) => {
-        setSelectedEmployees(prev => 
+        setSelectedEmployees(prev =>
             prev.includes(empId) ? prev.filter(id => id !== empId) : [...prev, empId]
         );
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!projectName.trim()) {
             setShowError(true);
             return;
         }
 
         const projectData = {
-            id: Date.now(),
             name: projectName,
-            client: 'Internal', // Default or could add field
-            billableRate: Number(projectBillRate),
-            billRateType,
-            assignedEmployees: selectedEmployees,
-            status: 'Active',
-            progress: 0,
-            tasks: 0
+            billRate: Number(projectBillRate),
+            employeeIds: selectedEmployees,
         };
 
-        onSave(projectData);
-        onClose();
-        // Reset state
-        setProjectName('');
-        setProjectBillRate('0');
-        setSelectedEmployees([]);
-        setShowError(false);
+        try {
+            await createProject(projectData);
+            onClose();
+            // Reset state
+            setProjectName('');
+            setProjectBillRate('0');
+            setSelectedEmployees([]);
+            setShowError(false);
+        } catch (error) {
+            console.error('Failed to create project:', error);
+            // Optionally show error in UI
+        }
     };
 
     return (
@@ -67,9 +68,9 @@ export function NewProjectModal({ isOpen, onClose, onSave, employees = [], teams
                 <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
                     {/* Bill Rate Type Selection */}
                     <div className="space-y-2">
-                        <label className="text-xs font-bold text-slate-400 dark:text-slate-500">Bill Rate</label>
+                        {/* <label className="text-xs font-bold text-slate-400 dark:text-slate-500">Bill Rate</label> */}
                         <div className="grid grid-cols-2 gap-4">
-                            <button
+                            {/* <button
                                 onClick={() => setBillRateType('Project')}
                                 className={`flex items-center gap-3 p-4 border rounded-xl transition-all ${billRateType === 'Project'
                                     ? 'border-primary-500 bg-primary-50/30 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-bold'
@@ -80,8 +81,8 @@ export function NewProjectModal({ isOpen, onClose, onSave, employees = [], teams
                                     {billRateType === 'Project' && <div className="w-2.5 h-2.5 bg-primary-600 dark:bg-primary-500 rounded-full" />}
                                 </div>
                                 <span className="text-sm">Project Bill Rate</span>
-                            </button>
-                            <button
+                            </button> */}
+                            {/* <button
                                 onClick={() => setBillRateType('Employee')}
                                 className={`flex items-center gap-3 p-4 border rounded-xl transition-all ${billRateType === 'Employee'
                                     ? 'border-primary-500 bg-primary-50/30 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-bold'
@@ -92,7 +93,7 @@ export function NewProjectModal({ isOpen, onClose, onSave, employees = [], teams
                                     {billRateType === 'Employee' && <div className="w-2.5 h-2.5 bg-primary-600 dark:bg-primary-500 rounded-full" />}
                                 </div>
                                 <span className="text-sm">Employee Bill Rate</span>
-                            </button>
+                            </button> */}
                         </div>
                     </div>
 
@@ -143,7 +144,7 @@ export function NewProjectModal({ isOpen, onClose, onSave, employees = [], teams
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
                                 <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Select Employees</span>
-                                <button 
+                                <button
                                     onClick={() => setSelectedEmployees(filteredEmployees.map(e => e.id))}
                                     className="text-xs font-black text-primary-600 dark:text-primary-400 uppercase tracking-widest hover:underline"
                                 >
@@ -153,11 +154,11 @@ export function NewProjectModal({ isOpen, onClose, onSave, employees = [], teams
 
                             <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
                                 {filteredEmployees.map(emp => (
-                                    <div 
+                                    <div
                                         key={emp.id}
                                         onClick={() => toggleEmployee(emp.id)}
-                                        className={`flex items-center justify-between p-3 rounded-lg transition-colors group cursor-pointer border ${selectedEmployees.includes(emp.id) 
-                                            ? 'bg-primary-50/50 dark:bg-primary-900/10 border-primary-100 dark:border-primary-800/50' 
+                                        className={`flex items-center justify-between p-3 rounded-lg transition-colors group cursor-pointer border ${selectedEmployees.includes(emp.id)
+                                            ? 'bg-primary-50/50 dark:bg-primary-900/10 border-primary-100 dark:border-primary-800/50'
                                             : 'bg-white dark:bg-slate-900 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
                                     >
                                         <div className="flex items-center gap-3">
@@ -169,8 +170,8 @@ export function NewProjectModal({ isOpen, onClose, onSave, employees = [], teams
                                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{emp.team}</span>
                                             </div>
                                         </div>
-                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedEmployees.includes(emp.id) 
-                                            ? 'bg-primary-600 border-primary-600' 
+                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedEmployees.includes(emp.id)
+                                            ? 'bg-primary-600 border-primary-600'
                                             : 'border-slate-200 dark:border-slate-700 group-hover:border-primary-400'}`}>
                                             {selectedEmployees.includes(emp.id) && <Check size={14} className="text-white" />}
                                         </div>
@@ -210,7 +211,7 @@ export function NewProjectModal({ isOpen, onClose, onSave, employees = [], teams
                                                             <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{emp.team}</span>
                                                         </td>
                                                         <td className="px-4 py-3 text-right">
-                                                            <button 
+                                                            <button
                                                                 onClick={(e) => { e.stopPropagation(); toggleEmployee(emp.id); }}
                                                                 className="text-rose-500 hover:text-rose-600 p-1 opacity-100 md:opacity-0 group-hover/row:opacity-100 transition-opacity"
                                                             >
@@ -236,7 +237,7 @@ export function NewProjectModal({ isOpen, onClose, onSave, employees = [], teams
                     >
                         Cancel
                     </button>
-                    <button 
+                    <button
                         onClick={handleSave}
                         className="px-10 py-3 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-xs font-black uppercase tracking-tight shadow-xl shadow-primary-200 dark:shadow-primary-900/20 transition-colors"
                     >

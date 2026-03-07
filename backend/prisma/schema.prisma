@@ -33,6 +33,13 @@ enum TaskStatus {
   COMPLETED
 }
 
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
 enum PayrollStatus {
   PAID
   UNPAID
@@ -78,7 +85,13 @@ model Organization {
   teams            Team[]
   employees        Employee[]
   projects         Project[]
+  tasks            Task[]
   activityLogs     ActivityLog[]
+  screenshots      Screenshot[]
+  appUsageLogs     AppUsageLog[]
+  attendance       Attendance[]
+  manualTimeEntries ManualTime[]
+  shifts           Shift[]
   complianceSetting ComplianceSetting?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
@@ -120,6 +133,12 @@ model Employee {
   activityLogs   ActivityLog[]
   locationLogs   LocationLog[]
   payrollRecords PayrollRecord[]
+  screenshots    Screenshot[]
+  appUsageLogs   AppUsageLog[]
+  manualTimeEntries ManualTime[]
+  shifts         Shift[]
+  projectAssignments ProjectAssignment[]
+  projectTimeLogs    ProjectTimeLog[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -127,46 +146,112 @@ model Employee {
 }
 
 model Project {
-  id             String       @id @default(uuid())
+  id             String              @id @default(uuid())
   name           String
-  billableRate   Float        @default(0.0)
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  billableRate   Float               @default(0.0)
+  organization   Organization        @relation(fields: [organizationId], references: [id])
   organizationId String
+  assignments    ProjectAssignment[]
+  timeLogs       ProjectTimeLog[]
   tasks          Task[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 
   @@map("projects")
 }
 
-model Task {
-  id         String     @id @default(uuid())
-  name       String
-  status     TaskStatus @default(BACKLOG)
-  priority   String     @default("MEDIUM")
-  dueDate    DateTime?
-  project    Project    @relation(fields: [projectId], references: [id])
+model ProjectAssignment {
+  id         String   @id @default(uuid())
+  project    Project  @relation(fields: [projectId], references: [id])
   projectId  String
-  employee   Employee?  @relation(fields: [employeeId], references: [id])
-  employeeId String?
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  employeeId String
+  createdAt  DateTime @default(now())
+
+  @@unique([projectId, employeeId])
+  @@map("project_assignments")
+}
+
+model ProjectTimeLog {
+  id         String   @id @default(uuid())
+  project    Project  @relation(fields: [projectId], references: [id])
+  projectId  String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  employeeId String
+  duration   Int      // in seconds
+  type       String   // "CLOCKED" or "MANUAL"
+  loggedAt   DateTime @default(now())
+
+  @@map("project_time_logs")
+}
+
+model Task {
+  id             String       @id @default(uuid())
+  name           String
+  status         TaskStatus   @default(BACKLOG)
+  priority       TaskPriority @default(MEDIUM)
+  dueDate        DateTime?
+  project        Project      @relation(fields: [projectId], references: [id])
+  projectId      String
+  employee       Employee?    @relation(fields: [employeeId], references: [id])
+  employeeId     String?
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@map("tasks")
 }
 
 model Attendance {
-  id         String   @id @default(uuid())
-  date       DateTime @db.Date
-  clockIn    DateTime
-  clockOut   DateTime?
-  status     String   @default("PRESENT")
-  employee   Employee @relation(fields: [employeeId], references: [id])
-  employeeId String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id             String       @id @default(uuid())
+  date           DateTime     @db.Date
+  clockIn        DateTime
+  clockOut       DateTime?
+  status         String       @default("PRESENT") // PRESENT, ABSENT, ON_LEAVE
+  late           Boolean      @default(false)
+  duration       Int          @default(0) // Duration in seconds
+  employee       Employee     @relation(fields: [employeeId], references: [id])
+  employeeId     String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@map("attendance")
+}
+
+model ManualTime {
+  id             String       @id @default(uuid())
+  startTime      DateTime
+  endTime        DateTime
+  timezone       String?
+  type           String // e.g., "Work", "Meeting", "Break"
+  duration       Int // in seconds
+  note           String?      @db.Text
+  employee       Employee     @relation(fields: [employeeId], references: [id])
+  employeeId     String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("manual_time_entries")
+}
+
+model Shift {
+  id             String       @id @default(uuid())
+  startTime      String // e.g., "09:00"
+  endTime        String // e.g., "18:00"
+  date           DateTime     @db.Date
+  employee       Employee     @relation(fields: [employeeId], references: [id])
+  employeeId     String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("shifts")
 }
 
 model ActivityLog {
@@ -226,4 +311,37 @@ model ComplianceSetting {
   updatedAt         DateTime     @updatedAt
 
   @@map("compliance_settings")
+}
+
+model Screenshot {
+  id             String           @id @default(uuid())
+  imageUrl       String           @db.LongText
+  productivity   ProductivityType @default(NEUTRAL)
+  blurred        Boolean          @default(false)
+  capturedAt     DateTime         @default(now())
+  employee       Employee         @relation(fields: [employeeId], references: [id])
+  employeeId     String
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  organizationId String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@map("screenshots")
+}
+
+model AppUsageLog {
+  id             String           @id @default(uuid())
+  appName        String
+  domain         String           @default("")
+  category       String           @default("Uncategorized")
+  productivity   ProductivityType @default(NEUTRAL)
+  duration       Int              @default(0) // in seconds
+  timestamp      DateTime         @default(now())
+  employee       Employee         @relation(fields: [employeeId], references: [id])
+  employeeId     String
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  organizationId String
+  createdAt      DateTime         @default(now())
+
+  @@map("app_usage_logs")
 }

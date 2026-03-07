@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Bell,
     Calendar,
@@ -25,45 +25,61 @@ import { Upload } from 'lucide-react'; // Added Upload for import menu
 import { useRealTime } from '../hooks/RealTimeContext';
 import { useShiftLogic, sampleShiftData } from '../hooks/useShiftLogic';
 import { cn } from '../utils/cn';
+import useAttendanceStore from '../store/attendanceStore';
+import { format } from 'date-fns';
 
 export function TimeAndAttendance() {
-    const { employees, timeEntries, addTimeEntry, isLoading } = useRealTime();
-    const { checkShiftStatus } = useShiftLogic();
+    const { employees } = useRealTime();
     const [activeTab, setActiveTab] = useState('Timesheets');
     const [viewMode, setViewMode] = useState('Day View');
     const [isManualTimeModalOpen, setIsManualTimeModalOpen] = useState(false);
+    const [isTimeOffMenuOpen, setIsTimeOffMenuOpen] = useState(false);
     const [isAddTimeOffModalOpen, setIsAddTimeOffModalOpen] = useState(false);
     const [isImportTimeOffModalOpen, setIsImportTimeOffModalOpen] = useState(false);
-    const [isTimeOffMenuOpen, setIsTimeOffMenuOpen] = useState(false);
-    // Schedules tab controls
+    const [isAddShiftsOpen, setIsAddShiftsOpen] = useState(false);
+    const [generalSearch, setGeneralSearch] = useState('');
     const [scheduleSearch, setScheduleSearch] = useState('');
     const [showShifts, setShowShifts] = useState(true);
     const [showTimeOff, setShowTimeOff] = useState(true);
-    const [isAddShiftsOpen, setIsAddShiftsOpen] = useState(false);
-    const [scheduleViewMode, setScheduleViewMode] = useState('grid');
-    const [generalSearch, setGeneralSearch] = useState('');
+    const { checkShiftStatus } = useShiftLogic();
+
+    const {
+        timesheets,
+        manualTimes,
+        shifts,
+        loading,
+        fetchTimesheets,
+        fetchManualTimes,
+        fetchShifts,
+        clockIn,
+        clockOut
+    } = useAttendanceStore();
+
+    useEffect(() => {
+        fetchTimesheets();
+        fetchManualTimes();
+        fetchShifts();
+    }, [fetchTimesheets, fetchManualTimes, fetchShifts]);
 
     const handleDownload = () => {
-        const rows = [['Name','Location','Team','Date','Clock-in'],
-            ...timesheets.map(r => [r.name, r.location, r.team, r.date, r.clockIn])];
+        if (!timesheets.length) return alert('No data to download');
+        const rows = [['Name', 'Location', 'Team', 'Date', 'Clock-in', 'Clock-out', 'Duration'],
+        ...timesheets.map(r => [
+            r.employee?.fullName,
+            r.employee?.location,
+            r.employee?.team?.name,
+            format(new Date(r.date), 'MMM dd, yyyy'),
+            r.clockIn ? format(new Date(r.clockIn), 'hh:mm a') : '--',
+            r.clockOut ? format(new Date(r.clockOut), 'hh:mm a') : '--',
+            r.duration ? `${Math.floor(r.duration / 3600)}h ${Math.floor((r.duration % 3600) / 60)}m` : '--'
+        ])];
         const csv = rows.map(r => r.join(',')).join('\n');
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = 'attendance.csv'; a.click();
+        const a = document.createElement('a'); a.href = url; a.download = 'attendance_report.csv'; a.click();
         URL.revokeObjectURL(url);
     };
 
-    const timesheets = employees.map(emp => ({
-        id: emp.id,
-        name: emp.name,
-        location: emp.location || 'Remote',
-        team: emp.team || 'Default team',
-        date: 'Thu, Feb 26, 2026',
-        clockIn: emp.status === 'online' ? '09:00 AM' : '--',
-        initials: emp.name.split(' ').map(n => n[0]).join('').toUpperCase()
-    }));
-
-    const manualTimeData = timeEntries.filter(te => te.type === 'manual');
 
     return (
         <div className="min-h-screen bg-[#fcfdfe] dark:bg-slate-950 pb-12 px-2 sm:px-4 lg:px-8 transition-colors duration-200">
@@ -159,17 +175,17 @@ export function TimeAndAttendance() {
             {/* Tabs */}
             <div className="overflow-x-auto mb-8">
                 <div className="flex items-center gap-10 border-b border-slate-100 dark:border-slate-800 min-w-max">
-                {['Timesheets', 'Attendance', 'Manual Time', 'Schedules'].map(tab => (
-                    <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={`pb-4 text-sm font-black transition-all relative ${activeTab === tab ? 'text-primary-600 dark:text-primary-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                            }`}
-                    >
-                        {tab}
-                        {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-primary-600 rounded-full" />}
-                    </button>
-                ))}
+                    {['Timesheets', 'Attendance', 'Manual Time', 'Schedules'].map(tab => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={`pb-4 text-sm font-black transition-all relative ${activeTab === tab ? 'text-primary-600 dark:text-primary-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                                }`}
+                        >
+                            {tab}
+                            {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-primary-600 rounded-full" />}
+                        </button>
+                    ))}
                 </div>
             </div>
 
@@ -251,33 +267,37 @@ export function TimeAndAttendance() {
                         </thead>
                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
                             {timesheets.filter(row =>
-                                (row.name?.toLowerCase() ?? '').includes(generalSearch.toLowerCase()) ||
-                                (row.team?.toLowerCase() ?? '').includes(generalSearch.toLowerCase())
+                                (row.employee?.fullName?.toLowerCase() ?? '').includes(generalSearch.toLowerCase()) ||
+                                (row.employee?.team?.name?.toLowerCase() ?? '').includes(generalSearch.toLowerCase())
                             ).map((row, idx) => (
                                 <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
                                     <td className="px-6 py-6">
                                         <div className="flex items-center gap-4">
-                                            <div className="h-10 w-10 rounded-full bg-rose-100 flex items-center justify-center text-xs font-black text-rose-600 border border-rose-200">{row.initials}</div>
-                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{row.name}</span>
+                                            <div className="h-10 w-10 rounded-full bg-rose-100 flex items-center justify-center text-xs font-black text-rose-600 border border-rose-200">
+                                                {row.employee?.fullName?.split(' ').map(n => n[0]).join('').toUpperCase() || '??'}
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{row.employee?.fullName}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-6 text-xs font-bold text-slate-600 dark:text-slate-400 border-l border-slate-50 dark:border-slate-800">{row.location}</td>
-                                    <td className="px-6 py-6 text-xs font-bold text-slate-600 dark:text-slate-400">{row.team}</td>
-                                    <td className="px-6 py-6 text-xs font-bold text-slate-400 dark:text-slate-500 italic"></td>
+                                    <td className="px-6 py-6 text-xs font-bold text-slate-600 dark:text-slate-400 border-l border-slate-50 dark:border-slate-800">{row.employee?.location || 'Remote'}</td>
+                                    <td className="px-6 py-6 text-xs font-bold text-slate-600 dark:text-slate-400">{row.employee?.team?.name || 'General'}</td>
+                                    <td className="px-6 py-6 text-xs font-bold text-slate-400 dark:text-slate-500 italic">{row.employee?.team?.description}</td>
                                     <td className="px-6 py-6 text-xs font-bold text-slate-800 dark:text-slate-300">
-                                        <div className="flex items-center gap-1">
-                                            {row.date}
-                                            <div className="h-4 w-4 rounded bg-slate-400 dark:bg-slate-600 text-white text-[8px] flex items-center justify-center">1</div>
-                                        </div>
+                                        {format(new Date(row.date), 'MMM dd, yyyy')}
                                     </td>
                                     <td className="px-6 py-6 text-xs font-bold text-slate-800 dark:text-slate-300">
                                         <div className="flex items-center gap-1 group">
-                                            {row.clockIn}
-                                            <Play size={10} className="text-primary-500 fill-primary-500 rotate-90" />
+                                            {row.clockIn ? format(new Date(row.clockIn), 'hh:mm a') : '--'}
+                                            {row.clockIn && <Play size={10} className="text-primary-500 fill-primary-500 rotate-90" />}
                                         </div>
                                     </td>
                                 </tr>
                             ))}
+                            {!loading && timesheets.length === 0 && (
+                                <tr>
+                                    <td colSpan="6" className="px-6 py-20 text-center text-slate-400 font-bold">No attendance records found</td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
@@ -327,46 +347,58 @@ export function TimeAndAttendance() {
                             <thead className="bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800">
                                 <tr>
                                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 w-48">Employee Name</th>
-                                    {['Feb 24', 'Feb 25', 'Feb 26', 'Feb 27', 'Feb 28', 'Mar 1', 'Mar 2'].map(d => (
-                                        <th key={d} className="px-3 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">{d}</th>
-                                    ))}
+                                    {Array.from({ length: 7 }).map((_, i) => {
+                                        const date = new Date();
+                                        date.setDate(date.getDate() - (6 - i));
+                                        return (
+                                            <th key={i} className="px-3 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">
+                                                {format(date, 'MMM dd')}
+                                            </th>
+                                        );
+                                    })}
                                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Total</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                                {[
-                                    { name: 'Sarah Wilson', initials: 'SW', color: 'bg-violet-100 text-violet-600', days: ['attended','attended','working','attended','attended','absent','attended'] },
-                                    { name: 'John Doe', initials: 'JD', color: 'bg-blue-100 text-blue-600', days: ['attended','attended','attended','attended','timeoff','absent','attended'] },
-                                    { name: 'Alice Smith', initials: 'AS', color: 'bg-rose-100 text-rose-600', days: ['absent','attended','attended','attended','attended','attended','working'] },
-                                    { name: 'James Carter', initials: 'JC', color: 'bg-emerald-100 text-emerald-600', days: ['attended','timeoff','attended','attended','attended','attended','attended'] },
-                                    { name: 'Priya Sharma', initials: 'PS', color: 'bg-amber-100 text-amber-600', days: ['attended','attended','attended','attended','working','attended','attended'] },
-                                ].map((emp, idx) => {
-                                    const attended = emp.days.filter(d => d === 'attended' || d === 'working').length;
+                                {employees.map((emp, idx) => {
+                                    const empTimesheets = timesheets.filter(t => t.employeeId === emp.id);
                                     return (
                                         <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                                             <td className="px-6 py-5">
                                                 <div className="flex items-center gap-3">
-                                                    <div className={`h-9 w-9 rounded-full flex items-center justify-center text-xs font-black border border-white ${emp.color}`}>{emp.initials}</div>
-                                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{emp.name}</span>
+                                                    <div className={`h-9 w-9 rounded-full flex items-center justify-center text-xs font-black border border-white bg-blue-100 text-blue-600`}>
+                                                        {emp.fullName?.split(' ').map(n => n[0]).join('').toUpperCase() || '??'}
+                                                    </div>
+                                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{emp.fullName}</span>
                                                 </div>
                                             </td>
-                                            {emp.days.map((status, di) => (
-                                                <td key={di} className="px-3 py-5 text-center">
-                                                    {status === 'attended' && <div className="h-5 w-5 rounded-full bg-primary-200 dark:bg-primary-500/40 mx-auto" title="Attended" />}
-                                                    {status === 'working' && <div className="h-5 w-5 rounded-full bg-emerald-400 mx-auto ring-2 ring-emerald-200 dark:ring-emerald-500/30" title="Currently Working" />}
-                                                    {status === 'absent' && <div className="h-5 w-5 rounded-full border-2 border-slate-200 dark:border-slate-700 mx-auto" title="Absent" />}
-                                                    {status === 'timeoff' && <div className="h-5 w-5 rounded-full bg-slate-200 dark:bg-slate-700 mx-auto" title="Time Off" />}
-                                                </td>
-                                            ))}
+                                            {Array.from({ length: 7 }).map((_, i) => {
+                                                const date = new Date();
+                                                date.setDate(date.getDate() - (6 - i));
+                                                const dayStr = format(date, 'yyyy-MM-dd');
+                                                const hasAttended = empTimesheets.some(t => format(new Date(t.date), 'yyyy-MM-dd') === dayStr);
+                                                return (
+                                                    <td key={i} className="px-3 py-5 text-center">
+                                                        <div className={`h-5 w-5 rounded-full mx-auto ${hasAttended ? 'bg-primary-400 dark:bg-primary-500/60' : 'border border-slate-300 dark:border-slate-700'}`} />
+                                                    </td>
+                                                );
+                                            })}
                                             <td className="px-6 py-5 text-center">
-                                                <span className="text-xs font-black text-slate-700 dark:text-slate-200">{attended}/7</span>
+                                                <span className="text-xs font-black text-slate-700 dark:text-slate-200">
+                                                    {empTimesheets.filter(t => {
+                                                        const d = new Date(t.date);
+                                                        const weekAgo = new Date();
+                                                        weekAgo.setDate(weekAgo.getDate() - 7);
+                                                        return d >= weekAgo;
+                                                    }).length}/7
+                                                </span>
                                             </td>
                                         </tr>
                                     );
                                 })}
                                 <tr className="bg-slate-50/30 dark:bg-slate-800/20 border-t border-slate-100 dark:border-slate-800">
                                     <td className="px-6 py-4"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Count</span></td>
-                                    {[4,4,5,5,4,3,5].map((n, i) => (
+                                    {[4, 4, 5, 5, 4, 3, 5].map((n, i) => (
                                         <td key={i} className="px-3 py-4 text-center text-xs font-black text-slate-700 dark:text-slate-300">{n}</td>
                                     ))}
                                     <td className="px-6 py-4 text-center text-xs font-black text-primary-600">30/35</td>
@@ -385,7 +417,7 @@ export function TimeAndAttendance() {
                                 <Zap size={14} /> Live
                             </div>
                         </div>
-                        
+
                         <div className="overflow-x-auto">
                             <table className="w-full text-left">
                                 <thead className="bg-[#fcfdfe] dark:bg-slate-950 text-slate-400 dark:text-slate-500 font-bold text-[10px] uppercase tracking-widest border-b border-slate-50 dark:border-slate-800">
@@ -397,21 +429,45 @@ export function TimeAndAttendance() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                                    {sampleShiftData.map((shift) => {
-                                        const status = checkShiftStatus(shift.scheduledStart, shift.scheduledEnd, shift.actualStart, shift.actualEnd);
+                                    {shifts.map((shift) => {
+                                        const attendance = timesheets.find(t =>
+                                            t.employeeId === shift.employeeId &&
+                                            format(new Date(t.date), 'yyyy-MM-dd') === format(new Date(shift.date), 'yyyy-MM-dd')
+                                        );
+
+                                        const actualStart = attendance?.clockIn ? format(new Date(attendance.clockIn), 'HH:mm') : null;
+                                        const actualEnd = attendance?.clockOut ? format(new Date(attendance.clockOut), 'HH:mm') : null;
+
+                                        const status = checkShiftStatus(
+                                            shift.startTime,
+                                            shift.endTime,
+                                            actualStart,
+                                            actualEnd
+                                        );
+
                                         return (
                                             <tr key={shift.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
                                                 <td className="px-8 py-6">
                                                     <div className="flex items-center gap-4">
-                                                        <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-black text-slate-600 dark:text-slate-400">{shift.name.split(' ').map(n=>n[0]).join('')}</div>
-                                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{shift.name}</span>
+                                                        <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-black text-slate-600 dark:text-slate-400">
+                                                            {shift.employee?.fullName?.split(' ').map(n => n[0]).join('')}
+                                                        </div>
+                                                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{shift.employee?.fullName}</span>
                                                     </div>
                                                 </td>
-                                                <td className="px-8 py-6 text-xs font-bold text-slate-500">{shift.scheduled}</td>
-                                                <td className="px-8 py-6 text-xs font-bold text-slate-900 dark:text-white">{shift.actual}</td>
+                                                <td className="px-8 py-6 text-xs font-bold text-slate-500">
+                                                    {shift.startTime} – {shift.endTime}
+                                                </td>
+                                                <td className="px-8 py-6 text-xs font-bold text-slate-900 dark:text-white">
+                                                    {actualStart ? `${actualStart} – ${actualEnd || '--:--'}` : '--'}
+                                                </td>
                                                 <td className="px-8 py-6">
                                                     <div className="flex flex-wrap gap-2">
-                                                        {!status.warning && !status.overtime && !status.incomplete ? (
+                                                        {!actualStart ? (
+                                                            <span className="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-slate-700 flex items-center gap-1">
+                                                                <ShieldAlert size={12} /> Absent
+                                                            </span>
+                                                        ) : !status.warning && !status.overtime && !status.incomplete ? (
                                                             <span className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest border border-emerald-100 dark:border-emerald-500/20">On Track</span>
                                                         ) : (
                                                             <>
@@ -445,16 +501,53 @@ export function TimeAndAttendance() {
             )}
 
             {activeTab === 'Manual Time' && (
-                <div className="flex flex-col items-center justify-center py-40 text-center">
-                    <div className="grid grid-cols-7 w-full px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-left border-b border-slate-50 dark:border-slate-800 mb-32">
-                        <span className="col-span-2">Employee Name</span>
-                        <span>Task</span>
-                        <span>Date</span>
-                        <span>Start Time</span>
-                        <span>End Time</span>
-                        <span>Duration [h] Status</span>
-                    </div>
-                    <h3 className="text-4xl font-black text-slate-200 dark:text-slate-800 select-none">No Data</h3>
+                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden overflow-x-auto">
+                    <table className="w-full text-left min-w-[1000px]">
+                        <thead className="bg-[#fcfdfe] dark:bg-slate-950 text-slate-400 dark:text-slate-500 font-bold text-[10px] uppercase tracking-widest border-b border-slate-50 dark:border-slate-800">
+                            <tr>
+                                <th className="px-6 py-4">Employee Name</th>
+                                <th className="px-6 py-4">Type</th>
+                                <th className="px-6 py-4">Date</th>
+                                <th className="px-6 py-4">Start Time</th>
+                                <th className="px-6 py-4">End Time</th>
+                                <th className="px-6 py-4">Duration</th>
+                                <th className="px-6 py-4">Note</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                            {manualTimes.filter(t => t.employee?.fullName?.toLowerCase().includes(generalSearch.toLowerCase())).map((row, idx) => (
+                                <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+                                    <td className="px-6 py-6">
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-black text-indigo-600 border border-indigo-200">
+                                                {row.employee?.fullName?.split(' ').map(n => n[0]).join('').toUpperCase() || '??'}
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{row.employee?.fullName}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-6 text-xs font-bold text-slate-600 dark:text-slate-400">{row.type || 'Regular'}</td>
+                                    <td className="px-6 py-6 text-xs font-bold text-slate-800 dark:text-slate-300">
+                                        {format(new Date(row.startTime), 'MMM dd, yyyy')}
+                                    </td>
+                                    <td className="px-6 py-6 text-xs font-bold text-slate-800 dark:text-slate-300">
+                                        {format(new Date(row.startTime), 'hh:mm a')}
+                                    </td>
+                                    <td className="px-6 py-6 text-xs font-bold text-slate-800 dark:text-slate-300">
+                                        {format(new Date(row.endTime), 'hh:mm a')}
+                                    </td>
+                                    <td className="px-6 py-6 text-xs font-bold text-slate-800 dark:text-slate-300">
+                                        {row.duration ? `${Math.floor(row.duration / 3600)}h ${Math.floor((row.duration % 3600) / 60)}m` : '--'}
+                                    </td>
+                                    <td className="px-6 py-6 text-xs font-bold text-slate-400 italic">{row.note || 'Manual entry'}</td>
+                                </tr>
+                            ))}
+                            {!loading && manualTimes.length === 0 && (
+                                <tr>
+                                    <td colSpan="7" className="py-20 text-center text-slate-400 font-bold">No entries found</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             )}
 
@@ -463,22 +556,20 @@ export function TimeAndAttendance() {
                     <div className="flex items-center gap-4 mb-2">
                         <button
                             onClick={() => setShowShifts(!showShifts)}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[10px] font-black uppercase tracking-tight ${
-                                showShifts
-                                    ? 'border-primary-200 bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
-                                    : 'border-slate-200 dark:border-slate-700 text-slate-400 bg-white dark:bg-slate-900'
-                            }`}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[10px] font-black uppercase tracking-tight ${showShifts
+                                ? 'border-primary-200 bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                : 'border-slate-200 dark:border-slate-700 text-slate-400 bg-white dark:bg-slate-900'
+                                }`}
                         >
                             <div className={`h-3 w-3 rounded-full transition-colors ${showShifts ? 'bg-primary-400' : 'bg-slate-200 dark:bg-slate-700'}`} />
                             Shifts
                         </button>
                         <button
                             onClick={() => setShowTimeOff(!showTimeOff)}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[10px] font-black uppercase tracking-tight ${
-                                showTimeOff
-                                    ? 'border-slate-300 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                                    : 'border-slate-200 dark:border-slate-700 text-slate-400 bg-white dark:bg-slate-900'
-                            }`}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[10px] font-black uppercase tracking-tight ${showTimeOff
+                                ? 'border-slate-300 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                                : 'border-slate-200 dark:border-slate-700 text-slate-400 bg-white dark:bg-slate-900'
+                                }`}
                         >
                             <div className={`h-3 w-3 rounded-full transition-colors ${showTimeOff ? 'bg-slate-400 dark:bg-slate-600' : 'bg-slate-200 dark:bg-slate-700'}`} />
                             Time Off
@@ -491,15 +582,12 @@ export function TimeAndAttendance() {
                     <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex min-h-[500px]">
                         <div className="w-[180px] shrink-0 border-r border-slate-50 dark:border-slate-800 overflow-y-auto">
                             <div className="p-5 border-b border-slate-50 dark:border-slate-800 font-bold text-slate-400 text-[10px] uppercase tracking-wider">Employee</div>
-                            {[
-                                { initials: 'SW', name: 'Sarah Wilson', color: 'bg-violet-100 text-violet-600' },
-                                { initials: 'JD', name: 'John Doe', color: 'bg-blue-100 text-blue-600' },
-                                { initials: 'AS', name: 'Alice Smith', color: 'bg-rose-100 text-rose-600' },
-                            ].filter(emp => emp.name.toLowerCase().includes(scheduleSearch.toLowerCase()))
-                            .map((emp, i) => (
+                            {shifts.map((s, i) => (
                                 <div key={i} className="p-4 border-b border-slate-50 dark:border-slate-800 flex items-center gap-2.5">
-                                    <div className={`h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-xs font-black ${emp.color}`}>{emp.initials}</div>
-                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-300 leading-none truncate">{emp.name}</span>
+                                    <div className={`h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-xs font-black bg-primary-100 text-primary-600`}>
+                                        {s.employee?.fullName?.split(' ').map(n => n[0]).join('').toUpperCase() || '??'}
+                                    </div>
+                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-300 leading-none truncate">{s.employee?.fullName}</span>
                                 </div>
                             ))}
                         </div>
@@ -541,8 +629,13 @@ export function TimeAndAttendance() {
             <AddManualTimeModal
                 isOpen={isManualTimeModalOpen}
                 onClose={() => setIsManualTimeModalOpen(false)}
-                onSave={(data) => {
-                    addTimeEntry({ ...data, type: 'manual' });
+                onSave={async (data) => {
+                    try {
+                        await useAttendanceStore.getState().addManualTime(data);
+                        alert('Manual time entry saved successfully');
+                    } catch (err) {
+                        alert('Failed to save manual time: ' + err.message);
+                    }
                 }}
                 employees={employees}
             />

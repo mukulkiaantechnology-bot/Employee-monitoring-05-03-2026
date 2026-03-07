@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Bell,
     Calendar,
@@ -13,9 +13,11 @@ import { FilterDropdown } from '../components/FilterDropdown';
 import { GlobalCalendar } from '../components/GlobalCalendar';
 import { useRealTime } from '../hooks/RealTimeContext';
 import { useAuthStore } from '../store/authStore';
+import { useProjectStore } from '../store/projectStore';
 
 export function Projects() {
-    const { projects: contextProjects, addProject, employees, teams } = useRealTime();
+    const { employees, teams } = useRealTime();
+    const { projects, fetchProjects, loading } = useProjectStore();
     const { role } = useAuthStore();
     const rolePath = role ? `/${role.toLowerCase()}` : '';
     const [activeTab, setActiveTab] = useState('Insightful');
@@ -23,11 +25,15 @@ export function Projects() {
     const [projectSearch, setProjectSearch] = useState('');
     const [isGridView, setIsGridView] = useState(false);
 
+    useEffect(() => {
+        fetchProjects();
+    }, []);
+
     const handleDownload = () => {
         const rows = [
             ['Project Name', 'Assignees', 'Tasks', 'Total time [h]', 'Clocked time [h]', 'Manual time [h]', 'Total Costs'],
-            ...contextProjects.map(p => [
-                p.name, '12', '24', '140:00', '120:00', '20:00', '$0.00'
+            ...projects.map(p => [
+                p.projectName, p.assignees, p.tasks, p.totalTime, p.clockedTime, p.manualTime, `$${p.totalCosts}`
             ])
         ];
         const csv = rows.map(r => r.join(',')).join('\n');
@@ -69,7 +75,7 @@ export function Projects() {
 
             {/* Tabs */}
             <div className="flex items-center gap-10 mb-8 border-b border-slate-100 dark:border-slate-800">
-                {['Insightful', 'Integrated', 'Archived'].map(tab => (
+                {['Insightful', 'Integrated'].map(tab => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
@@ -150,7 +156,7 @@ export function Projects() {
                         <p className="text-sm font-bold text-slate-400 dark:text-slate-500 max-w-sm">
                             Start by integrating with a project management tool. Afterward, you can view all the projects here.
                         </p>
-                        <button 
+                        <button
                             onClick={() => window.location.href = `${rolePath}/settings/integrations/overview/project-management`}
                             className="bg-primary-600 hover:bg-primary-700 text-white px-8 py-3 rounded-lg text-xs font-black transition-all shadow-xl shadow-primary-100 dark:shadow-primary-900/20 uppercase tracking-widest mt-4"
                         >
@@ -160,61 +166,62 @@ export function Projects() {
                 </div>
             ) : (
                 <div className="space-y-6">
-                <div className="space-y-6">
-                    {/* Info Bar */}
-                    <div className="bg-[#eef8ff] dark:bg-primary-900/10 border border-primary-100 dark:border-primary-800/50 text-[#00609b] dark:text-primary-300 px-5 py-3.5 rounded-lg flex items-center gap-3 text-xs font-bold w-full shadow-sm">
-                        <Info size={18} className="text-[#0092e0] dark:text-primary-400" />
-                        <span>Choose task statuses visible to employees. <button className="hover:underline font-black text-primary-600 dark:text-primary-400">Learn More.</button></span>
-                    </div>
+                    <div className="space-y-6">
+                        {/* Info Bar */}
+                        <div className="bg-[#eef8ff] dark:bg-primary-900/10 border border-primary-100 dark:border-primary-800/50 text-[#00609b] dark:text-primary-300 px-5 py-3.5 rounded-lg flex items-center gap-3 text-xs font-bold w-full shadow-sm">
+                            <Info size={18} className="text-[#0092e0] dark:text-primary-400" />
+                            <span>Choose task statuses visible to employees. <button className="hover:underline font-black text-primary-600 dark:text-primary-400">Learn More.</button></span>
+                        </div>
 
-                    {/* Table Header */}
-                    <div className="grid grid-cols-8 px-6 py-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center border-b border-slate-100 dark:border-slate-800">
-                        {tableHeaders.map((header, idx) => (
-                            <div key={idx} className={idx === 0 ? "text-left col-span-2" : idx === 1 ? "ml-12" : "col-span-1"}>{header}</div>
-                        ))}
-                    </div>
+                        {/* Table Header */}
+                        <div className="grid grid-cols-9 px-6 py-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center border-b border-slate-100 dark:border-slate-800">
+                            {tableHeaders.map((header, idx) => (
+                                <div key={idx} className={idx === 0 ? "text-left col-span-2" : idx === 1 ? "ml-12" : "col-span-1"}>{header}</div>
+                            ))}
+                        </div>
 
-                    {/* Product Rows */}
-                    <div className={isGridView ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-3"}>
-                        {(() => {
-                            const filtered = contextProjects.filter(p => p.name.toLowerCase().includes(projectSearch.toLowerCase()));
-                            if (filtered.length === 0) {
-                                return (
-                                    <div className="flex flex-col items-center justify-center py-32 text-center col-span-full">
-                                        <h3 className="text-3xl font-black text-slate-200 dark:text-slate-800 select-none">No Projects</h3>
-                                    </div>
-                                );
-                            }
-                            return filtered.map((project, idx) => (
-                                <div key={idx} className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:shadow-md transition-all group ${
-                                    isGridView ? 'flex flex-col gap-4' : 'grid grid-cols-8 items-center'
-                                }`}>
-                                    <div className={`${isGridView ? 'w-full' : 'col-span-2'} flex items-center gap-3`}>
-                                        <div className={`h-8 w-8 rounded-lg ${project.color || 'bg-primary-500'} flex items-center justify-center text-[10px] font-black text-white`}>
-                                            {project.name.substring(0, 2).toUpperCase()}
+                        {/* Product Rows */}
+                        <div className={isGridView ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-3"}>
+                            {(() => {
+                                if (loading) return <div className="text-center py-10 font-bold text-slate-400">Loading projects...</div>;
+
+                                const filtered = projects.filter(p => (p.projectName || p.name || '').toLowerCase().includes(projectSearch.toLowerCase()));
+                                if (filtered.length === 0) {
+                                    return (
+                                        <div className="flex flex-col items-center justify-center py-32 text-center col-span-full">
+                                            <h3 className="text-3xl font-black text-slate-200 dark:text-slate-800 select-none">No Projects</h3>
                                         </div>
-                                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{project.name}</span>
+                                    );
+                                }
+                                return filtered.map((project, idx) => (
+                                    <div key={idx} className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:shadow-md transition-all group ${isGridView ? 'flex flex-col gap-4' : 'grid grid-cols-9 items-center'
+                                        }`}>
+                                        <div className={`${isGridView ? 'w-full' : 'col-span-2'} flex items-center gap-3`}>
+                                            <div className={`h-8 w-8 rounded-lg bg-primary-500 flex items-center justify-center text-[10px] font-black text-white`}>
+                                                {(project.projectName || project.name || 'PR').substring(0, 2).toUpperCase()}
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{project.projectName || project.name}</span>
+                                        </div>
+                                        <div className="col-span-1 text-center text-xs font-bold text-slate-500">{project.assignees}</div>
+                                        <div className="col-span-1 text-center text-xs font-bold text-slate-500">{project.tasks}</div>
+                                        <div className="col-span-1 text-center text-xs font-bold text-slate-500">{project.totalTime}</div>
+                                        <div className="col-span-1 text-center text-xs font-bold text-slate-500">{project.clockedTime}</div>
+                                        <div className="col-span-1 text-center text-xs font-bold text-slate-500">{project.manualTime}</div>
+                                        <div className="col-span-1 text-center text-xs font-bold text-slate-500">${project.billRate}</div>
+                                        <div className="col-span-1 text-center text-xs font-bold text-slate-900 dark:text-white">${project.totalCosts}</div>
                                     </div>
-                                    <div className="col-span-1 text-center text-xs font-bold text-slate-500">12</div>
-                                    <div className="col-span-1 text-center text-xs font-bold text-slate-500">24</div>
-                                    <div className="col-span-1 text-center text-xs font-bold text-slate-500">140:00</div>
-                                    <div className="col-span-1 text-center text-xs font-bold text-slate-500">120:00</div>
-                                    <div className="col-span-1 text-center text-xs font-bold text-slate-500">20:00</div>
-                                    <div className="col-span-1 text-center text-xs font-bold text-slate-900 dark:text-white">$0.00</div>
-                                </div>
-                            ));
-                        })()}
+                                ));
+                            })()}
+                        </div>
                     </div>
-                </div>
                 </div>
             )}
 
-            <NewProjectModal 
-                isOpen={isModalOpen} 
-                onClose={() => setIsModalOpen(false)} 
+            <NewProjectModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
                 employees={employees}
                 teams={teams}
-                onSave={addProject}
             />
         </div>
     );

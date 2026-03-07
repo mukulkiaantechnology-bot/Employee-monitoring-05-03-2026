@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock, Info, Search, ChevronDown, MapPin } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { TIMEZONE_OPTIONS } from '../store/organizationStore';
 
 export const AddManualTimeModal = ({ isOpen, onClose, onSave, employees = [] }) => {
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
     const [formData, setFormData] = useState({
-        employee: '',
-        startDate: 'February 26, 2026',
-        startTime: '06:30 PM',
-        endDate: 'February 26, 2026',
-        endTime: '06:45 PM',
-        timezone: '',
-        type: '',
-        location: '',
+        employeeId: '',
+        startDate: formattedDate,
+        startTime: '09:00 AM',
+        endDate: formattedDate,
+        endTime: '05:00 PM',
+        timezone: 'UTC+5:30 (IST)',
+        type: 'Regular',
+        location: 'Office',
         projectTask: '',
         description: ''
     });
@@ -49,12 +53,12 @@ export const AddManualTimeModal = ({ isOpen, onClose, onSave, employees = [] }) 
                         <div className="relative">
                             <select
                                 className="w-full h-12 pl-4 pr-10 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 font-medium appearance-none focus:border-primary-500 outline-none transition-all"
-                                value={formData.employee}
-                                onChange={(e) => setFormData({ ...formData, employee: e.target.value })}
+                                value={formData.employeeId}
+                                onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
                             >
                                 <option value="">Select employee from the list</option>
                                 {employees.map(emp => (
-                                    <option key={emp.id} value={emp.name}>{emp.name}</option>
+                                    <option key={emp.id} value={emp.id}>{emp.fullName || emp.name}</option>
                                 ))}
                             </select>
                             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -69,8 +73,8 @@ export const AddManualTimeModal = ({ isOpen, onClose, onSave, employees = [] }) 
                                 <input
                                     type="text"
                                     value={formData.startDate}
+                                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                                     className="w-full h-12 pl-4 pr-10 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 font-bold focus:border-primary-500 outline-none transition-all"
-                                    readOnly
                                 />
                                 <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                             </div>
@@ -81,8 +85,8 @@ export const AddManualTimeModal = ({ isOpen, onClose, onSave, employees = [] }) 
                                 <input
                                     type="text"
                                     value={formData.startTime}
+                                    onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
                                     className="w-full h-12 pl-4 pr-10 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 font-bold focus:border-primary-500 outline-none transition-all"
-                                    readOnly
                                 />
                                 <Clock className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                             </div>
@@ -93,8 +97,8 @@ export const AddManualTimeModal = ({ isOpen, onClose, onSave, employees = [] }) 
                                 <input
                                     type="text"
                                     value={formData.endDate}
+                                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                                     className="w-full h-12 pl-4 pr-10 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 font-bold focus:border-primary-500 outline-none transition-all"
-                                    readOnly
                                 />
                                 <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                             </div>
@@ -105,8 +109,8 @@ export const AddManualTimeModal = ({ isOpen, onClose, onSave, employees = [] }) 
                                 <input
                                     type="text"
                                     value={formData.endTime}
+                                    onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
                                     className="w-full h-12 pl-4 pr-10 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-200 font-bold focus:border-primary-500 outline-none transition-all"
-                                    readOnly
                                 />
                                 <Clock className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                             </div>
@@ -119,14 +123,17 @@ export const AddManualTimeModal = ({ isOpen, onClose, onSave, employees = [] }) 
                             Employee's Timezone <Info size={14} className="text-slate-400" />
                         </label>
                         <div className="relative">
-                            <input
-                                type="text"
-                                placeholder="Search timezone"
-                                className="w-full h-12 pl-4 pr-10 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 font-medium dark:text-slate-200 focus:border-primary-500 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                            <select
+                                className="w-full h-12 pl-4 pr-10 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-500 dark:text-slate-400 font-medium appearance-none focus:border-primary-500 outline-none transition-all"
                                 value={formData.timezone}
                                 onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
-                            />
-                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                            >
+                                <option value="">Select timezone from the list</option>
+                                {TIMEZONE_OPTIONS.map(tz => (
+                                    <option key={tz} value={tz}>{tz}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
                         </div>
                     </div>
 
@@ -140,6 +147,10 @@ export const AddManualTimeModal = ({ isOpen, onClose, onSave, employees = [] }) 
                                 onChange={(e) => setFormData({ ...formData, type: e.target.value })}
                             >
                                 <option value="">Select type from the list</option>
+                                <option value="Regular">Regular</option>
+                                <option value="Overtime">Overtime</option>
+                                <option value="Sickness">Sickness</option>
+                                <option value="Vacation">Vacation</option>
                             </select>
                             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
                         </div>
@@ -157,6 +168,9 @@ export const AddManualTimeModal = ({ isOpen, onClose, onSave, employees = [] }) 
                                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                             >
                                 <option value="">Select location from the list</option>
+                                <option value="Office">Office</option>
+                                <option value="Remote">Remote</option>
+                                <option value="On-site">On-site</option>
                             </select>
                             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
                         </div>

@@ -34,7 +34,7 @@ import { GlobalCalendar } from '../components/GlobalCalendar';
 import { NewProjectModal } from '../components/NewProjectModal';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { performanceKPIs, projectProductivity, workLogs as mockLogs } from '../data/mockData';
+import { performanceKPIs as mockKPIs, projectProductivity as mockProjectProd, workLogs as mockLogs } from '../data/mockData'; // Fallbacks if needed
 import { useRealTime } from '../hooks/RealTimeContext';
 import {
     BarChart,
@@ -65,7 +65,8 @@ const CreateTaskModal = ({ isOpen, onClose, onSave, defaultStatus = 'To Do', emp
     const [priority, setPriority] = useState('Medium');
     const [dueDate, setDueDate] = useState('');
     const [status, setStatus] = useState(defaultStatus);
-    const [selectedProject, setSelectedProject] = useState('Internal');
+    const [selectedProjectId, setSelectedProjectId] = useState('');
+    const [assigneeId, setAssigneeId] = useState('');
     const [showSuggestions, setShowSuggestions] = useState(false);
 
     useEffect(() => {
@@ -82,7 +83,17 @@ const CreateTaskModal = ({ isOpen, onClose, onSave, defaultStatus = 'To Do', emp
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSave({ title, assignee, priority, dueDate, status, project: selectedProject });
+        const project = projects.find(p => p.id === selectedProjectId);
+        onSave({ 
+            title, 
+            assignee, 
+            assigneeId,
+            priority, 
+            dueDate, 
+            status, 
+            project: project ? project.name : 'Internal',
+            projectId: selectedProjectId 
+        });
         onClose();
         setTitle('');
         setDueDate('');
@@ -124,12 +135,13 @@ const CreateTaskModal = ({ isOpen, onClose, onSave, defaultStatus = 'To Do', emp
                                             key={e.id}
                                             onClick={() => {
                                                 setAssignee(e.name);
+                                                setAssigneeId(e.id);
                                                 setShowSuggestions(false);
                                             }}
                                             className="p-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 cursor-pointer flex items-center gap-2 transition-colors"
                                         >
                                             <div className="h-6 w-6 rounded-full bg-slate-200 overflow-hidden flex-shrink-0">
-                                                <img src={`https://i.pravatar.cc/150?u=${e.name}`} alt="" className="h-full w-full object-cover" />
+                                                <img src={e.avatar || `https://i.pravatar.cc/150?u=${e.name}`} alt="" className="h-full w-full object-cover" />
                                             </div>
                                             <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{e.name}</span>
                                         </div>
@@ -167,13 +179,14 @@ const CreateTaskModal = ({ isOpen, onClose, onSave, defaultStatus = 'To Do', emp
                     <div>
                         <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Project</label>
                         <select
-                            value={selectedProject}
-                            onChange={e => setSelectedProject(e.target.value)}
+                            value={selectedProjectId}
+                            onChange={e => setSelectedProjectId(e.target.value)}
                             className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm"
+                            required
                         >
-                            <option value="Internal">Internal</option>
+                            <option value="">Select a project...</option>
                             {projects.map(p => (
-                                <option key={p.id} value={p.name}>{p.name}</option>
+                                <option key={p.id} value={p.id}>{p.name}</option>
                             ))}
                         </select>
                     </div>
@@ -408,7 +421,7 @@ const KanbanColumn = ({ title, tasks, status, color, onAdd, updateTaskStatus }) 
                     const getCardStyle = (status) => {
                         const baseStyle = "border-[1.5px] rounded-[16px] transition-all duration-300";
                         switch (status) {
-                            case 'Pending': // Backlog (Light Gray)
+                            case 'To Do': // Backlog (Light Gray)
                                 return `${baseStyle} border-slate-200 shadow-[0_0_0_1px_rgba(226,232,240,0.15)] hover:shadow-[0_6px_18px_rgba(226,232,240,0.18)]`;
 
                             case 'In Progress': // Operations (Blue)
@@ -466,7 +479,7 @@ const KanbanColumn = ({ title, tasks, status, color, onAdd, updateTaskStatus }) 
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        const nextStatus = status === 'To Do' ? 'In Progress' : status === 'In Progress' ? 'Review' : 'Completed';
+                                        const nextStatus = status === 'To Do' ? 'In Progress' : status === 'In Progress' ? 'Review' : status === 'Review' ? 'Completed' : 'Completed';
                                         if (status !== 'Completed') updateTaskStatus(task.id, nextStatus);
                                     }}
                                     disabled={status === 'Completed'}
@@ -496,7 +509,7 @@ const KanbanColumn = ({ title, tasks, status, color, onAdd, updateTaskStatus }) 
 // --- Content Page Implementation ---
 
 export function TasksProjects() {
-    const { tasks, projects, timeEntries, addProject, updateTaskStatus, addTask: contextAddTask, addNotification, employees, teams: contextTeams } = useRealTime();
+    const { tasks, projects, timeEntries, addProject, updateTaskStatus, addTask: contextAddTask, addNotification, employees, teams: contextTeams, stats, deleteTask } = useRealTime();
 
     // Board, Logs, Projects (Time Tracking + Productivity), Performance (KPIs), Goals
     const [activeTab, setActiveTab] = useState('board');
@@ -567,7 +580,7 @@ export function TasksProjects() {
 
     const handleSaveTask = (taskData) => {
         contextAddTask(taskData);
-        addNotification(`Task "${taskData.title}" added`, 'success');
+        // addNotification is already handled in Context for async success/fail
     };
 
     const handleSaveGoal = (goalData) => {
@@ -593,20 +606,79 @@ export function TasksProjects() {
 
     const getTasksByStatus = (status) => filteredTasks.filter(t => t.status === status || (status === 'To Do' && t.status === 'Pending'));
 
-    // Performance Charts Data
-    const radarData = [
-        { subject: 'Code Quality', A: 92, fullMark: 100 },
-        { subject: 'Velocity', A: 85, fullMark: 100 },
-        { subject: 'Communication', A: 95, fullMark: 100 },
-        { subject: 'Reliability', A: 88, fullMark: 100 },
-        { subject: 'Leadership', A: 78, fullMark: 100 },
-        { subject: 'Punctuality', A: 90, fullMark: 100 },
-    ];
+    // 1. Calculate dynamic performance metrics
+    
+    // Performance derived stats
+    const derivedStats = useMemo(() => {
+        const completedTasks = tasks.filter(t => t.status === 'Completed').length;
+        const totalProductivity = stats?.empMetrics?.reduce((acc, emp) => acc + (emp.productivityScore || 0), 0) || 0;
+        const avgProductivity = stats?.empMetrics?.length > 0 ? (totalProductivity / stats.empMetrics.length).toFixed(1) : '0';
+        const totalBillableHours = stats?.empMetrics?.reduce((acc, emp) => acc + (emp.productiveHours || 0), 0) || 0;
+        const projectMilestones = projects.length;
 
-    const productivityChartData = [
+        return {
+            completedTasks,
+            avgProductivity,
+            totalBillableHours: totalBillableHours.toFixed(1),
+            projectMilestones: String(projectMilestones).padStart(2, '0')
+        };
+    }, [tasks, projects, stats]);
+
+    // Enhanced Performance KPIs for the table
+    const enhancedPerformanceKPIs = useMemo(() => {
+        if (!stats?.empMetrics) return [];
+        return stats.empMetrics.map(emp => ({
+            id: emp.id,
+            employee: emp.name,
+            avatar: emp.avatar,
+            reliability: Math.round(emp.utilization || 85),
+            timeliness: Math.round(90 + Math.random() * 8), // Placeholder for now
+            productivity: Math.round(emp.productivity || 80),
+            overall: Math.round((emp.productivity + emp.utilization + 90) / 3),
+            role: emp.role || 'Contributor'
+        })).sort((a, b) => b.overall - a.overall);
+    }, [stats?.empMetrics]);
+
+    // Dynamic Radar Data
+    const radarData = useMemo(() => {
+        if (!stats?.empMetrics || stats.empMetrics.length === 0) {
+            return [
+                { subject: 'Code Quality', A: 90, fullMark: 100 },
+                { subject: 'Velocity', A: 85, fullMark: 100 },
+                { subject: 'Communication', A: 92, fullMark: 100 },
+                { subject: 'Reliability', A: 88, fullMark: 100 },
+                { subject: 'Leadership', A: 80, fullMark: 100 },
+                { subject: 'Punctuality', A: 90, fullMark: 100 },
+            ];
+        }
+
+        const avgProd = stats.empMetrics.reduce((a, b) => a + (b.productivity || 0), 0) / stats.empMetrics.length;
+        const avgUtil = stats.empMetrics.reduce((a, b) => a + (b.utilization || 0), 0) / stats.empMetrics.length;
+
+        return [
+            { subject: 'Quality', A: Math.round(avgProd * 0.95), fullMark: 100 },
+            { subject: 'Velocity', A: Math.round(avgProd), fullMark: 100 },
+            { subject: 'Communication', A: 94, fullMark: 100 },
+            { subject: 'Reliability', A: Math.round(avgUtil), fullMark: 100 },
+            { subject: 'Output', A: Math.round((avgProd + avgUtil) / 2), fullMark: 100 },
+            { subject: 'Punctuality', A: 92, fullMark: 100 },
+        ];
+    }, [stats?.empMetrics]);
+
+    const productivityChartData = stats?.productivityTrend || [
         { name: 'Mon', value: 85 }, { name: 'Tue', value: 92 }, { name: 'Wed', value: 78 },
         { name: 'Thu', value: 95 }, { name: 'Fri', value: 88 }, { name: 'Sat', value: 45 }, { name: 'Sun', value: 40 }
     ];
+
+    // Dynamic Project Productivity
+    const dynamicProjectProductivity = useMemo(() => {
+        if (projects.length === 0) return projectProductivity;
+        return projects.map(p => ({
+            name: p.name,
+            timeSpent: p.taskCount * 2, // Estimated
+            productivityScore: Math.round(85 + Math.random() * 10)
+        })).slice(0, 3);
+    }, [projects]);
 
     return (
         <div className="space-y-6 md:space-y-8 pb-32 animate-fade-in px-4 md:px-0 max-w-full overflow-x-hidden box-border">
@@ -654,10 +726,10 @@ export function TasksProjects() {
 
             {/* Global Context Stats */}
             <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-                <KPICard title="Tasks Completed" value={tasks.filter(t => t.status === 'Completed').length} subValue="Across 12 Active Chains" trend={14} icon={CheckSquare} color="bg-indigo-600 shadow-indigo-200" delay="0ms" />
-                <KPICard title="Productivity Index" value="94.2%" subValue="Global Average Score" trend={4.2} icon={Zap} color="bg-amber-500 shadow-amber-200" delay="100ms" />
-                <KPICard title="Billable Resources" value="1.2k" subValue="Logged Hours this cycle" trend={-2} icon={Clock} color="bg-blue-600 shadow-blue-200" delay="200ms" />
-                <KPICard title="Project Milestones" value="08" subValue="Next 72 Hours Projection" trend={12} icon={Target} color="bg-purple-600 shadow-purple-200" delay="300ms" />
+                <KPICard title="Tasks Completed" value={derivedStats.completedTasks} subValue={`Across ${tasks.length} Active Tasks`} trend={14} icon={CheckSquare} color="bg-indigo-600 shadow-indigo-200" delay="0ms" />
+                <KPICard title="Productivity Index" value={`${derivedStats.avgProductivity}%`} subValue="Global Average Score" trend={4.2} icon={Zap} color="bg-amber-500 shadow-amber-200" delay="100ms" />
+                <KPICard title="Billable Resources" value={`${derivedStats.totalBillableHours}h`} subValue="Logged Hours today" trend={-2} icon={Clock} color="bg-blue-600 shadow-blue-200" delay="200ms" />
+                <KPICard title="Project Milestones" value={derivedStats.projectMilestones} subValue="Active Client Projects" trend={12} icon={Target} color="bg-purple-600 shadow-purple-200" delay="300ms" />
             </div>
 
             {/* Main Dynamic View */}
@@ -682,14 +754,11 @@ export function TasksProjects() {
                                 <Plus size={18} strokeWidth={3} />
                                 <span>Assign Task</span>
                             </button>
-                            <button onClick={() => setIsProjectModalOpen(true)} className="h-14 md:h-16 px-6 md:px-10 bg-indigo-600 text-white rounded-[1.25rem] md:rounded-[1.75rem] font-black text-[10px] md:text-xs uppercase tracking-widest shadow-xl hover:scale-102 active:scale-95 transition-all flex items-center justify-center gap-3">
-                                <Briefcase size={18} strokeWidth={3} />
-                                <span>New Project</span>
-                            </button>
+                          
                         </div>
 
                         <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4 pb-10 w-full">
-                            <KanbanColumn title="Backlog" tasks={getTasksByStatus('To Do')} status="Pending" color="bg-slate-200" updateTaskStatus={updateTaskStatus} />
+                            <KanbanColumn title="Backlog" tasks={getTasksByStatus('To Do')} status="To Do" color="bg-slate-200" updateTaskStatus={updateTaskStatus} />
                             <KanbanColumn title="In Operations" tasks={getTasksByStatus('In Progress')} status="In Progress" color="bg-blue-500" updateTaskStatus={updateTaskStatus} />
                             <KanbanColumn title="Quality Assurance" tasks={getTasksByStatus('Review')} status="Review" color="bg-amber-400" updateTaskStatus={updateTaskStatus} />
                             <KanbanColumn title="Finalized" tasks={getTasksByStatus('Completed')} status="Completed" color="bg-emerald-500" updateTaskStatus={updateTaskStatus} />
@@ -790,7 +859,7 @@ export function TasksProjects() {
                                 <h3 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white mb-6 md:mb-8">Intelligence By Client</h3>
                                 <div className="h-[400px]">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={projectProductivity} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                                        <BarChart data={dynamicProjectProductivity} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                             <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', fill: '#94a3b8' }} dy={20} />
                                             <YAxis hide />
@@ -799,7 +868,7 @@ export function TasksProjects() {
                                                 contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', padding: '20px' }}
                                             />
                                             <Bar dataKey="productivityScore" name="Score Index" radius={[12, 12, 0, 0]} barSize={40}>
-                                                {projectProductivity.map((entry, index) => (
+                                                {dynamicProjectProductivity.map((entry, index) => (
                                                     <Cell key={`cell-${index}`} fill={['#6366f1', '#8b5cf6', '#10b981'][index % 3]} />
                                                 ))}
                                             </Bar>
@@ -807,7 +876,7 @@ export function TasksProjects() {
                                     </ResponsiveContainer>
                                 </div>
                                 <div className="grid grid-cols-3 gap-6 mt-10">
-                                    {projectProductivity.map((p, idx) => (
+                                    {dynamicProjectProductivity.map((p, idx) => (
                                         <div key={p.name} className="flex flex-col gap-2">
                                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{p.name}</span>
                                             <div className="flex items-end gap-2 text-2xl font-black text-slate-900 dark:text-white">
@@ -826,7 +895,7 @@ export function TasksProjects() {
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                             <Pie
-                                                data={projectProductivity}
+                                                data={dynamicProjectProductivity}
                                                 cx="50%" cy="50%"
                                                 innerRadius={80}
                                                 outerRadius={140}
@@ -834,7 +903,7 @@ export function TasksProjects() {
                                                 dataKey="timeSpent"
                                                 nameKey="name"
                                             >
-                                                {projectProductivity.map((entry, index) => (
+                                                {dynamicProjectProductivity.map((entry, index) => (
                                                     <Cell key={`cell-${index}`} fill={['#6366f1', '#f59e0b', '#10b981'][index % 3]} className="outline-none" />
                                                 ))}
                                             </Pie>
@@ -914,16 +983,16 @@ export function TasksProjects() {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                                            {performanceKPIs.map(kpi => (
+                                            {enhancedPerformanceKPIs.map(kpi => (
                                                 <tr key={kpi.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-all">
                                                     <td className="px-10 py-6">
                                                         <div className="flex items-center gap-4">
                                                             <div className="h-12 w-12 rounded-[1rem] bg-slate-100 overflow-hidden shadow-lg border-2 border-white dark:border-slate-800 transition-transform group-hover:scale-110">
-                                                                <img src={`https://i.pravatar.cc/150?u=${kpi.employee}`} alt={kpi.employee} className="h-full w-full object-cover" />
+                                                                <img src={kpi.avatar || `https://i.pravatar.cc/150?u=${kpi.employee}`} alt={kpi.employee} className="h-full w-full object-cover" />
                                                             </div>
                                                             <div className="flex flex-col">
                                                                 <span className="text-sm font-black text-slate-900 dark:text-white leading-tight">{kpi.employee}</span>
-                                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Lead Ops</span>
+                                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{kpi.role}</span>
                                                             </div>
                                                         </div>
                                                     </td>
