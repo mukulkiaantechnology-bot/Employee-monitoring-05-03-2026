@@ -25,7 +25,8 @@ import {
     Loader2,
     Zap
 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import usePayrollStore from '../store/payrollStore';
 import { FilterDropdown } from '../components/FilterDropdown';
 import { GlobalCalendar } from '../components/GlobalCalendar';
 import { useRealTime } from '../hooks/RealTimeContext';
@@ -152,7 +153,7 @@ const StatCard = ({ title, value, subValue, icon: Icon, color, trend }) => (
     </div>
 );
 
-// Mock Data for Charts
+// Mock Data for Charts (Restored)
 const earningsData = [
     { month: 'Jan', earnings: 45000, hours: 1200 },
     { month: 'Feb', earnings: 48000, hours: 1250 },
@@ -162,15 +163,19 @@ const earningsData = [
     { month: 'Jun', earnings: 55000, hours: 1400 },
 ];
 
-const invoices = [
-    { id: 'INV-001', client: 'Acme Corp', amount: '$12,500', date: '2026-02-10', status: 'Paid' },
-    { id: 'INV-002', client: 'Globex Inc', amount: '$8,200', date: '2026-02-12', status: 'Pending' },
-    { id: 'INV-003', client: 'Soylent Corp', amount: '$4,500', date: '2026-02-14', status: 'Draft' },
-    { id: 'INV-004', client: 'Umbrella Corp', amount: '$15,000', date: '2026-02-15', status: 'Sent' },
-];
-
 export function Payroll() {
-    const { employees, timeEntries, addNotification } = useRealTime();
+    const { employees, addNotification } = useRealTime();
+    const { 
+        summary, 
+        records: payrollTimesheets, 
+        invoices: storeInvoices, 
+        fetchSummary, 
+        fetchRecords, 
+        fetchInvoices,
+        createInvoice,
+        loading 
+    } = usePayrollStore();
+
     const [selectedPayslip, setSelectedPayslip] = useState(null);
     const [activeTab, setActiveTab] = useState('payroll'); // payroll, invoices
     const [searchQuery, setSearchQuery] = useState('');
@@ -184,6 +189,46 @@ export function Payroll() {
     });
     const [connectingService, setConnectingService] = useState(null);
     const [connectionStep, setConnectionStep] = useState('idle');
+
+    useEffect(() => {
+        fetchSummary();
+        fetchRecords();
+        fetchInvoices();
+    }, [fetchSummary, fetchRecords, fetchInvoices]);
+
+    const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+    const [newInvoice, setNewInvoice] = useState({
+        clientName: '',
+        clientEmail: '',
+        amount: '',
+        dueDate: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split('T')[0],
+        notes: ''
+    });
+
+    const handleCreateInvoice = async () => {
+        if (!newInvoice.clientName || !newInvoice.amount) {
+            addNotification("Client name and amount are required", "alert");
+            return;
+        }
+
+        const res = await createInvoice({
+            ...newInvoice,
+            amount: parseFloat(newInvoice.amount)
+        });
+        if (res.success) {
+            setIsInvoiceModalOpen(false);
+            setNewInvoice({
+                clientName: '',
+                clientEmail: '',
+                amount: '',
+                dueDate: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split('T')[0],
+                notes: ''
+            });
+            addNotification("Invoice created successfully", "success");
+        } else {
+            addNotification(res.error || "Failed to create invoice", "alert");
+        }
+    };
 
     const handleIntegrationFinish = () => {
         setConnectingService(null);
@@ -199,70 +244,6 @@ export function Payroll() {
             addNotification(`${id.charAt(0).toUpperCase() + id.slice(1)} connected successfully!`, "success");
         }, 2500);
     };
-
-    // Derived Payroll Data
-    const payrollTimesheets = useMemo(() => {
-        return employees.map(emp => {
-            const empEntries = timeEntries.filter(e => e.employee === emp.name || (e.employee === 'You' && emp.id === 0));
-            let totalSeconds = empEntries.reduce((acc, entry) => {
-                if (!entry || !entry.duration) return acc;
-
-                // Support HH:MM:SS format
-                if (entry.duration.includes(':')) {
-                    const parts = entry.duration.split(':');
-                    if (parts.length === 3) return acc + parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]);
-                    if (parts.length === 2) return acc + parseInt(parts[0]) * 60 + parseInt(parts[1]);
-                }
-
-                // Support "Xh Ym" format
-                if (entry.duration.includes('h') || entry.duration.includes('m')) {
-                    const hMatch = entry.duration.match(/(\d+)h/);
-                    const mMatch = entry.duration.match(/(\d+)m/);
-                    const h = hMatch ? parseInt(hMatch[1]) : 0;
-                    const m = mMatch ? parseInt(mMatch[1]) : 0;
-                    return acc + (h * 3600) + (m * 60);
-                }
-
-                return acc;
-            }, 0);
-
-            // Simulation Fallback: If no real hours, provide realistic monthly hours for demo
-            let totalHours = Math.round((totalSeconds / 3600) * 100) / 100;
-            if (totalHours === 0) {
-                // Generate a consistent "random" number based on employee name
-                const seed = emp.name.length + emp.id;
-                totalHours = 140 + (seed % 40);
-            }
-
-            // Salary Calculation
-            const role = (emp.role || '').toLowerCase();
-            const isSenior = role.includes('senior') || role.includes('lead') || role.includes('architect') || role.includes('vp') || role.includes('director');
-            const baseRate = isSenior ? 65 + (emp.id % 20) : 45 + (emp.id % 15);
-
-            const overTimeThreshold = 160;
-            const overTime = Math.max(0, totalHours - overTimeThreshold);
-            const regularHours = totalHours - overTime;
-
-            const grossPayValue = (regularHours * baseRate) + (overTime * baseRate * 1.5);
-            const grossPay = `$${Math.round(grossPayValue).toLocaleString()}`;
-            const status = totalHours > 0 ? 'Ready' : 'Pending';
-
-            return {
-                id: emp.id,
-                employee: emp.name,
-                role: emp.role,
-                period: 'Feb 1 - Feb 28, 2026',
-                totalHours: totalHours,
-                overTime: Math.round(overTime * 10) / 10,
-                hourlyRate: baseRate,
-                grossPay: grossPay,
-                grossPayValue: grossPayValue,
-                deductions: grossPayValue * 0.2, // 20% Tax Simulation
-                netPay: grossPayValue * 0.8,
-                status: status
-            };
-        });
-    }, [employees, timeEntries]);
 
     const filteredPayroll = useMemo(() => {
         return payrollTimesheets.filter(row =>
@@ -291,10 +272,10 @@ export function Payroll() {
         const rows = payrollTimesheets.map(p => [
             p.employee,
             p.role,
-            p.period,
+            p.period || 'Current',
             `${p.totalHours}h`,
-            `${p.overTime}h`,
-            p.grossPay.replace('$', '').replace(',', ''),
+            `${p.overTime || 0}h`,
+            typeof p.grossPay === 'string' ? p.grossPay.replace('$', '').replace(',', '') : p.grossPay,
             p.status
         ]);
 
@@ -316,12 +297,12 @@ export function Payroll() {
         const rows = [
             ['Employee', payslip.employee],
             ['Role', payslip.role],
-            ['Period', payslip.period],
+            ['Period', payslip.period || 'Current'],
             ['Total Hours', `${payslip.totalHours}h`],
-            ['Overtime', `${payslip.overTime}h`],
-            ['Gross Pay', `$${payslip.grossPayValue.toLocaleString()}`],
-            ['Deductions', `-$${payslip.deductions.toLocaleString()}`],
-            ['Net Payable', `$${payslip.netPay.toLocaleString()}`],
+            ['Overtime', `${payslip.overTime || 0}h`],
+            ['Gross Pay', typeof payslip.grossPay === 'string' ? payslip.grossPay : `$${payslip.grossPay?.toLocaleString()}`],
+            ['Deductions', payslip.deductions ? `-$${payslip.deductions.toLocaleString()}` : '-$0'],
+            ['Net Payable', payslip.netPay ? `$${payslip.netPay.toLocaleString()}` : (typeof payslip.grossPay === 'string' ? payslip.grossPay : `$${payslip.grossPay?.toLocaleString()}`)],
             ['Status', payslip.status]
         ];
 
@@ -330,7 +311,7 @@ export function Payroll() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.setAttribute("href", url);
-        link.setAttribute("download", `payslip_${payslip.employee.replace(/\s+/g, '_')}_${payslip.period.replace(/\s+/g, '_')}.csv`);
+        link.setAttribute("download", `payslip_${payslip.employee.replace(/\s+/g, '_')}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -340,10 +321,20 @@ export function Payroll() {
 
     // Calculate Stats
     const stats = useMemo(() => {
-        const totalGross = payrollTimesheets.reduce((acc, p) => acc + p.grossPayValue, 0);
-        const avgRate = payrollTimesheets.length > 0 ? totalGross / payrollTimesheets.reduce((acc, p) => acc + p.totalHours, 0) : 0;
-        const totalOutstanding = invoices.filter(i => i.status !== 'Paid').reduce((acc, i) => acc + parseInt(i.amount.replace(/[^0-9]/g, '')), 0);
-        const totalProfit = (totalGross * 1.6) - totalGross; // Simple 60% markup simulation
+        if (summary) {
+            return {
+                totalPayroll: `$${Math.round(summary.totalPayroll).toLocaleString()}`,
+                avgHourly: `$${Math.round(summary.avgHourlyRate * 10) / 10}`,
+                outstanding: `$${storeInvoices.filter(i => i.status !== 'PAID').reduce((acc, i) => acc + i.amount, 0).toLocaleString()}`,
+                profit: `$${Math.round(summary.totalPayroll * 0.6).toLocaleString()}`
+            };
+        }
+
+        const totalGross = payrollTimesheets.reduce((acc, p) => acc + (p.grossPayValue || p.grossPay || 0), 0);
+        const totalHours = payrollTimesheets.reduce((acc, p) => acc + (p.totalHours || 0), 0);
+        const avgRate = totalHours > 0 ? totalGross / totalHours : 0;
+        const totalOutstanding = storeInvoices.filter(i => i.status !== 'PAID').reduce((acc, i) => acc + (i.amount || 0), 0);
+        const totalProfit = totalGross * 0.6; // Simple 60% markup simulation
 
         return {
             totalPayroll: `$${Math.round(totalGross).toLocaleString()}`,
@@ -351,7 +342,7 @@ export function Payroll() {
             outstanding: `$${totalOutstanding.toLocaleString()}`,
             profit: `$${Math.round(totalProfit).toLocaleString()}`
         };
-    }, [payrollTimesheets, invoices]);
+    }, [payrollTimesheets, storeInvoices, summary]);
 
     return (
         <div className="space-y-6 pb-20 max-w-full overflow-x-hidden box-border px-4 md:px-0">
@@ -389,9 +380,9 @@ export function Payroll() {
 
             {/* Stats Overview */}
             <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 animate-slide-up">
-                <StatCard title="Total Payroll" value={stats.totalPayroll} subValue="Next run: Feb 28" trend={5.2} icon={DollarSign} color="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20" />
-                <StatCard title="Avg Hourly Rate" value={stats.avgHourly} subValue={`Across ${employees.length} Staff`} trend={1.2} icon={Clock} color="bg-blue-50 text-blue-600 dark:bg-blue-900/20" />
-                <StatCard title="Outstanding Invoices" value={stats.outstanding} subValue={`${invoices.filter(i => i.status !== 'Paid').length} Clients Pending`} trend={-8} icon={Receipt} color="bg-amber-50 text-amber-600 dark:bg-amber-900/20" />
+                <StatCard title="Total Payroll" value={stats.totalPayroll} subValue="Next run: Feb 28" trend={summary?.trend || 5.2} icon={DollarSign} color="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20" />
+                <StatCard title="Avg Hourly Rate" value={stats.avgHourly} subValue={`Across ${employees.length} Staff`} trend={summary?.avgRateTrend || 1.2} icon={Clock} color="bg-blue-50 text-blue-600 dark:bg-blue-900/20" />
+                <StatCard title="Outstanding Invoices" value={stats.outstanding} subValue={`${storeInvoices.filter(i => i.status !== 'PAID').length} Clients Pending`} trend={-8} icon={Receipt} color="bg-amber-50 text-amber-600 dark:bg-amber-900/20" />
                 <StatCard title="Net Profit est." value={stats.profit} subValue="Based on 60% Margin" trend={12} icon={TrendingUp} color="bg-purple-50 text-purple-600 dark:bg-purple-900/20" />
             </div>
 
@@ -503,7 +494,7 @@ export function Payroll() {
                                             </td>
                                             <td className="px-0 py-1.5 md:px-6 md:py-4 text-[11px] md:text-sm font-bold text-slate-400 md:text-slate-500 block md:table-cell">
                                                 <span className="md:hidden opacity-50 uppercase mr-2 text-[9px]">Period:</span>
-                                                {row.period}
+                                                {row.period || 'Current'}
                                             </td>
                                             <td className="px-0 py-1.5 md:px-6 md:py-4 block md:table-cell">
                                                 <div className="flex items-center md:block gap-2">
@@ -512,9 +503,9 @@ export function Payroll() {
                                                     {row.overTime > 0 && <div className="text-[10px] text-amber-500 font-black uppercase md:tracking-tighter">{row.overTime}h OT</div>}
                                                 </div>
                                             </td>
-                                            <td className="px-0 py-1.5 md:px-6 md:py-4 text-sm font-black md:font-bold text-slate-900 dark:text-slate-300 block md:table-cell">
+                                             <td className="px-0 py-1.5 md:px-6 md:py-4 text-sm font-black md:font-bold text-slate-900 dark:text-slate-300 block md:table-cell">
                                                 <span className="md:hidden opacity-50 uppercase mr-2 text-[9px] font-bold">Gross:</span>
-                                                {row.grossPay}
+                                                {typeof row.grossPay === 'string' ? row.grossPay : `$${Math.round(row.grossPay || 0).toLocaleString()}`}
                                             </td>
                                             <td className="px-0 py-2 md:px-6 md:py-4 block md:table-cell">
                                                 <span className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 md:px-2.5 md:py-1 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest md:tracking-wide", row.status === 'Ready'
@@ -587,29 +578,34 @@ export function Payroll() {
                     <div className="lg:col-span-2 rounded-[2rem] border border-slate-200 bg-white p-4 md:p-6 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
                         <h3 className="text-base md:text-lg font-bold mb-6">Recent Invoices</h3>
                         <div className="space-y-3 md:space-y-4">
-                            {invoices.map(inv => (
+                            {storeInvoices.map(inv => (
                                 <div key={inv.id} className="flex flex-row items-center justify-between p-3 md:p-4 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-slate-300 transition-all bg-slate-50/50 dark:bg-slate-800/30 group">
                                     <div className="flex items-center gap-3 md:gap-4 truncate">
                                         <div className="h-10 w-10 md:h-10 md:w-10 shrink-0 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400">
                                             <FileText size={20} />
                                         </div>
                                         <div className="truncate">
-                                            <h4 className="font-bold text-sm md:text-base text-slate-900 dark:text-white truncate">{inv.client}</h4>
-                                            <p className="text-[10px] md:text-xs text-slate-500 font-medium">#{inv.id} • {inv.date}</p>
+                                            <h4 className="font-bold text-sm md:text-base text-slate-900 dark:text-white truncate">{inv.clientName}</h4>
+                                            <p className="text-[10px] md:text-xs text-slate-500 font-medium">#{inv.invoiceNumber || inv.id} • {new Date(inv.issueDate || inv.date).toLocaleDateString()}</p>
                                         </div>
                                     </div>
                                     <div className="text-right shrink-0 ml-4">
-                                        <p className="font-black text-sm md:text-base text-slate-900 dark:text-white">{inv.amount}</p>
+                                        <p className="font-black text-sm md:text-base text-slate-900 dark:text-white">
+                                            {typeof inv.amount === 'string' ? inv.amount : `$${inv.amount?.toLocaleString()}`}
+                                        </p>
                                         <p className={cn("text-[9px] md:text-[10px] font-bold uppercase tracking-wider",
-                                            inv.status === 'Paid' ? "text-emerald-500" :
-                                                inv.status === 'Pending' ? "text-amber-500" :
-                                                    inv.status === 'Sent' ? "text-blue-500" : "text-slate-400"
+                                            inv.status === 'PAID' ? "text-emerald-500" :
+                                                inv.status === 'PENDING' ? "text-amber-500" :
+                                                    inv.status === 'SENT' ? "text-blue-500" : "text-slate-400"
                                         )}>{inv.status}</p>
                                     </div>
                                 </div>
                             ))}
                         </div>
-                        <button className="w-full mt-6 py-4 md:py-3 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-400 font-bold hover:border-primary-500 hover:text-primary-600 transition-all flex items-center justify-center gap-2 text-xs md:text-sm">
+                        <button 
+                            onClick={() => setIsInvoiceModalOpen(true)}
+                            className="w-full mt-6 py-4 md:py-3 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-slate-400 font-bold hover:border-primary-500 hover:text-primary-600 transition-all flex items-center justify-center gap-2 text-xs md:text-sm"
+                        >
                             <Plus size={18} /> Create New Invoice
                         </button>
                     </div>
@@ -664,6 +660,80 @@ export function Payroll() {
                 onClose={handleIntegrationFinish}
             />
 
+            {/* Create Invoice Modal */}
+            {isInvoiceModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-[2rem] p-6 md:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 animate-in zoom-in slide-in-from-bottom-4 duration-300">
+                        <div className="flex items-center justify-between mb-8 pb-6 border-b border-slate-100 dark:border-slate-800">
+                            <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Create New Invoice</h3>
+                            <button onClick={() => setIsInvoiceModalOpen(false)} className="h-10 w-10 flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-5">
+                            <div>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Client name</label>
+                                <input 
+                                    type="text" 
+                                    placeholder="Enter client name"
+                                    className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 dark:bg-slate-800/50 focus:border-indigo-500 focus:outline-none font-bold text-sm"
+                                    value={newInvoice.clientName}
+                                    onChange={(e) => setNewInvoice({...newInvoice, clientName: e.target.value})}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Client email (Optional)</label>
+                                <input 
+                                    type="email" 
+                                    placeholder="client@example.com"
+                                    className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 dark:bg-slate-800/50 focus:border-indigo-500 focus:outline-none font-bold text-sm"
+                                    value={newInvoice.clientEmail}
+                                    onChange={(e) => setNewInvoice({...newInvoice, clientEmail: e.target.value})}
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Amount</label>
+                                    <input 
+                                        type="number" 
+                                        placeholder="0.00"
+                                        className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 dark:bg-slate-800/50 focus:border-indigo-500 focus:outline-none font-bold text-sm"
+                                        value={newInvoice.amount}
+                                        onChange={(e) => setNewInvoice({...newInvoice, amount: e.target.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Due Date</label>
+                                    <input 
+                                        type="date" 
+                                        className="w-full h-12 px-4 rounded-xl border border-slate-200 bg-slate-50 dark:bg-slate-800/50 focus:border-indigo-500 focus:outline-none font-bold text-sm"
+                                        value={newInvoice.dueDate}
+                                        onChange={(e) => setNewInvoice({...newInvoice, dueDate: e.target.value})}
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Notes</label>
+                                <textarea 
+                                    placeholder="Add any additional details..."
+                                    className="w-full h-24 p-4 rounded-xl border border-slate-200 bg-slate-50 dark:bg-slate-800/50 focus:border-indigo-500 focus:outline-none font-bold text-sm resize-none"
+                                    value={newInvoice.notes}
+                                    onChange={(e) => setNewInvoice({...newInvoice, notes: e.target.value})}
+                                />
+                            </div>
+
+                            <button 
+                                onClick={handleCreateInvoice}
+                                className="w-full py-4 mt-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.02] shadow-xl transition-all active:scale-95 dark:bg-white dark:text-slate-900"
+                            >
+                                Generate Invoice
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Payslip Modal */}
             {selectedPayslip && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
@@ -687,18 +757,18 @@ export function Payroll() {
                             <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 md:gap-4">
                                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50">
                                     <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Pay Period</p>
-                                    <p className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">{selectedPayslip.period}</p>
+                                    <p className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">{selectedPayslip.period || 'Current'}</p>
                                 </div>
                                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50">
                                     <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Payment Date</p>
-                                    <p className="text-sm font-bold text-slate-900 dark:text-white">Feb 28, 2026</p>
+                                    <p className="text-sm font-bold text-slate-900 dark:text-white">{new Date().toLocaleDateString()}</p>
                                 </div>
                             </div>
 
                             <div className="space-y-1">
                                 <div className="flex justify-between items-center py-2.5 border-b border-slate-50 dark:border-slate-800/50">
                                     <span className="text-xs md:text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">Regular Pay ({selectedPayslip.totalHours}h)</span>
-                                    <span className="text-sm font-black text-slate-900 dark:text-white">${selectedPayslip.grossPayValue.toLocaleString()}</span>
+                                    <span className="text-sm font-black text-slate-900 dark:text-white">{typeof selectedPayslip.grossPay === 'string' ? selectedPayslip.grossPay : `$${selectedPayslip.grossPay?.toLocaleString()}`}</span>
                                 </div>
                                 <div className="flex justify-between items-center py-2.5 border-b border-slate-50 dark:border-slate-800/50">
                                     <span className="text-xs md:text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">Overtime</span>
@@ -706,14 +776,14 @@ export function Payroll() {
                                 </div>
                                 <div className="flex justify-between items-center py-2.5 border-b border-slate-50 dark:border-slate-800/50 text-red-500">
                                     <span className="text-xs md:text-sm font-black uppercase tracking-tight">Tax Deductions (20%)</span>
-                                    <span className="text-sm font-black">-${selectedPayslip.deductions.toLocaleString()}</span>
+                                    <span className="text-sm font-black">-${selectedPayslip.deductions?.toLocaleString() || '0'}</span>
                                 </div>
                             </div>
 
                             <div className="p-5 md:p-6 rounded-2xl bg-slate-900 text-white flex flex-row justify-between items-center shadow-xl">
                                 <div>
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Net Payable</p>
-                                    <p className="text-2xl md:text-3xl font-black">${selectedPayslip.netPay.toLocaleString()}</p>
+                                    <p className="text-2xl md:text-3xl font-black">{selectedPayslip.netPay ? `$${selectedPayslip.netPay.toLocaleString()}` : (typeof selectedPayslip.grossPay === 'string' ? selectedPayslip.grossPay : `$${selectedPayslip.grossPay?.toLocaleString()}`)}</p>
                                 </div>
                                 <button
                                     onClick={() => handleDownloadIndividualPayslip(selectedPayslip)}

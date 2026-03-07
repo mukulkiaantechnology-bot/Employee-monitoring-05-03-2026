@@ -13,6 +13,7 @@ const projectsRoutes = require('../modules/projects/projects.routes');
 const tasksRoutes = require('../modules/tasks/tasks.routes');
 const locationRoutes = require('../modules/location/location.routes');
 const reportsRoutes = require('../modules/reports/reports.routes');
+const payrollRoutes = require('../modules/payroll/payroll.routes');
 const { successResponse } = require('../utils/response');
 
 // Routes
@@ -29,6 +30,7 @@ router.use('/projects', projectsRoutes);
 router.use('/tasks', tasksRoutes);
 router.use('/location', locationRoutes);
 router.use('/reports', reportsRoutes);
+router.use('/payroll', payrollRoutes);
 router.get('/health', (req, res) => {
     return successResponse(res, null, 'Backend Running', 200);
 });

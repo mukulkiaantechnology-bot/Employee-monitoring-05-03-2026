@@ -45,6 +45,15 @@ enum PayrollStatus {
   UNPAID
 }
 
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
 model User {
   id         String    @id @default(uuid())
   email      String    @unique
@@ -97,6 +106,7 @@ model Organization {
   locations        Location[]
   workZones        WorkZone[]
   locationLogs     LocationLog[]
+  invoices         Invoice[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -391,4 +401,22 @@ model AppUsageLog {
   createdAt      DateTime         @default(now())
 
   @@map("app_usage_logs")
+}
+model Invoice {
+  id             String        @id @default(uuid())
+  invoiceNumber  String        @unique
+  clientName     String
+  clientEmail    String?
+  amount         Float
+  currency       String        @default("USD")
+  issueDate      DateTime      @default(now())
+  dueDate        DateTime
+  status         InvoiceStatus @default(DRAFT)
+  notes          String?       @db.Text
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  organizationId String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@map("invoices")
 }
