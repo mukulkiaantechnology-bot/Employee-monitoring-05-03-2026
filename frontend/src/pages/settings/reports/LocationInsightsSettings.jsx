@@ -18,13 +18,17 @@ import {
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useLocationStore } from '../../../store/locationStore';
+import { useAuthStore } from '../../../store/authStore';
 import { AddLocationModal } from '../../../components/modals/AddLocationModal';
 import { cn } from '../../../utils/cn';
 
 export function LocationInsightsSettings() {
     const navigate = useNavigate();
+    const { role } = useAuthStore();
     const routerLocation = useLocation();
     const { locationSettings, updateThreshold, importLocations, addLocation, deleteLocation, toggleAutoDetection } = useLocationStore();
+
+    const rolePath = role ? `/${role.toLowerCase()}` : '';
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -92,8 +96,8 @@ export function LocationInsightsSettings() {
     };
 
     const tabs = [
-        { id: 'location-insights', label: 'Location Insights', icon: Building, path: '/settings/reports/location-insights' },
-        { id: 'workload-distribution', label: 'Workload Distribution', icon: PieChart, path: '/settings/reports/workload-distribution' }
+        { id: 'location-insights', label: 'Location Insights', icon: Building, path: `${rolePath}/settings/reports/location-insights` },
+        { id: 'workload-distribution', label: 'Workload Distribution', icon: PieChart, path: `${rolePath}/settings/reports/workload-distribution` }
     ];
 
     const currentTab = routerLocation.pathname.includes('workload-distribution') ? 'workload-distribution' : 'location-insights';
@@ -104,14 +108,14 @@ export function LocationInsightsSettings() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <button
-                        onClick={() => navigate('/settings')}
+                        onClick={() => navigate(`${rolePath}/settings`)}
                         className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:scale-105 shadow-sm"
                     >
                         <ChevronLeft size={20} />
                     </button>
                     <div>
                         <nav className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                            <span className="hover:text-slate-600 transition-colors cursor-pointer" onClick={() => navigate('/settings')}>Settings</span>
+                            <span className="hover:text-slate-600 transition-colors cursor-pointer" onClick={() => navigate(`${rolePath}/settings`)}>Settings</span>
                             <span>/</span>
                             <span className="text-primary-600">Reports</span>
                         </nav>

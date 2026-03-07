@@ -11,11 +11,15 @@ import {
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useReportsStore } from '../../../store/reportsStore';
+import { useAuthStore } from '../../../store/authStore';
 import { cn } from '../../../utils/cn';
 
 export function WorkloadDistributionSettings() {
     const navigate = useNavigate();
+    const { role } = useAuthStore();
     const { reportsSettings, updateWorkloadSettings, resetWorkloadSettings } = useReportsStore();
+
+    const rolePath = role ? `/${role.toLowerCase()}` : '';
 
     const [fromVal, setFromVal] = useState(reportsSettings.workloadDistribution.optimalFrom);
     const [toVal, setToVal] = useState(reportsSettings.workloadDistribution.optimalTo);
@@ -35,7 +39,7 @@ export function WorkloadDistributionSettings() {
         setShowToast(true);
         setTimeout(() => {
             setShowToast(false);
-            navigate('/reports/workload-distribution');
+            navigate(`${rolePath}/reports/workload-distribution`);
         }, 2000);
     };
 
@@ -54,8 +58,8 @@ export function WorkloadDistributionSettings() {
     };
 
     const tabs = [
-        { id: 'location-insights', label: 'Location Insights', icon: Building, path: '/settings/reports/location-insights' },
-        { id: 'workload-distribution', label: 'Workload Distribution', icon: PieChart, path: '/settings/reports/workload-distribution' }
+        { id: 'location-insights', label: 'Location Insights', icon: Building, path: `${rolePath}/settings/reports/location-insights` },
+        { id: 'workload-distribution', label: 'Workload Distribution', icon: PieChart, path: `${rolePath}/settings/reports/workload-distribution` }
     ];
 
     const currentTab = 'workload-distribution';
@@ -66,14 +70,14 @@ export function WorkloadDistributionSettings() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <button
-                        onClick={() => navigate('/settings')}
+                        onClick={() => navigate(`${rolePath}/settings`)}
                         className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:scale-105 active:scale-95 shadow-sm"
                     >
                         <ChevronLeft size={20} />
                     </button>
                     <div>
                         <nav className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                            <span className="hover:text-slate-600 transition-colors cursor-pointer" onClick={() => navigate('/settings')}>Settings</span>
+                            <span className="hover:text-slate-600 transition-colors cursor-pointer" onClick={() => navigate(`${rolePath}/settings`)}>Settings</span>
                             <span>/</span>
                             <span className="text-primary-600">Reports</span>
                         </nav>
