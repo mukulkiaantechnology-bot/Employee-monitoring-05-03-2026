@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Calendar, Filter, Download, ChevronDown, Monitor, Globe, Users2, BarChart2, User, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { reportDummyData } from '../../data/reportDummyData';
 
 // --- Local Dummy Data ---
 const categoryData = [

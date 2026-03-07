@@ -84,15 +84,15 @@ const CreateTaskModal = ({ isOpen, onClose, onSave, defaultStatus = 'To Do', emp
     const handleSubmit = (e) => {
         e.preventDefault();
         const project = projects.find(p => p.id === selectedProjectId);
-        onSave({ 
-            title, 
-            assignee, 
+        onSave({
+            title,
+            assignee,
             assigneeId,
-            priority, 
-            dueDate, 
-            status, 
+            priority,
+            dueDate,
+            status,
             project: project ? project.name : 'Internal',
-            projectId: selectedProjectId 
+            projectId: selectedProjectId
         });
         onClose();
         setTitle('');
@@ -509,7 +509,19 @@ const KanbanColumn = ({ title, tasks, status, color, onAdd, updateTaskStatus }) 
 // --- Content Page Implementation ---
 
 export function TasksProjects() {
-    const { tasks, projects, timeEntries, addProject, updateTaskStatus, addTask: contextAddTask, addNotification, employees, teams: contextTeams, stats, deleteTask } = useRealTime();
+    const {
+        tasks,
+        projects,
+        timeEntries,
+        addProject,
+        updateTaskStatus,
+        addTask: contextAddTask,
+        addNotification,
+        employees,
+        teams: contextTeams,
+        stats,
+        deleteTask
+    } = useRealTime();
 
     // Board, Logs, Projects (Time Tracking + Productivity), Performance (KPIs), Goals
     const [activeTab, setActiveTab] = useState('board');
@@ -607,7 +619,7 @@ export function TasksProjects() {
     const getTasksByStatus = (status) => filteredTasks.filter(t => t.status === status || (status === 'To Do' && t.status === 'Pending'));
 
     // 1. Calculate dynamic performance metrics
-    
+
     // Performance derived stats
     const derivedStats = useMemo(() => {
         const completedTasks = tasks.filter(t => t.status === 'Completed').length;
@@ -754,7 +766,7 @@ export function TasksProjects() {
                                 <Plus size={18} strokeWidth={3} />
                                 <span>Assign Task</span>
                             </button>
-                          
+
                         </div>
 
                         <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4 pb-10 w-full">
@@ -848,9 +860,9 @@ export function TasksProjects() {
                                 <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Enterprise Projects</h3>
                                 <p className="text-xs md:text-sm text-slate-400 font-bold tracking-tight">Requirement-driven resource allocation & project intelligence.</p>
                             </div>
-                            <button onClick={() => setIsProjectModalOpen(true)} className="w-full sm:w-auto h-14 px-8 bg-indigo-600 text-white rounded-[1.25rem] font-black text-[10px] md:text-xs uppercase tracking-widest shadow-xl hover:scale-105 transition-all flex items-center justify-center gap-2">
+                            {/* <button onClick={() => setIsProjectModalOpen(true)} className="w-full sm:w-auto h-14 px-8 bg-indigo-600 text-white rounded-[1.25rem] font-black text-[10px] md:text-xs uppercase tracking-widest shadow-xl hover:scale-105 transition-all flex items-center justify-center gap-2">
                                 <Plus size={18} /> <span>Add New Project</span>
-                            </button>
+                            </button> */}
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">

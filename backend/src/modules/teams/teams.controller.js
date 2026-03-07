@@ -1,18 +1,10 @@
-const prisma = require('../../config/db');
 const teamsService = require('./teams.service');
 const { createTeamSchema, updateTeamSchema } = require('./teams.validation');
+const { getOrganizationId } = require('../../utils/orgId');
 
 const getTeams = async (req, res, next) => {
     try {
-        let orgId = req.user.organizationId;
-
-        // Fallback: If not in JWT, fetch from employee record
-        if (!orgId) {
-            const employee = await prisma.employee.findFirst({
-                where: { id: req.user.employeeId }
-            });
-            orgId = employee?.organizationId;
-        }
+        const orgId = await getOrganizationId(req);
 
         if (!orgId) {
             console.error(`[TeamsController] No organizationId found for user: ${req.user.userId}`);

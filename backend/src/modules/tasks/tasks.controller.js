@@ -1,10 +1,11 @@
 const tasksService = require('./tasks.service');
 const { successResponse, errorResponse } = require('../../utils/response');
+const { getOrganizationId } = require('../../utils/orgId');
 
 class TasksController {
     async createTask(req, res) {
         try {
-            const organizationId = req.user.organizationId;
+            const organizationId = await getOrganizationId(req);
             const task = await tasksService.createTask(req.body, organizationId);
             return successResponse(res, task, 'Task created successfully', 201);
         } catch (error) {
@@ -14,7 +15,7 @@ class TasksController {
 
     async getTasks(req, res) {
         try {
-            const organizationId = req.user.organizationId;
+            const organizationId = await getOrganizationId(req);
             const tasks = await tasksService.getTasks(organizationId);
             return successResponse(res, tasks, 'Tasks retrieved successfully');
         } catch (error) {
@@ -24,7 +25,7 @@ class TasksController {
 
     async getBoardTasks(req, res) {
         try {
-            const organizationId = req.user.organizationId;
+            const organizationId = await getOrganizationId(req);
             const board = await tasksService.getBoardTasks(organizationId);
             return successResponse(res, board, 'Board tasks retrieved successfully');
         } catch (error) {

@@ -1,10 +1,11 @@
 const productivityService = require('./productivity.service');
 const { successResponse, errorResponse } = require('../../utils/response');
+const { getOrganizationId } = require('../../utils/orgId');
 
 const productivityController = {
     getApps: async (req, res) => {
         try {
-            const { organizationId } = req.user;
+            const organizationId = await getOrganizationId(req);
             const { startDate, endDate, productivity } = req.query;
             if (!organizationId) return successResponse(res, [], 'No organization');
             let data = await productivityService.getAppsUsage(organizationId, startDate, endDate);

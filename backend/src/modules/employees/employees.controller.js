@@ -1,9 +1,10 @@
 const employeesService = require('./employees.service');
 const { inviteEmployeeSchema, updateEmployeeSchema } = require('./employees.validation');
+const { getOrganizationId } = require('../../utils/orgId');
 
 const getEmployees = async (req, res, next) => {
     try {
-        const orgId = req.user.organizationId || 'default-org-id';
+        const orgId = await getOrganizationId(req);
         const employees = await employeesService.getEmployees(orgId);
 
         // Map to industry/insightful format

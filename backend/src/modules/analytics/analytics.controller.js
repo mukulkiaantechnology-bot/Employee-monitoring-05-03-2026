@@ -1,10 +1,11 @@
 const analyticsService = require('./analytics.service');
 const { successResponse, errorResponse } = require('../../utils/response');
+const { getOrganizationId } = require('../../utils/orgId');
 
 const analyticsController = {
     getDashboard: async (req, res) => {
         try {
-            const { organizationId } = req.user;
+            const organizationId = await getOrganizationId(req);
             const { startDate, endDate } = req.query;
             if (!organizationId) return successResponse(res, null, 'No organization found');
             const metrics = await analyticsService.getDashboardMetrics(organizationId, startDate, endDate);
@@ -17,7 +18,7 @@ const analyticsController = {
 
     getTimeline: async (req, res) => {
         try {
-            const { organizationId } = req.user;
+            const organizationId = await getOrganizationId(req);
             const { startDate, endDate } = req.query;
             if (!organizationId) return successResponse(res, [], 'No organization found');
             const timeline = await analyticsService.getTimeline(organizationId, startDate, endDate);
@@ -29,7 +30,7 @@ const analyticsController = {
 
     getTopEmployees: async (req, res) => {
         try {
-            const { organizationId } = req.user;
+            const organizationId = await getOrganizationId(req);
             const { startDate, endDate } = req.query;
             if (!organizationId) return successResponse(res, { topProductiveEmployees: [], topUnproductiveEmployees: [] }, 'No organization');
             const data = await analyticsService.getTopEmployees(organizationId, startDate, endDate);
@@ -41,7 +42,7 @@ const analyticsController = {
 
     getTopTeams: async (req, res) => {
         try {
-            const { organizationId } = req.user;
+            const organizationId = await getOrganizationId(req);
             const { startDate, endDate } = req.query;
             if (!organizationId) return successResponse(res, { topProductiveTeams: [], topUnproductiveTeams: [] }, 'No organization');
             const data = await analyticsService.getTopTeams(organizationId, startDate, endDate);
@@ -53,7 +54,7 @@ const analyticsController = {
 
     getCategoryBreakdown: async (req, res) => {
         try {
-            const { organizationId } = req.user;
+            const organizationId = await getOrganizationId(req);
             const { startDate, endDate } = req.query;
             if (!organizationId) return successResponse(res, [], 'No organization');
             const data = await analyticsService.getCategoryBreakdown(organizationId, startDate, endDate);

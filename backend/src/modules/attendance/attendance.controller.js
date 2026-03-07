@@ -1,10 +1,12 @@
 const attendanceService = require('./attendance.service');
 const { successResponse, errorResponse } = require('../../utils/response');
+const { getOrganizationId } = require('../../utils/orgId');
 
 const attendanceController = {
     clockIn: async (req, res) => {
         try {
-            const { id: employeeId, organizationId } = req.user;
+            const { id: employeeId } = req.user;
+            const organizationId = await getOrganizationId(req);
             const attendance = await attendanceService.clockIn(employeeId, organizationId);
             return successResponse(res, attendance, 'Clocked in successfully');
         } catch (error) {
@@ -24,7 +26,7 @@ const attendanceController = {
 
     getTimesheets: async (req, res) => {
         try {
-            const { organizationId } = req.user;
+            const organizationId = await getOrganizationId(req);
             const filters = req.query;
             const timesheets = await attendanceService.getTimesheets(organizationId, filters);
             return successResponse(res, timesheets, 'Timesheets fetched successfully');
@@ -35,7 +37,7 @@ const attendanceController = {
 
     addManualTime: async (req, res) => {
         try {
-            const { organizationId } = req.user;
+            const organizationId = await getOrganizationId(req);
             const data = { ...req.body, organizationId };
             const manualTime = await attendanceService.addManualTime(data);
             return successResponse(res, manualTime, 'Manual time added successfully');
@@ -46,7 +48,7 @@ const attendanceController = {
 
     getManualTimes: async (req, res) => {
         try {
-            const { organizationId } = req.user;
+            const organizationId = await getOrganizationId(req);
             const manualTimes = await attendanceService.getManualTimes(organizationId);
             return successResponse(res, manualTimes, 'Manual times fetched successfully');
         } catch (error) {
@@ -56,7 +58,7 @@ const attendanceController = {
 
     getShifts: async (req, res) => {
         try {
-            const { organizationId } = req.user;
+            const organizationId = await getOrganizationId(req);
             const { employeeId } = req.query;
             const shifts = await attendanceService.getShifts(organizationId, employeeId);
             return successResponse(res, shifts, 'Shifts fetched successfully');
@@ -67,7 +69,7 @@ const attendanceController = {
 
     createShift: async (req, res) => {
         try {
-            const { organizationId } = req.user;
+            const organizationId = await getOrganizationId(req);
             const data = { ...req.body, organizationId };
             const shift = await attendanceService.createShift(data);
             return successResponse(res, shift, 'Shift scheduled successfully');

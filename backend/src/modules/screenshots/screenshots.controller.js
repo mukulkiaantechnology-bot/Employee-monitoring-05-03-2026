@@ -1,5 +1,6 @@
 const screenshotsService = require('./screenshots.service');
 const { successResponse, errorResponse } = require('../../utils/response');
+const { getOrganizationId } = require('../../utils/orgId');
 const prisma = require('../../config/db');
 
 const screenshotsController = {
@@ -7,7 +8,7 @@ const screenshotsController = {
     createScreenshot: async (req, res) => {
         try {
             const { employeeId, imageUrl, productivity, capturedAt } = req.body;
-            const organizationId = req.user.organizationId;
+            const organizationId = await getOrganizationId(req);
 
             if (!employeeId || !imageUrl) {
                 return errorResponse(res, 'employeeId and imageUrl are required', 400);
@@ -31,7 +32,8 @@ const screenshotsController = {
     // GET /api/screenshots
     getScreenshots: async (req, res) => {
         try {
-            const { role, organizationId, employeeId: userId } = req.user;
+            const organizationId = await getOrganizationId(req);
+            const { role, employeeId: userId } = req.user;
             const { employeeId, date, productivity, limit = 50, offset = 0 } = req.query;
 
             let where = { organizationId };
@@ -86,7 +88,8 @@ const screenshotsController = {
         try {
             const { employeeId } = req.params;
             const { date } = req.query;
-            const { role, organizationId } = req.user;
+            const organizationId = await getOrganizationId(req);
+            const { role } = req.user;
 
             let where = { employeeId, organizationId };
 

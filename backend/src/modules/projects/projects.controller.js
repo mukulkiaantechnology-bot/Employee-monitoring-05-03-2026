@@ -1,3 +1,4 @@
+const { getOrganizationId } = require('../../utils/orgId');
 const projectsService = require('./projects.service');
 const prisma = require('../../config/db');
 const { successResponse, errorResponse } = require('../../utils/response');
@@ -5,15 +6,7 @@ const { successResponse, errorResponse } = require('../../utils/response');
 class ProjectsController {
     async createProject(req, res, next) {
         try {
-            let organizationId = req.user.organizationId;
-
-            // Fallback: If not in JWT, fetch from employee record
-            if (!organizationId) {
-                const employee = await prisma.employee.findFirst({
-                    where: { id: req.user.employeeId }
-                });
-                organizationId = employee?.organizationId;
-            }
+            const organizationId = await getOrganizationId(req);
 
             if (!organizationId) {
                 return errorResponse(res, 'Organization ID is required', 400);
@@ -28,15 +21,7 @@ class ProjectsController {
 
     async getProjects(req, res, next) {
         try {
-            let organizationId = req.user.organizationId;
-
-            // Fallback: If not in JWT, fetch from employee record
-            if (!organizationId) {
-                const employee = await prisma.employee.findFirst({
-                    where: { id: req.user.employeeId }
-                });
-                organizationId = employee?.organizationId;
-            }
+            const organizationId = await getOrganizationId(req);
 
             if (!organizationId) {
                 return errorResponse(res, 'Organization ID is required', 400);
