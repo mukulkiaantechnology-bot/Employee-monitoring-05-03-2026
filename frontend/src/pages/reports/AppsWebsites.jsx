@@ -16,28 +16,7 @@ import {
     CheckSquare
 } from 'lucide-react';
 
-// --- Dummy Data ---
-const appsDummyData = {
-    today: [
-        { name: "VS Code", usage: 5, type: "Productive" },
-        { name: "Slack", usage: 3, type: "Productive" },
-        { name: "Chrome", usage: 2, type: "Neutral" }
-    ],
-    week: [
-        { name: "VS Code", usage: 28, type: "Productive" },
-        { name: "Slack", usage: 18, type: "Productive" },
-        { name: "Figma", usage: 14, type: "Productive" },
-        { name: "YouTube", usage: 6, type: "Neutral" }
-    ],
-    default: [
-        { name: "VS Code", usage: 35, type: "Productive" },
-        { name: "Slack", usage: 20, type: "Productive" },
-        { name: "Chrome", usage: 18, type: "Neutral" },
-        { name: "Figma", usage: 15, type: "Productive" },
-        { name: "Zoom", usage: 10, type: "Productive" },
-        { name: "Notion", usage: 8, type: "Neutral" }
-    ]
-};
+import { useReportsStore } from '../../store/reportsStore';
 
 const presets = [
     "Today", "Yesterday", "This Week", "Last 7 Days",
@@ -86,19 +65,51 @@ function CalendarPopover({ buttonRef, isOpen, onClose, children }) {
 }
 
 export function AppsWebsites() {
-    const [activeData, setActiveData] = useState(appsDummyData.default);
+    const { reportData, fetchReportData, loading } = useReportsStore();
+    const rawData = reportData['apps-websites'] || [];
+
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-    const [selectedDate, setSelectedDate] = useState(new Date("2026-02-26"));
-    const [viewDate, setViewDate] = useState(new Date("2026-02-26"));
-    const [selectedPreset, setSelectedPreset] = useState("Today");
+    const [selectedDate, setSelectedDate] = useState(new Date());
+    const [viewDate, setViewDate] = useState(new Date());
+    const [selectedPreset, setSelectedPreset] = useState("Last 7 Days");
     const [selectedFilter, setSelectedFilter] = useState(null);
     const [searchTerm, setSearchTerm] = useState("");
 
     const calendarBtnRef = useRef(null);
     const filterRef = useRef(null);
     const closeCalendar = useCallback(() => setIsCalendarOpen(false), []);
+
+    const getDatesFromPreset = (preset) => {
+        const end = new Date();
+        const start = new Date();
+        switch (preset) {
+            case 'Today': start.setHours(0, 0, 0, 0); break;
+            case 'Yesterday': 
+                start.setDate(start.getDate() - 1); start.setHours(0, 0, 0, 0);
+                end.setDate(end.getDate() - 1); end.setHours(23, 59, 59, 999);
+                break;
+            case 'This Week': start.setDate(start.getDate() - start.getDay()); break;
+            case 'Last 7 Days': start.setDate(start.getDate() - 7); break;
+            case 'This Month': start.setDate(1); break;
+            default: start.setDate(start.getDate() - 7);
+        }
+        return { start, end };
+    };
+
+    useEffect(() => {
+        const { start, end } = getDatesFromPreset(selectedPreset);
+        fetchReportData('apps-websites', { startDate: start, endDate: end });
+    }, [selectedPreset, fetchReportData]);
+
+    const activeData = React.useMemo(() => {
+        return rawData.map(item => ({
+            name: item.appName,
+            usage: Math.round((item._sum.duration / 3600) * 10) / 10,
+            type: item.productivity || 'Neutral'
+        }));
+    }, [rawData]);
 
     useEffect(() => {
         const handler = (e) => {
@@ -127,9 +138,6 @@ export function AppsWebsites() {
     );
 
     const handleApply = () => {
-        if (selectedPreset === "Today") setActiveData(appsDummyData.today);
-        else if (selectedPreset === "This Week") setActiveData(appsDummyData.week);
-        else setActiveData(appsDummyData.default);
         setIsCalendarOpen(false);
         setSearchTerm("");
     };
@@ -137,7 +145,6 @@ export function AppsWebsites() {
     const handleFilterSelect = (filter) => {
         setSelectedFilter(filter);
         setIsFilterOpen(false);
-        setActiveData([...activeData].sort(() => Math.random() - 0.5));
     };
 
     const maxUsage = Math.max(...displayData.map(d => d.usage), 1);

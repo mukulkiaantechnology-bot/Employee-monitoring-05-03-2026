@@ -23,12 +23,7 @@ import { useLocationStore } from '../../store/locationStore';
 import { useRealTime } from '../../hooks/RealTimeContext';
 import { cn } from '../../utils/cn';
 
-// --- Dummy Data ---
-const locationDummyData = [
-    { location: "Office", hours: 60, employees: 12 },
-    { location: "Remote", hours: 40, employees: 8 },
-    { location: "Client Site", hours: 25, employees: 5 }
-];
+import { useReportsStore } from '../../store/reportsStore';
 
 const presets = [
     "Today", "Yesterday", "This Week", "Last 7 Days",
@@ -41,20 +36,62 @@ export function LocationInsights() {
     const { locationSettings, updateThreshold } = useLocationStore();
     const { locations, attendanceThreshold: globalThreshold } = locationSettings;
     const { locationLogs } = useRealTime();
-
-    // Filter locations to match the dummy structure expected by the UI if needed
-    // or adapt UI to locations array.
     
+    const { reportData, fetchReportData, loading } = useReportsStore();
+    const rawData = reportData['location'] || [];
+
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
-    const [startDate, setStartDate] = useState(new Date("2026-02-26"));
-    const [endDate, setEndDate] = useState(new Date("2026-02-28"));
-    const [viewDate, setViewDate] = useState(new Date("2026-02-26"));
+    
+    // Default to last 7 days
+    const [startDate, setStartDate] = useState(new Date(new Date().setDate(new Date().getDate() - 7)));
+    const [endDate, setEndDate] = useState(new Date());
+    const [viewDate, setViewDate] = useState(new Date());
     const [hoverDate, setHoverDate] = useState(null);
     const [selectingEnd, setSelectingEnd] = useState(false);
     const [selectedPreset, setSelectedPreset] = useState("Last 7 Days");
     const [selectedFilter, setSelectedFilter] = useState("All Locations");
-    const [activeData, setActiveData] = useState(locationDummyData);
+
+    const getDatesFromPreset = (preset) => {
+        const end = new Date();
+        const start = new Date();
+        switch (preset) {
+            case 'Today': start.setHours(0, 0, 0, 0); break;
+            case 'Yesterday': 
+                start.setDate(start.getDate() - 1); start.setHours(0, 0, 0, 0);
+                end.setDate(end.getDate() - 1); end.setHours(23, 59, 59, 999);
+                break;
+            case 'This Week': start.setDate(start.getDate() - start.getDay()); break;
+            case 'Last 7 Days': start.setDate(start.getDate() - 7); break;
+            case 'This Month': start.setDate(1); break;
+            default: start.setDate(start.getDate() - 7);
+        }
+        return { start, end };
+    };
+
+    // 1. Update dates when preset changes
+    useEffect(() => {
+        if (selectedPreset !== 'Custom') {
+            const { start, end } = getDatesFromPreset(selectedPreset);
+            setStartDate(start);
+            setEndDate(end);
+        }
+    }, [selectedPreset]);
+
+    // 2. Fetch data when dates change
+    useEffect(() => {
+        if (startDate && endDate) {
+            fetchReportData('location', { startDate, endDate });
+        }
+    }, [startDate?.getTime(), endDate?.getTime(), fetchReportData]);
+
+    const activeData = React.useMemo(() => {
+        return rawData.map(item => ({
+            location: item.name,
+            hours: Math.round(item.workHours * 10) / 10,
+            employees: item.employees
+        }));
+    }, [rawData]);
 
     // --- Refs ---
     const calendarRef = useRef(null);
@@ -126,7 +163,6 @@ export function LocationInsights() {
     const handleFilterSelect = (filter) => {
         setSelectedFilter(filter);
         setIsFilterOpen(false);
-        setActiveData([...activeData].sort(() => Math.random() - 0.5));
     };
 
     const getIcon = (loc) => {
@@ -315,47 +351,44 @@ export function LocationInsights() {
             </div>
 
             {/* Location Cards */}
-            {locations.length > 0 ? (
+            {activeData.length > 0 ? (
                 <div className="space-y-6">
                     <div className="grid gap-6 md:grid-cols-3">
-                        {locations.map((item) => {
-                            // Link simulated hours to real-time logs for effect
-                            const movingCount = locationLogs?.filter(l => l.status?.toLowerCase() === 'moving').length || 0;
-                            const simulatedHours = (item.attendanceThreshold * (0.8 + (movingCount / 20))).toFixed(1);
-                            const isCompliant = parseFloat(simulatedHours) >= globalThreshold;
+                        {activeData.map((item, idx) => {
+                            const isCompliant = item.hours >= (globalThreshold / 7); // Rough daily threshold check
                             
                             return (
-                                <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden relative group transition-all hover:shadow-lg">
+                                <div key={idx} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden relative group transition-all hover:shadow-lg">
                                     <div className="flex items-center gap-4 mb-6">
                                         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-100 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400 group-hover:scale-110 transition-transform">
-                                            {getIcon(item.type)}
+                                            {getIcon(item.location)}
                                         </div>
                                         <div>
-                                            <h3 className="font-bold text-slate-900 dark:text-white">{item.name}</h3>
-                                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{Math.floor(Math.random() * 20) + 5} Employees</p>
+                                            <h3 className="font-bold text-slate-900 dark:text-white">{item.location}</h3>
+                                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{item.employees} Employees</p>
                                         </div>
                                     </div>
 
                                     <div className="space-y-4">
                                         <div className="flex items-center justify-between">
-                                            <p className="text-3xl font-black text-slate-900 dark:text-white">{simulatedHours}h</p>
+                                            <p className="text-3xl font-black text-slate-900 dark:text-white">{item.hours}h</p>
                                             <div className="text-right">
                                                 <p className={cn("text-xs font-bold", isCompliant ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400")}>
                                                     {isCompliant ? 'Compliant' : 'Under Threshold'}
                                                 </p>
-                                                <p className="text-[10px] text-slate-400 uppercase tracking-tighter">Avg Daily Hours</p>
+                                                <p className="text-[10px] text-slate-400 uppercase tracking-tighter">Total Work Hours</p>
                                             </div>
                                         </div>
                                         <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                                             <div
                                                 className={cn("h-full rounded-full transition-all duration-700", isCompliant ? "bg-emerald-500" : "bg-amber-500")}
-                                                style={{ width: `${Math.min((simulatedHours / (globalThreshold * 1.5)) * 100, 100)}%` }}
+                                                style={{ width: `${Math.min((item.hours / (globalThreshold || 40)) * 100, 100)}%` }}
                                             />
                                         </div>
                                     </div>
 
                                     <div className="absolute -right-4 -bottom-4 opacity-5 text-slate-900 dark:text-white">
-                                        {getIcon(item.type)}
+                                        {getIcon(item.location)}
                                     </div>
                                 </div>
                             );

@@ -1,22 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calendar, Filter, Download, ChevronDown, Monitor, Globe, Users2, BarChart2, User, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
-
-// --- Local Dummy Data ---
-const categoryData = [
-    { name: "Development", hours: 42, color: "bg-blue-500" },
-    { name: "Meetings", hours: 15, color: "bg-purple-500" },
-    { name: "Break", hours: 8, color: "bg-slate-400" }
-];
-
-const tagsData = [
-    { name: "Client Work", hours: 30, color: "bg-emerald-500" },
-    { name: "Internal", hours: 20, color: "bg-indigo-500" }
-];
-
-const todayData = [
-    { name: "Development", hours: 6, color: "bg-blue-500" },
-    { name: "Meetings", hours: 2, color: "bg-purple-500" }
-];
+import { 
+    Calendar, 
+    ChevronLeft, 
+    ChevronRight, 
+    ChevronDown, 
+    X, 
+    User, 
+    Users2, 
+    BarChart2, 
+    Monitor, 
+    Download 
+} from 'lucide-react';
+import { useReportsStore } from '../../store/reportsStore';
 
 const presets = [
     "Today", "Yesterday", "This Week", "Last 7 Days",
@@ -25,9 +20,9 @@ const presets = [
 ];
 
 export function WorkType() {
+    const { reportData, fetchReportData, loading } = useReportsStore();
     // --- State ---
     const [activeTab, setActiveTab] = useState('category'); // 'category' or 'tags'
-    const [activeData, setActiveData] = useState(categoryData);
     const [activePeriod, setActivePeriod] = useState('Last 7 Days');
 
     const [compareOpen, setCompareOpen] = useState(false);
@@ -83,29 +78,43 @@ export function WorkType() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Sync data with tab
+    // Fetch data based on period
+    const getDatesFromPreset = (preset) => {
+        const end = new Date();
+        const start = new Date();
+        switch (preset) {
+            case 'Today': start.setHours(0, 0, 0, 0); break;
+            case 'Yesterday': 
+                start.setDate(start.getDate() - 1); start.setHours(0, 0, 0, 0);
+                end.setDate(end.getDate() - 1); end.setHours(23, 59, 59, 999);
+                break;
+            case 'This Week': start.setDate(start.getDate() - start.getDay()); break;
+            case 'Last 7 Days': start.setDate(start.getDate() - 7); break;
+            case 'This Month': start.setDate(1); break;
+            default: start.setDate(start.getDate() - 7);
+        }
+        return { start, end };
+    };
+
     useEffect(() => {
-        if (activeTab === 'category') setActiveData(categoryData);
-        else setActiveData(tagsData);
-    }, [activeTab]);
+        const { start, end } = getDatesFromPreset(activePeriod);
+        fetchReportData('work-type', { startDate: start, endDate: end });
+    }, [activePeriod, fetchReportData]);
+
+    const rawData = reportData['work-type'] || [];
+    const activeData = React.useMemo(() => {
+        const colors = ["bg-blue-500", "bg-purple-500", "bg-emerald-500", "bg-indigo-500", "bg-slate-400"];
+        return rawData.map((item, idx) => ({
+            name: item.productivity || item.appName || "Unknown",
+            hours: Math.round((item.duration / 3600) * 10) / 10,
+            color: colors[idx % colors.length]
+        }));
+    }, [rawData]);
 
     // --- Handlers ---
-    const handleApplyCalendar = () => {
-        setActivePeriod(selectedPreset);
-        if (selectedPreset === 'Today') setActiveData(todayData);
-        else setActiveData(activeTab === 'category' ? categoryData : tagsData);
-        setIsCalendarOpen(false);
-    };
-
-    const handleCancelCalendar = () => {
-        setIsCalendarOpen(false);
-        // Could reset temporary selection state here if needed
-    };
-
     const handleTabChange = (tab) => {
         setActiveTab(tab);
-        setActivePeriod('Last 7 Days');
-        setSelectedPreset('Last 7 Days');
+        // In a real app, tags might fetch a different endpoint or use different grouping
     };
 
     const handleCompareChange = (option) => {

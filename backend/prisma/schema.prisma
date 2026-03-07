@@ -93,6 +93,10 @@ model Organization {
   manualTimeEntries ManualTime[]
   shifts           Shift[]
   complianceSetting ComplianceSetting?
+  reportSetting    ReportSetting?
+  locations        Location[]
+  workZones        WorkZone[]
+  locationLogs     LocationLog[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -272,17 +276,60 @@ model ActivityLog {
 }
 
 model LocationLog {
-  id         String   @id @default(uuid())
-  latitude   Float
-  longitude  Float
-  isMoving   Boolean  @default(false)
-  timestamp  DateTime @default(now())
-  employee   Employee @relation(fields: [employeeId], references: [id])
-  employeeId String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id             String   @id @default(uuid())
+  employeeId     String
+  organizationId String
+  latitude       Float
+  longitude      Float
+  accuracy       Float?
+  source         String   @default("GPS")
+  createdAt      DateTime @default(now())
+
+  employee       Employee     @relation(fields: [employeeId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id])
 
   @@map("location_logs")
+}
+
+model WorkZone {
+  id             String       @id @default(uuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  name           String
+  type           String       @default("Office")
+  latitude       Float
+  longitude      Float
+  radius         Float        @default(100.0) // In meters
+  createdAt      DateTime     @default(now())
+
+  @@map("work_zones")
+}
+
+model Location {
+  id             String       @id @default(uuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  name           String
+  type           String       @default("Office") // Office, Remote, Client
+  address        String?
+  latitude       Float?
+  longitude      Float?
+  threshold      Int          @default(4) // Default attendance threshold in hours
+  createdAt      DateTime     @default(now())
+
+  @@map("locations")
+}
+
+model ReportSetting {
+  id                  String       @id @default(uuid())
+  organization        Organization @relation(fields: [organizationId], references: [id])
+  organizationId      String       @unique
+  workloadOptimalFrom Int          @default(60)
+  workloadOptimalTo   Int          @default(85)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@map("report_settings")
 }
 
 model PayrollRecord {

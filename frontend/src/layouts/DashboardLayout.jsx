@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { LocationTracker } from '../components/LocationTracker';
 
 export function DashboardLayout({ children }) {
     const [collapsed, setCollapsed] = useState(false);
@@ -18,6 +19,7 @@ export function DashboardLayout({ children }) {
 
     return (
         <div className="h-screen overflow-hidden overflow-x-hidden bg-slate-50 dark:bg-slate-950">
+            <LocationTracker />
             {/* Mobile Overlay */}
             <div
                 className={`fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm transition-opacity lg:hidden ${mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"

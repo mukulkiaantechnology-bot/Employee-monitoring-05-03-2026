@@ -15,25 +15,6 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useReportsStore } from '../../store/reportsStore';
 
-// --- Workload Dummy Data ---
-const workloadDummyData = {
-    today: [
-        { team: "Engineering", hours: 120, capacity: 160 },
-        { team: "Sales", hours: 60, capacity: 100 },
-        { team: "HR", hours: 30, capacity: 50 }
-    ],
-    week: [
-        { team: "Engineering", hours: 420, capacity: 560 },
-        { team: "Sales", hours: 210, capacity: 350 }
-    ],
-    default: [
-        { team: "Engineering", hours: 320, capacity: 420 },
-        { team: "Design", hours: 180, capacity: 280 },
-        { team: "Sales", hours: 260, capacity: 350 },
-        { team: "Operations", hours: 145, capacity: 200 }
-    ]
-};
-
 const presets = [
     "Today", "Yesterday", "This Week", "Last 7 Days",
     "Previous Week", "This Month", "Previous Month",
@@ -74,21 +55,48 @@ function CalendarPopover({ buttonRef, isOpen, onClose, children }) {
 
 export function WorkloadDistribution() {
     const navigate = useNavigate();
-    const { reportsSettings } = useReportsStore();
+    const { reportsSettings, reportData, fetchReportData, loading } = useReportsStore();
     const { optimalFrom, optimalTo } = reportsSettings.workloadDistribution;
+    
+    const rawData = reportData['workload'] || [];
 
-    const [activeData, setActiveData] = useState(workloadDummyData.default);
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-    const [selectedDate, setSelectedDate] = useState(new Date("2026-02-26"));
-    const [viewDate, setViewDate] = useState(new Date("2026-02-26"));
-    const [selectedPreset, setSelectedPreset] = useState("Today");
+    const [selectedDate, setSelectedDate] = useState(new Date());
+    const [viewDate, setViewDate] = useState(new Date());
+    const [selectedPreset, setSelectedPreset] = useState("Last 7 Days");
     const [selectedFilter, setSelectedFilter] = useState(null);
 
     const calendarBtnRef = useRef(null);
     const filterRef = useRef(null);
     const closeCalendar = useCallback(() => setIsCalendarOpen(false), []);
+
+    const getDatesFromPreset = (preset) => {
+        const end = new Date();
+        const start = new Date();
+        switch (preset) {
+            case 'Today': start.setHours(0, 0, 0, 0); break;
+            case 'Yesterday': 
+                start.setDate(start.getDate() - 1); start.setHours(0, 0, 0, 0);
+                end.setDate(end.getDate() - 1); end.setHours(23, 59, 59, 999);
+                break;
+            case 'This Week': start.setDate(start.getDate() - start.getDay()); break;
+            case 'Last 7 Days': start.setDate(start.getDate() - 7); break;
+            case 'This Month': start.setDate(1); break;
+            default: start.setDate(start.getDate() - 7);
+        }
+        return { start, end };
+    };
+
+    useEffect(() => {
+        const { start, end } = getDatesFromPreset(selectedPreset);
+        fetchReportData('workload', { startDate: start, endDate: end });
+    }, [selectedPreset, fetchReportData]);
+
+    const activeData = React.useMemo(() => {
+        return rawData;
+    }, [rawData]);
 
     useEffect(() => {
         const handler = (e) => {
@@ -113,16 +121,12 @@ export function WorkloadDistribution() {
         d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
 
     const handleApply = () => {
-        if (selectedPreset === "Today") setActiveData(workloadDummyData.today);
-        else if (selectedPreset === "This Week") setActiveData(workloadDummyData.week);
-        else setActiveData(workloadDummyData.default);
         setIsCalendarOpen(false);
     };
 
     const handleFilterSelect = (filter) => {
         setSelectedFilter(filter);
         setIsFilterOpen(false);
-        setActiveData([...activeData].sort(() => Math.random() - 0.5));
     };
 
     return (

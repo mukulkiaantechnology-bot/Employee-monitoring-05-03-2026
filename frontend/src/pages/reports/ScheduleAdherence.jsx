@@ -13,10 +13,10 @@ import {
     Users2,
     Globe
 } from 'lucide-react';
-import { reportDummyData } from '../../data/reportDummyData';
+import { useReportsStore } from '../../store/reportsStore';
 
 const presets = [
-    "Yesterday", "This Week", "Last 7 Days",
+    "Today", "Yesterday", "This Week", "Last 7 Days",
     "Previous Week", "This Month", "Previous Month",
     "Last 3 Months", "Last 6 Months"
 ];
@@ -69,16 +69,16 @@ function CalendarPopover({ buttonRef, isOpen, onClose, children }) {
 }
 
 export function ScheduleAdherence() {
-    const initialData = reportDummyData.scheduleAdherence;
-    const [data, setData] = useState(initialData);
+    const { reportData, fetchReportData, loading } = useReportsStore();
+    const data = reportData['adherence'] || [];
 
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const [isCompareOpen, setIsCompareOpen] = useState(false);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-    const [selectedDate, setSelectedDate] = useState(new Date("2026-02-26"));
-    const [viewDate, setViewDate] = useState(new Date("2026-02-26"));
-    const [selectedPreset, setSelectedPreset] = useState('Feb 26, 2026');
+    const [selectedDate, setSelectedDate] = useState(new Date());
+    const [viewDate, setViewDate] = useState(new Date());
+    const [selectedPreset, setSelectedPreset] = useState('Last 7 Days');
     const [selectedCompare, setSelectedCompare] = useState('Compare to');
 
     const calendarBtnRef = useRef(null);
@@ -96,6 +96,42 @@ export function ScheduleAdherence() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    const getDatesFromPreset = (preset) => {
+        const end = new Date();
+        const start = new Date();
+        switch (preset) {
+            case 'Today': start.setHours(0, 0, 0, 0); break;
+            case 'Yesterday': 
+                start.setDate(start.getDate() - 1); start.setHours(0, 0, 0, 0);
+                end.setDate(end.getDate() - 1); end.setHours(23, 59, 59, 999);
+                break;
+            case 'This Week': start.setDate(start.getDate() - start.getDay()); break;
+            case 'Last 7 Days': start.setDate(start.getDate() - 7); break;
+            case 'This Month': start.setDate(1); break;
+            default: start.setDate(start.getDate() - 7);
+        }
+        return { start, end };
+    };
+
+    useEffect(() => {
+        const { start, end } = getDatesFromPreset(selectedPreset);
+        fetchReportData('adherence', { startDate: start, endDate: end });
+    }, [selectedPreset, fetchReportData]);
+
+    const handleApplyCalendar = () => {
+        setSelectedPreset(selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }));
+        setIsCalendarOpen(false);
+    };
+
+    const handleCompareOption = (option) => {
+        setSelectedCompare(option);
+        setIsCompareOpen(false);
+    };
+
+    const handleFilterOption = () => {
+        setIsFilterOpen(false);
+    };
+
     const calendarDays = React.useMemo(() => {
         const year = viewDate.getFullYear();
         const month = viewDate.getMonth();
@@ -108,25 +144,7 @@ export function ScheduleAdherence() {
     }, [viewDate]);
 
     const isSameDay = (d1, d2) =>
-        d1.getDate() === d2.getDate() &&
-        d1.getMonth() === d2.getMonth() &&
-        d1.getFullYear() === d2.getFullYear();
-
-    const handleApplyCalendar = () => {
-        setSelectedPreset(selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }));
-        setIsCalendarOpen(false);
-        setData([...initialData].sort(() => Math.random() - 0.5));
-    };
-
-    const handleCompareOption = (option) => {
-        setSelectedCompare(option);
-        setIsCompareOpen(false);
-    };
-
-    const handleFilterOption = () => {
-        setIsFilterOpen(false);
-        setData([...initialData].filter((_, i) => i % 2 === 0));
-    };
+        d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
 
     return (
         <div className="space-y-6">
