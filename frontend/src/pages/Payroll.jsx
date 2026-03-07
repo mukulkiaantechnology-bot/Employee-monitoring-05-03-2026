@@ -330,17 +330,17 @@ export function Payroll() {
             };
         }
 
-        const totalGross = payrollTimesheets.reduce((acc, p) => acc + (p.grossPayValue || p.grossPay || 0), 0);
-        const totalHours = payrollTimesheets.reduce((acc, p) => acc + (p.totalHours || 0), 0);
+        const totalGross = payrollTimesheets.reduce((acc, p) => acc + (parseFloat(p.grossPayValue || p.grossPay) || 0), 0);
+        const totalHours = payrollTimesheets.reduce((acc, p) => acc + (parseFloat(p.totalHours) || 0), 0);
         const avgRate = totalHours > 0 ? totalGross / totalHours : 0;
-        const totalOutstanding = storeInvoices.filter(i => i.status !== 'PAID').reduce((acc, i) => acc + (i.amount || 0), 0);
+        const totalOutstanding = storeInvoices.filter(i => i.status !== 'PAID').reduce((acc, i) => acc + (parseFloat(i.amount) || 0), 0);
         const totalProfit = totalGross * 0.6; // Simple 60% markup simulation
 
         return {
-            totalPayroll: `$${Math.round(totalGross).toLocaleString()}`,
-            avgHourly: `$${Math.round(avgRate * 10) / 10}`,
-            outstanding: `$${totalOutstanding.toLocaleString()}`,
-            profit: `$${Math.round(totalProfit).toLocaleString()}`
+            totalPayroll: `$${Math.round(totalGross || 0).toLocaleString()}`,
+            avgHourly: `$${Math.round((avgRate || 0) * 10) / 10}`,
+            outstanding: `$${Math.round(totalOutstanding || 0).toLocaleString()}`,
+            profit: `$${Math.round(totalProfit || 0).toLocaleString()}`
         };
     }, [payrollTimesheets, storeInvoices, summary]);
 

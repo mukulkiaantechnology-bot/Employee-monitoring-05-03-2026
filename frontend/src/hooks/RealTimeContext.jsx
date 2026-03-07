@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import axios from 'axios';
 import { generateSeedData } from '../data/seedEngine';
 import {
     intradayActivity,
@@ -15,6 +16,9 @@ import activityService from '../services/activityService';
 import teamService from '../services/teamService';
 import taskService from '../services/taskService';
 import projectService from '../services/projectService';
+import { io } from 'socket.io-client';
+
+const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
 
 const RealTimeContext = createContext();
 const STORAGE_KEY = 'ems_state_v5';
@@ -139,40 +143,6 @@ export function RealTimeProvider({ children }) {
         return () => clearInterval(timerInterval.current);
     }, [state.timer.isRunning]);
 
-    // Auto-refresh: every 20s randomly mutate a few employee statuses + GPS positions
-    useEffect(() => {
-        if (isLoading) return;
-        const interval = setInterval(() => {
-            setState(prev => {
-                const statuses = ['online', 'online', 'online', 'idle', 'offline'];
-                const updatedEmployees = prev.employees.map(e => {
-                    // 10% chance to change online status
-                    if (Math.random() > 0.90) {
-                        return { ...e, status: statuses[Math.floor(Math.random() * statuses.length)] };
-                    }
-                    return e;
-                });
-
-                // Drift GPS slightly and toggle state
-                const updatedLocations = prev.locationLogs.map(l => {
-                    const isMoving = Math.random() > 0.4;
-                    const drift = isMoving ? (Math.random() - 0.5) * 0.002 : 0;
-                    return {
-                        ...l,
-                        lat: l.lat + drift,
-                        lng: l.lng + drift,
-                        status: isMoving ? 'moving' : 'stationary',
-                        speed: isMoving ? `${Math.floor(Math.random() * 30) + 10} km/h` : '0 km/h',
-                        lastSync: 'Just now',
-                    };
-                });
-
-                return { ...prev, employees: updatedEmployees, locationLogs: updatedLocations };
-            });
-        }, 20000);
-        return () => clearInterval(interval);
-    }, [isLoading]);
-
     // Live backend employee sync
     useEffect(() => {
         if (isLoading || !isAuthenticated) return;
@@ -189,24 +159,10 @@ export function RealTimeProvider({ children }) {
                                 name: name,
                                 initials: name.split(' ').map(n => n[0]).join('').toUpperCase(),
                                 team: emp.team?.name || emp.team || 'General',
-                                status: 'offline', // Default, will be overridden by seed logic or live simulation
+                                status: emp.status?.toLowerCase() || 'offline',
                             };
                         });
-
-                        // Discard ALL seed employees when backend data is available
-                        const mergedEmployees = [...backendEmployees];
-
-                        // Keep only non-seed employees from local state (if any real ones were added manually/differently)
-                        prev.employees.forEach(e => {
-                            if (!e.isSeed && !mergedEmployees.some(be => be.id === e.id || be.email === e.email)) {
-                                mergedEmployees.push(e);
-                            }
-                        });
-
-                        return {
-                            ...prev,
-                            employees: mergedEmployees
-                        };
+                        return { ...prev, employees: backendEmployees };
                     });
                 }
             } catch (err) {
@@ -225,14 +181,10 @@ export function RealTimeProvider({ children }) {
             try {
                 const res = await teamService.getTeams();
                 if (res.success && res.data) {
-                    setState(prev => {
-                        const backendTeams = res.data.map(t => ({ ...t, isSeed: false }));
-                        // Discard ALL seed teams when backend data is available
-                        return {
-                            ...prev,
-                            teams: backendTeams
-                        };
-                    });
+                    setState(prev => ({
+                        ...prev,
+                        teams: res.data.map(t => ({ ...t, isSeed: false }))
+                    }));
                 }
             } catch (err) {
                 console.error('Failed to sync teams:', err);
@@ -250,25 +202,10 @@ export function RealTimeProvider({ children }) {
             try {
                 const res = await activityService.getOrganizationSummary();
                 if (res.success && res.data) {
-                    setState(prev => {
-                        // Merge backend logs into existing activityLogs
-                        // Replace any existing summary if we have a fresh one from backend
-                        // Discard ALL seed logs when backend summary is available
-                        const backendLogs = res.data;
-                        const mergedLogs = [...backendLogs];
-
-                        // Keep only non-seed logs from local state
-                        prev.activityLogs.forEach(l => {
-                            if (!l.isSeed && !mergedLogs.some(bl => bl.employeeId === l.employeeId && bl.date === l.date)) {
-                                mergedLogs.push(l);
-                            }
-                        });
-
-                        return {
-                            ...prev,
-                            activityLogs: mergedLogs
-                        };
-                    });
+                    setState(prev => ({
+                        ...prev,
+                        activityLogs: res.data
+                    }));
                 }
             } catch (err) {
                 console.error('Failed to sync activity logs:', err);
@@ -280,6 +217,68 @@ export function RealTimeProvider({ children }) {
 
         return () => clearInterval(interval);
     }, [isLoading, isAuthenticated]);
+
+    // WebSocket Integration
+    useEffect(() => {
+        if (isLoading || !isAuthenticated || !user) return;
+
+        const socket = io(SOCKET_URL, {
+            auth: { token: useAuthStore.getState().token },
+            transports: ['websocket']
+        });
+
+        socket.on('connect', () => {
+            console.log('RealTimeContext: Connected to socket');
+            
+            // Fetch initial online statuses
+            const fetchOnline = async () => {
+                try {
+                    const res = await axios.get(`${import.meta.env.VITE_API_URL}/monitoring/online`, {
+                        headers: { Authorization: `Bearer ${useAuthStore.getState().token}` }
+                    });
+                    if (res.data.success) {
+                        setState(prev => ({
+                            ...prev,
+                            employees: prev.employees.map(e => {
+                                const isOnline = res.data.data.some(oe => oe.id === e.id);
+                                return { ...e, status: isOnline ? 'online' : 'offline' };
+                            })
+                        }));
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch online employees:', err);
+                }
+            };
+            fetchOnline();
+        });
+
+        socket.on('employee:status', ({ employeeId, status }) => {
+            setState(prev => ({
+                ...prev,
+                employees: prev.employees.map(e => 
+                    e.id === employeeId ? { ...e, status: status.toLowerCase() } : e
+                )
+            }));
+        });
+
+        socket.on('activity:update', (data) => {
+            // Add to activity stream if we are on a page that needs it
+            // For now, we update logs if it's the current date
+            if (state.selectedDate === TODAY) {
+                // Update specific metrics if needed or just let the stat computation handle it
+            }
+        });
+
+        socket.on('screenshot:new', (data) => {
+            setState(prev => ({
+                ...prev,
+                screenshots: [data, ...prev.screenshots].slice(0, 50)
+            }));
+            addNotification(`New screenshot from employee`, 'info');
+        });
+
+        return () => socket.disconnect();
+    }, [isLoading, isAuthenticated, user]);
 
     // Live backend tasks sync
     useEffect(() => {

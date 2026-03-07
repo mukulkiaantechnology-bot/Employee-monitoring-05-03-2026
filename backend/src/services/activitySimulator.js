@@ -48,7 +48,7 @@ class ActivitySimulator {
                 return;
             }
 
-            const logsToCreate = [];
+            const io = require('../socket/server').getIO();
 
             for (const emp of employees) {
                 // Randomly decide if they are ACTIVE, IDLE, or SYSTEM
@@ -63,7 +63,7 @@ class ActivitySimulator {
                 const apps = ['VS Code', 'Google Chrome', 'Slack', 'Terminal', 'Zoom', 'Spotify', 'YouTube'];
                 const appWebsite = apps[Math.floor(Math.random() * apps.length)];
 
-                logsToCreate.push({
+                const logData = {
                     employeeId: emp.id,
                     organizationId: emp.organizationId,
                     activityType,
@@ -71,7 +71,35 @@ class ActivitySimulator {
                     duration: 30, // 30 seconds per tick
                     appWebsite,
                     timestamp: new Date(),
-                });
+                };
+
+                logsToCreate.push(logData);
+
+                // Emit live update via socket if possible
+                if (io) {
+                    io.to(`org_${emp.organizationId}`).emit('activity:update', {
+                        employeeId: emp.id,
+                        activeApp: appWebsite,
+                        activeWindow: 'Operating ' + appWebsite,
+                        keystrokes: Math.floor(Math.random() * 50),
+                        mouseClicks: Math.floor(Math.random() * 20),
+                        idleTime: activityType === 'IDLE' ? 65 : 0,
+                        timestamp: new Date()
+                    });
+
+                    // Also emit status if changed (simulated)
+                    if (activityType === 'IDLE') {
+                        io.to(`org_${emp.organizationId}`).emit('employee:status', {
+                            employeeId: emp.id,
+                            status: 'idle'
+                        });
+                    } else {
+                        io.to(`org_${emp.organizationId}`).emit('employee:status', {
+                            employeeId: emp.id,
+                            status: 'online'
+                        });
+                    }
+                }
             }
 
             await prisma.activityLog.createMany({

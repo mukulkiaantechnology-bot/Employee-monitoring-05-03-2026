@@ -4,6 +4,7 @@ const logger = require('./utils/logger');
 const activitySimulator = require('./services/activitySimulator');
 const { startSimulator: startScreenshotSimulator } = require('./modules/screenshots/screenshotSimulator');
 const { startAppUsageSimulator } = require('./services/appUsageSimulator');
+const { initSocketServer } = require('./socket/server');
 
 const server = app.listen(PORT, () => {
     logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
@@ -12,6 +13,9 @@ const server = app.listen(PORT, () => {
     startScreenshotSimulator();
     startAppUsageSimulator();
 });
+
+// Initialize Socket.IO
+initSocketServer(server);
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {

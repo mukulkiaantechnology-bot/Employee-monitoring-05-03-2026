@@ -107,6 +107,8 @@ model Organization {
   workZones        WorkZone[]
   locationLogs     LocationLog[]
   invoices         Invoice[]
+  liveActivities   LiveActivity[]
+  auditLogs        AuditLog[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -148,11 +150,13 @@ model Employee {
   locationLogs   LocationLog[]
   payrollRecords PayrollRecord[]
   screenshots    Screenshot[]
+  liveActivities LiveActivity[]
   appUsageLogs   AppUsageLog[]
   manualTimeEntries ManualTime[]
   shifts         Shift[]
   projectAssignments ProjectAssignment[]
   projectTimeLogs    ProjectTimeLog[]
+  auditLogs          AuditLog[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -359,7 +363,9 @@ model ComplianceSetting {
   id                String       @id @default(uuid())
   organization      Organization @relation(fields: [organizationId], references: [id])
   organizationId    String       @unique
-  gdprEnabled       Boolean      @default(false)
+  gdprEnabled       Boolean      @default(true)
+  activityMonitoring Boolean      @default(true)
+  locationTracking  Boolean      @default(true)
   twoFactorEnabled  Boolean      @default(false)
   encryptionEnabled Boolean      @default(false)
   consentPercentage Float        @default(0.0)
@@ -368,6 +374,21 @@ model ComplianceSetting {
   updatedAt         DateTime     @updatedAt
 
   @@map("compliance_settings")
+}
+
+model AuditLog {
+  id             String       @id @default(uuid())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  user           Employee     @relation(fields: [userId], references: [id])
+  userId         String
+  action         String
+  status         String
+  ipAddress      String?
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+
+  @@map("audit_logs")
 }
 
 model Screenshot {
@@ -419,4 +440,21 @@ model Invoice {
   updatedAt      DateTime      @updatedAt
 
   @@map("invoices")
+}
+
+model LiveActivity {
+  id             String   @id @default(uuid())
+  employeeId     String
+  organizationId String
+  activeApp      String
+  activeWindow   String
+  keystrokes     Int
+  mouseClicks    Int
+  idleTime       Int
+  createdAt      DateTime @default(now())
+
+  employee     Employee     @relation(fields: [employeeId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@map("live_activities")
 }

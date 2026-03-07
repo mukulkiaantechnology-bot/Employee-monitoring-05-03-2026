@@ -7,6 +7,15 @@ const { getDistance } = require('../../utils/geo');
 const trackLocation = async (data) => {
     const { employeeId, organizationId, latitude, longitude, accuracy, source } = data;
 
+    // Check if location tracking is enabled
+    const settings = await prisma.complianceSetting.findUnique({
+        where: { organizationId }
+    });
+
+    if (settings && !settings.locationTracking) {
+        return { log: null, matchedZone: null };
+    }
+
     // 1. Store the location log
     const log = await prisma.locationLog.create({
         data: {

@@ -3,6 +3,14 @@ const prisma = new PrismaClient();
 
 const activityService = {
     createActivityLog: async (data) => {
+        const settings = await prisma.complianceSetting.findUnique({
+            where: { organizationId: data.organizationId }
+        });
+
+        if (settings && !settings.activityMonitoring) {
+            return null;
+        }
+
         return await prisma.activityLog.create({
             data: {
                 employeeId: data.employeeId,

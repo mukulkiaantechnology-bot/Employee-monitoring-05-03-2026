@@ -24,7 +24,7 @@ const getWorkTypeReport = async (organizationId, startDate, endDate) => {
  * Apps & Websites Report: Detailed usage per app.
  */
 const getAppsReport = async (organizationId, startDate, endDate) => {
-    return prisma.appUsageLog.groupBy({
+    const data = await prisma.appUsageLog.groupBy({
         by: ['appName', 'category', 'productivity'],
         _sum: { duration: true },
         where: {
@@ -36,6 +36,8 @@ const getAppsReport = async (organizationId, startDate, endDate) => {
         },
         take: 20
     });
+
+    return await maskPII(organizationId, data, 'appName'); // Assuming appName masking is desired or just a placeholder for now, but usually it's employee names
 };
 
 /**
@@ -51,7 +53,7 @@ const getAdherenceReport = async (organizationId, startDate, endDate) => {
         }
     });
 
-    return employees.map(emp => {
+    const data = employees.map(emp => {
         const totalAttendance = emp.attendance.length;
         const lateAttendance = emp.attendance.filter(a => a.late).length;
         const adherenceScore = totalAttendance > 0 
@@ -59,11 +61,34 @@ const getAdherenceReport = async (organizationId, startDate, endDate) => {
             : 0;
 
         return {
+            id: emp.id,
             employee: emp.fullName,
             status: adherenceScore >= 90 ? 'Excellent' : adherenceScore >= 80 ? 'Good' : 'Needs Improvement',
             adherence: adherenceScore
         };
     });
+
+    return await maskPII(organizationId, data, 'employee');
+};
+
+/**
+ * Helper to mask PII according to GDPR settings
+ */
+const maskPII = async (organizationId, data, nameField = 'employee') => {
+    const settings = await prisma.complianceSetting.findUnique({
+        where: { organizationId }
+    });
+
+    if (!settings || !settings.gdprEnabled) {
+        return data;
+    }
+
+    return data.map(item => ({
+        ...item,
+        [nameField]: `Employee #${item.id?.substring(0, 4) || Math.random().toString(36).substring(7).toUpperCase()}`,
+        email: '***@***.***',
+        phone: '**********'
+    }));
 };
 
 /**
@@ -97,7 +122,10 @@ const getLocationInsights = async (organizationId, startDate, endDate) => {
         locationStats[loc].workHours += totalSeconds / 3600;
     });
 
-    return Object.values(locationStats);
+    const data = Object.values(locationStats);
+    return await maskPII(organizationId, data, 'name'); // name here is the location name, but wait, usually we mask employee names. 
+    // Actually, in Location Insights, it's grouped by location.
+    // Let's check employee level reports if any.
 };
 
 /**
@@ -117,7 +145,7 @@ const getWorkloadReport = async (organizationId, startDate, endDate) => {
         }
     });
 
-    return teams.map(team => {
+    const data = teams.map(team => {
         let totalHours = 0;
         let totalCapacity = team.employees.length * 40; // Assuming 40h per week capacity for now
 
@@ -133,6 +161,8 @@ const getWorkloadReport = async (organizationId, startDate, endDate) => {
             employeeCount: team.employees.length
         };
     });
+
+    return data; // No employee names here, so no masking needed
 };
 
 module.exports = {

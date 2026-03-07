@@ -25,7 +25,8 @@ const InsightStatCard = ({ title, value, total, icon: Icon, color, subLabel }) =
 );
 
 export function RealTimeInsights() {
-    const { employees, stats, addEmployee } = useRealTime();
+    const { stats, addEmployee } = useRealTime();
+    const employees = stats.empMetrics || [];
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [search, setSearch] = useState('');
     const [lastRefresh, setLastRefresh] = useState(new Date());

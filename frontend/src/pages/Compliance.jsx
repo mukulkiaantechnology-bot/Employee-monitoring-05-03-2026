@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Shield, Lock, Eye, MapPin, CheckCircle2, AlertCircle, Search, Download, Info, AlertTriangle } from 'lucide-react';
 import { useRealTime } from '../hooks/RealTimeContext';
+import complianceService from '../services/complianceService';
 
 const cn = (...inputs) => inputs.filter(Boolean).join(' ');
 
@@ -38,29 +39,70 @@ const ComplianceToggle = ({ title, desc, icon: Icon, enabled, onToggle }) => (
 export function Compliance() {
     const { addNotification } = useRealTime();
     const [settings, setSettings] = useState({
-        gdpr: true,
-        screenshots: true,
-        location: true,
-        mfa: false
+        gdprEnabled: true,
+        activityMonitoring: true,
+        locationTracking: true
     });
 
     const [searchQuery, setSearchQuery] = useState('');
-    const [logs] = useState([
-        { id: 1, action: 'User Login', user: 'admin@shoppeal.tech', ip: '192.168.1.1', time: '2 mins ago', status: 'Success' },
-        { id: 2, action: 'Access Sensitive Document', user: 'manager_01', ip: '192.168.1.45', time: '15 mins ago', status: 'Warning' },
-        { id: 3, action: 'Updated Monitoring Policy', user: 'admin@shoppeal.tech', ip: '192.168.1.1', time: '1 hour ago', status: 'Success' },
-        { id: 4, action: 'Bulk Export Attempt', user: 'employee_test', ip: '45.12.89.2', time: '3 hours ago', status: 'Denied' },
-    ]);
+    const [logs, setLogs] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    const handleToggle = (key) => {
-        setSettings(prev => ({ ...prev, [key]: !prev[key] }));
-        addNotification(`Compliance setting "${key}" updated`, 'success');
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            const [fetchedSettings, fetchedLogs] = await Promise.all([
+                complianceService.getSettings(),
+                complianceService.getAuditLogs()
+            ]);
+            setSettings(fetchedSettings);
+            setLogs(fetchedLogs);
+        } catch (error) {
+            console.error('Failed to fetch compliance data:', error);
+            addNotification('Failed to load compliance data', 'error');
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const filteredLogs = logs.filter(log =>
-        log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        log.user.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const handleToggle = async (key) => {
+        try {
+            const newSettings = { ...settings, [key]: !settings[key] };
+            // Optimistic update
+            setSettings(newSettings);
+            
+            await complianceService.updateSettings(newSettings);
+            addNotification(`Compliance setting updated`, 'success');
+            
+            // Refresh logs to show the update action
+            const updatedLogs = await complianceService.getAuditLogs();
+            setLogs(updatedLogs);
+        } catch (error) {
+            console.error('Failed to update compliance settings:', error);
+            addNotification('Failed to update settings', 'error');
+            // Rollback on failure
+            fetchData();
+        }
+    };
+
+    const handleSearch = async (e) => {
+        const query = e.target.value;
+        setSearchQuery(query);
+        try {
+            const filteredLogs = await complianceService.getAuditLogs(query);
+            setLogs(filteredLogs);
+        } catch (error) {
+            console.error('Failed to search logs:', error);
+        }
+    };
+
+    if (loading) {
+        return <div className="p-8">Loading compliance data...</div>;
+    }
 
     return (
         <div className="max-w-4xl space-y-8 animate-fade-in pb-20">
@@ -89,22 +131,22 @@ export function Compliance() {
                         title="GDPR Anonymization"
                         desc="Automatically mask employee PII in shared work logs."
                         icon={Lock}
-                        enabled={settings.gdpr}
-                        onToggle={() => handleToggle('gdpr')}
+                        enabled={settings.gdprEnabled}
+                        onToggle={() => handleToggle('gdprEnabled')}
                     />
                     <ComplianceToggle
                         title="Activity Monitoring"
                         desc="Collect app and website usage data."
                         icon={Eye}
-                        enabled={settings.screenshots}
-                        onToggle={() => handleToggle('screenshots')}
+                        enabled={settings.activityMonitoring}
+                        onToggle={() => handleToggle('activityMonitoring')}
                     />
                     <ComplianceToggle
                         title="Location Tracking"
                         desc="Log GPS coordinates for field-based roles."
                         icon={MapPin}
-                        enabled={settings.location}
-                        onToggle={() => handleToggle('location')}
+                        enabled={settings.locationTracking}
+                        onToggle={() => handleToggle('locationTracking')}
                     />
                 </div>
 
@@ -117,7 +159,7 @@ export function Compliance() {
                                 type="text"
                                 placeholder="Search logs..."
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onChange={handleSearch}
                                 className="pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm w-full outline-none"
                             />
                         </div>
@@ -134,21 +176,30 @@ export function Compliance() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                {filteredLogs.map(log => (
+                                {logs && logs.length > 0 ? logs.map(log => (
                                     <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
                                         <td className="px-6 py-4 text-sm font-bold">{log.action}</td>
                                         <td className="px-6 py-4 text-sm text-slate-500">{log.user}</td>
-                                        <td className="px-6 py-4 text-sm text-slate-400">{log.time}</td>
+                                        <td className="px-6 py-4 text-sm text-slate-400">
+                                            {new Date(log.time).toLocaleString()}
+                                        </td>
                                         <td className="px-6 py-4">
                                             <span className={cn(
                                                 "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold",
-                                                log.status === 'Success' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
+                                                log.status === 'Success' ? 'bg-emerald-50 text-emerald-600' : 
+                                                log.status === 'Denied' ? 'bg-red-50 text-red-600' : 'bg-amber-50 text-amber-600'
                                             )}>
                                                 {log.status}
                                             </span>
                                         </td>
                                     </tr>
-                                ))}
+                                )) : (
+                                    <tr>
+                                        <td colSpan="4" className="px-6 py-8 text-center text-slate-500 text-sm font-medium">
+                                            No audit logs found.
+                                        </td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
                     </div>

@@ -469,10 +469,21 @@ const GenericSelectionModal = memo(({
 GenericSelectionModal.displayName = 'GenericSelectionModal';
 
 export function ScreenshotMonitoring() {
-  const { employees: contextEmployees, teams: contextTeams, projects: contextProjects, deleteScreenshot, addNotification } = useRealTime();
+  const { employees: contextEmployees, teams: contextTeams, projects: contextProjects, screenshots: contextScreenshots, deleteScreenshot, addNotification } = useRealTime();
 
   // Real backend screenshots state
   const [backendScreenshots, setBackendScreenshots] = useState([]);
+
+  // Sync context screenshots (newly arrived via socket) to local state
+  useEffect(() => {
+    if (contextScreenshots && contextScreenshots.length > 0) {
+        setBackendScreenshots(prev => {
+            const newOnes = contextScreenshots.filter(cs => !prev.some(ps => ps.id === cs.id));
+            if (newOnes.length === 0) return prev;
+            return [...newOnes, ...prev];
+        });
+    }
+  }, [contextScreenshots]);
   const [loadingScreenshots, setLoadingScreenshots] = useState(true);
 
   // Derived employee list from real backend data

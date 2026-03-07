@@ -45,8 +45,10 @@ async function generateScreenshots() {
         const shuffled = employees.sort(() => 0.5 - Math.random());
         const selected = shuffled.slice(0, count);
 
+        const io = require('../../socket/server').getIO();
+
         for (const employee of selected) {
-            await prisma.screenshot.create({
+            const newScreenshot = await prisma.screenshot.create({
                 data: {
                     employeeId: employee.id,
                     organizationId: employee.organizationId,
@@ -57,6 +59,14 @@ async function generateScreenshots() {
                 }
             });
             console.log(`[ScreenshotSimulator] Screenshot generated for ${employee.fullName}`);
+
+            if (io) {
+                io.to(`org_${employee.organizationId}`).emit('screenshot:new', {
+                    ...newScreenshot,
+                    employee: employee.fullName,
+                    timestamp: newScreenshot.capturedAt
+                });
+            }
         }
     } catch (error) {
         console.error('[ScreenshotSimulator] Error generating screenshots:', error.message);

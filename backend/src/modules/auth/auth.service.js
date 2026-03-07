@@ -42,7 +42,12 @@ const register = async (userData) => {
         });
 
         // Generate Token
-        const token = generateToken({ userId: user.id, role: user.role, organizationId: employee.organizationId });
+        const token = generateToken({ 
+            userId: user.id, 
+            role: user.role, 
+            employeeId: employee.id, // Added: include employeeId in token
+            organizationId: employee.organizationId 
+        });
         return { token, user: { id: user.id, email: user.email, role: user.role, employeeId: employee.id, organizationId: employee.organizationId } };
     });
 };
@@ -57,18 +62,39 @@ const login = async (email, password) => {
     });
 
     if (!user) {
+        // Log failed login (no user found)
+        // Note: In a real app, you might want to log this without organizationId if not found
         throw new Error('Invalid email or password');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
+        // Log failed login (wrong password)
+        const { createAuditLog } = require('../../utils/audit.util');
+        await createAuditLog({
+            organizationId: user.employee?.organizationId,
+            userId: user.employeeId,
+            action: 'User Login',
+            status: 'Denied',
+            metadata: { reason: 'Invalid password' }
+        });
         throw new Error('Invalid email or password');
     }
 
     const token = generateToken({
         userId: user.id,
         role: user.role,
+        employeeId: user.employeeId, // Added: include employeeId in token
         organizationId: user.employee?.organizationId
+    });
+
+    // Log successful login
+    const { createAuditLog } = require('../../utils/audit.util');
+    await createAuditLog({
+        organizationId: user.employee?.organizationId,
+        userId: user.employeeId,
+        action: 'User Login',
+        status: 'Success'
     });
 
     return {
