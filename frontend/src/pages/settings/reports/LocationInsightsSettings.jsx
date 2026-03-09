@@ -54,17 +54,6 @@ export function LocationInsightsSettings() {
         setTimeout(() => setShowToast(false), 3000);
     };
 
-    const handleImport = () => {
-        const dummyLocations = [
-            { name: 'San Francisco Hub', type: 'Office', address: 'Market St, SF', lat: 37.7749, lng: -122.4194, attendanceThreshold: 4 },
-            { name: 'London Tech Park', type: 'Office', address: 'Old St, London', lat: 51.5074, lng: -0.1278, attendanceThreshold: 6 },
-            { name: 'Bangalore Center', type: 'Office', address: 'Outer Ring Rd, BLR', lat: 12.9716, lng: 77.5946, attendanceThreshold: 4 }
-        ];
-        importLocations(dummyLocations);
-        triggerToast('3 Locations Imported Successfully');
-        setIsDropdownOpen(false);
-    };
-
     const handleAutoDetect = () => {
         if ("geolocation" in navigator) {
             triggerToast('Detecting location...');
@@ -124,46 +113,13 @@ export function LocationInsightsSettings() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    {/* Multi-action Dropdown */}
-                    <div className="relative" ref={dropdownRef}>
-                        <button
-                            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                            className="h-12 px-6 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl"
-                        >
-                            <Plus size={18} />
-                            Add Location
-                            <ChevronDown size={16} className={cn("transition-transform duration-300", isDropdownOpen && "rotate-180")} />
-                        </button>
-
-                        {isDropdownOpen && (
-                            <div className="absolute right-0 mt-3 w-64 bg-white dark:bg-slate-900 rounded-[1.5rem] shadow-2xl border border-slate-100 dark:border-slate-800 p-2 z-[60] animate-in fade-in slide-in-from-top-2">
-                                <button
-                                    onClick={() => { setIsAddModalOpen(true); setIsDropdownOpen(false); }}
-                                    className="w-full flex items-center gap-3 p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-left group"
-                                >
-                                    <div className="h-10 w-10 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600">
-                                        <Plus size={18} />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">Add New Location</p>
-                                        <p className="text-[10px] font-bold text-slate-400">Manual entry</p>
-                                    </div>
-                                </button>
-                                <button
-                                    onClick={handleImport}
-                                    className="w-full flex items-center gap-3 p-4 rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-left group"
-                                >
-                                    <div className="h-10 w-10 rounded-lg bg-primary-50 dark:bg-primary-500/10 flex items-center justify-center text-primary-600">
-                                        <Upload size={18} />
-                                    </div>
-                                    <div>
-                                        <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tight">Import Locations</p>
-                                        <p className="text-[10px] font-bold text-slate-400">CSV simulation</p>
-                                    </div>
-                                </button>
-                            </div>
-                        )}
-                    </div>
+                    <button
+                        onClick={() => setIsAddModalOpen(true)}
+                        className="h-12 px-6 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-3 hover:scale-[1.02] active:scale-95 transition-all shadow-xl"
+                    >
+                        <Plus size={18} />
+                        Add Location
+                    </button>
 
                     <button
                         onClick={handleAutoDetect}

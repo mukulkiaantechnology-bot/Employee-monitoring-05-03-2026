@@ -64,7 +64,54 @@ const getLocationHistory = async (employeeId, limit = 100) => {
     });
 };
 
+/**
+ * Get the latest known location for all employees in an organization.
+ * Used for the Live Location Tracking map.
+ */
+const getLiveLocations = async (organizationId) => {
+    // 1. Get all active employees in the organization
+    const employees = await prisma.employee.findMany({
+        where: { 
+            organizationId,
+            role: 'EMPLOYEE',
+            status: { notIn: ['DEACTIVATED', 'MERGED'] }
+        },
+        select: {
+            id: true,
+            fullName: true,
+            email: true,
+            avatar: true,
+            team: { select: { name: true } }
+        }
+    });
+
+    // 2. Map through employees to fetch their latest location log
+    const liveLocations = await Promise.all(
+        employees.map(async (emp) => {
+            const latestLog = await prisma.locationLog.findFirst({
+                where: { employeeId: emp.id },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            return {
+                id: emp.id,
+                name: emp.fullName,
+                email: emp.email,
+                avatar: emp.avatar,
+                team: emp.team ? emp.team.name : 'Unassigned',
+                latitude: latestLog ? latestLog.latitude : null,
+                longitude: latestLog ? latestLog.longitude : null,
+                lastUpdate: latestLog ? latestLog.createdAt : null,
+                source: latestLog ? latestLog.source : null
+            };
+        })
+    );
+
+    return liveLocations;
+};
+
 module.exports = {
     trackLocation,
-    getLocationHistory
+    getLocationHistory,
+    getLiveLocations
 };

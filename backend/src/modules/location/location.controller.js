@@ -39,7 +39,18 @@ const getHistory = async (req, res) => {
     }
 };
 
+const getLive = async (req, res) => {
+    try {
+        const organizationId = await getOrganizationId(req);
+        const liveLocations = await locationService.getLiveLocations(organizationId);
+        return successResponse(res, liveLocations, 'Live locations retrieved successfully');
+    } catch (error) {
+        return errorResponse(res, error.message);
+    }
+};
+
 module.exports = {
     track,
-    getHistory
+    getHistory,
+    getLive
 };

@@ -22,6 +22,7 @@ import { useNavigate } from 'react-router-dom';
 import { useLocationStore } from '../../store/locationStore';
 import { useRealTime } from '../../hooks/RealTimeContext';
 import { cn } from '../../utils/cn';
+import { LiveMapView } from '../../components/location/LiveMapView';
 
 import { useReportsStore } from '../../store/reportsStore';
 
@@ -395,13 +396,9 @@ export function LocationInsights() {
                         })}
                     </div>
 
-                    {/* Map Placeholder */}
-                    <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900 text-center">
-                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-50 text-slate-400 dark:bg-slate-800 mb-4">
-                            <MapPin size={32} />
-                        </div>
-                        <h3 className="text-xl font-bold dark:text-white">Interactive Map View</h3>
-                        <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-md mx-auto">Geographic distribution of your workforce. Showing {locations.length} active work zones.</p>
+                    {/* Map Placeholder -> Live Map View */}
+                    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
+                        <LiveMapView />
                     </div>
                 </div>
             ) : (
