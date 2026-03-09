@@ -21,15 +21,11 @@ import {
     ResponsiveContainer,
     ComposedChart,
     Area,
-    Line,
     XAxis,
     YAxis,
     CartesianGrid,
     Tooltip,
     Legend,
-    PieChart,
-    Pie,
-    Cell,
     Bar
 } from 'recharts';
 import { AddEmployeeModal } from '../components/AddEmployeeModal';
@@ -149,16 +145,16 @@ const AppSection = ({ title }) => (
 import dashboardService from '../services/dashboardService';
 
 const pieData = [
-  { name: 'Productive', value: 75, color: '#6366f1' },
-  { name: 'Unproductive', value: 15, color: '#f43f5e' },
-  { name: 'Neutral', value: 10, color: '#94a3b8' }
+    { name: 'Productive', value: 75, color: '#6366f1' },
+    { name: 'Unproductive', value: 15, color: '#f43f5e' },
+    { name: 'Neutral', value: 10, color: '#94a3b8' }
 ];
 
 const categories = [
-  { name: 'Core Work', time: '5h 30m', trend: '+12%', color: '#6366f1' },
-  { name: 'Communication', time: '1h 15m', trend: '-5%', color: '#22d3ee' },
-  { name: 'Social Media', time: '0h 45m', trend: '+20%', color: '#f43f5e' },
-  { name: 'Others', time: '0h 30m', trend: '+2%', color: '#cbd5e1' }
+    { name: 'Core Work', time: '5h 30m', trend: '+12%', color: '#6366f1' },
+    { name: 'Communication', time: '1h 15m', trend: '-5%', color: '#22d3ee' },
+    { name: 'Social Media', time: '0h 45m', trend: '+20%', color: '#f43f5e' },
+    { name: 'Others', time: '0h 30m', trend: '+2%', color: '#cbd5e1' }
 ];
 
 export function Dashboard() {
@@ -241,14 +237,7 @@ export function Dashboard() {
                     <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Productivity Trends</h1>
                 </div>
                 <div className="flex items-center gap-4">
-                    {role === 'ADMIN' && (
-                        <button
-                            onClick={() => setIsModalOpen(true)}
-                            className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg text-xs font-black transition-all shadow-lg shadow-primary-200 dark:shadow-none uppercase tracking-wider"
-                        >
-                            Invite Employee
-                        </button>
-                    )}
+
                     {role !== 'EMPLOYEE' && (
                         <div className="relative">
                             <button
@@ -281,14 +270,14 @@ export function Dashboard() {
 
             {/* Summary Metrics */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6 mb-8">
-                <SummaryCard title="Work Time" value={stats.workHours ? `${stats.workHours.toFixed(2)}h` : (stats.summary?.workTime || '00:00')} trend="-3.1%" subValue={role === 'ADMIN' ? `${stats.employees?.length || 0} employees tracked` : 'Personal activity'} icon={Clock} />
-                <SummaryCard title="Active Time" value={stats.summary?.activeTime || '00:00'} trend="-1.8%" subValue="Computer activity" icon={Activity} />
-                <SummaryCard title="Idle Time" value={stats.summary?.idleTime || '00:00'} trend="+2.4%" subValue="Mouse/KB inactive" icon={Clock} />
+                <SummaryCard title="Work Time" value={stats.summary?.workTime || '00:00'} trend="" subValue={role === 'ADMIN' ? `${stats.employees?.length || 0} employees tracked` : 'Personal activity'} icon={Clock} />
+                <SummaryCard title="Active Time" value={stats.summary?.activeTime || '00:00'} trend="" subValue="Computer activity" icon={Activity} />
+                <SummaryCard title="Idle Time" value={stats.summary?.idleTime || '00:00'} trend="" subValue="Keyboard/mouse inactive" icon={Clock} />
                 <SummaryCard title="Manual Time" value={stats.summary?.manualTime || '00:00'} subValue="User-entered time" icon={Plus} />
-                <SummaryCard title="Productive Time" value={stats.summary?.productiveTime || '00:00'} trend="+1.5%" subValue="High-value work" icon={TrendingUp} />
-                <SummaryCard title="Unproductive Time" value={stats.summary?.unproductiveTime || '00:00'} trend="-0.5%" subValue="Low-value activity" icon={TrendingDown} />
-                <SummaryCard title="Neutral Time" value={stats.summary?.neutralTime || '00:00'} trend="-2.1%" subValue="Mixed activity" icon={ArrowRightLeft} />
-                <SummaryCard title="Productivity Score" value={`${stats.productivityScore ?? 0}%`} subValue={`Utilization ${stats.summary?.utilization ?? 0}%`} icon={TrendingUp} />
+                <SummaryCard title="Productive Time" value={stats.summary?.productiveTime || '00:00'} trend="" subValue="High-value work" icon={TrendingUp} />
+                <SummaryCard title="Unproductive Time" value={stats.summary?.unproductiveTime || '00:00'} trend="" subValue="Low-value activity" icon={TrendingDown} />
+                <SummaryCard title="Neutral Time" value={stats.summary?.neutralTime || '00:00'} trend="" subValue="Mixed activity" icon={ArrowRightLeft} />
+                <SummaryCard title="Productivity Score" value={`${stats.summary?.utilization ?? 0}%`} subValue={`Work / Productive`} icon={TrendingUp} />
             </div>
 
             {/* Main Visualizations */}
@@ -342,57 +331,17 @@ export function Dashboard() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-8">
-                <EmployeeTable title="Top Productive Employees" data={employeesProd} type="up" />
-                <EmployeeTable title="Top Unproductive Employees" data={employeesUnprod} type="down" />
-                <EmployeeTable title="Top Productive Teams" data={teamsList} type="up" />
-                <EmployeeTable title="Top Unproductive Teams" data={[...teamsList].sort((a, b) => a.utilization - b.utilization)} type="down" />
+                {role !== 'EMPLOYEE' && (
+                    <>
+                        <EmployeeTable title="Top Productive Employees" data={employeesProd} type="up" />
+                        <EmployeeTable title="Top Unproductive Employees" data={employeesUnprod} type="down" />
+                        <EmployeeTable title="Top Productive Teams" data={teamsList} type="up" />
+                        <EmployeeTable title="Top Unproductive Teams" data={[...teamsList].sort((a, b) => a.utilization - b.utilization)} type="down" />
+                    </>
+                )}
             </div>
 
-            {/* Analytical Insights */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-8">
-                <CategoryTable data={categories} />
-
-                <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 flex flex-col h-full">
-                    <div className="flex items-center justify-between mb-8">
-                        <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Breakdown by Category</h3>
-                        <button className="text-[10px] font-black text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 uppercase tracking-widest">Export</button>
-                    </div>
-                    <div className="flex-1 flex flex-col md:flex-row items-center justify-center gap-10">
-                        <div className="h-64 w-64 relative">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie data={pieData2.length ? pieData2 : pieData} innerRadius={75} outerRadius={100} paddingAngle={4} dataKey="value" stroke="none">
-                                        {(pieData2.length ? pieData2 : pieData).map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                </PieChart>
-                            </ResponsiveContainer>
-                            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Today</span>
-                            </div>
-                        </div>
-                        <div className="flex-1 w-full max-w-[200px] space-y-4">
-                            {(pieData2.length ? pieData2 : pieData).map((item, idx) => (
-                                <div key={idx} className="flex items-center justify-between group cursor-default">
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-2.5 w-2.5 rounded-full transition-transform group-hover:scale-125" style={{ backgroundColor: item.color }} />
-                                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors uppercase tracking-tight">{item.name}</span>
-                                    </div>
-                                    <span className="text-xs font-black text-slate-900 dark:text-white">{item.value}%</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Asset Monitoring */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-                <AppSection title="Productive Apps and Websites" />
-                <AppSection title="Unproductive Apps and Websites" />
-                <AppSection title="Neutral Apps and Websites" />
-            </div>
+            {/* Removed unused mock widgets: Analytical Insights & Asset Monitoring */}
 
             <AddEmployeeModal
                 isOpen={isModalOpen}

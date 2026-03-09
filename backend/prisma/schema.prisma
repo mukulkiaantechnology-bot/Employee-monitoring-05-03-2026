@@ -59,6 +59,8 @@ model User {
   email      String    @unique
   password   String
   role       Role      @default(EMPLOYEE)
+  name       String?
+  avatar     String?   @db.Text
   employee   Employee? @relation(fields: [employeeId], references: [id])
   employeeId String?   @unique
   createdAt  DateTime  @default(now())
@@ -138,7 +140,7 @@ model Employee {
   computerType   ComputerType   @default(COMPANY)
   status         EmployeeStatus @default(ACTIVE)
   hourlyRate     Float          @default(0.0)
-  avatar         String?
+  avatar         String?        @db.Text
   user           User?
   team           Team?          @relation(fields: [teamId], references: [id])
   teamId         String?

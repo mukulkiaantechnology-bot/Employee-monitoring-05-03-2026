@@ -80,7 +80,21 @@ export function PersonalInfoTab() {
                                 const file = e.target.files[0];
                                 if (file) {
                                     const reader = new FileReader();
-                                    reader.onloadend = () => setAvatarPreview(reader.result);
+                                    reader.onloadend = () => {
+                                        const img = new Image();
+                                        img.onload = () => {
+                                            const canvas = document.createElement('canvas');
+                                            const MAX_WIDTH = 200;
+                                            const scaleSize = MAX_WIDTH / img.width;
+                                            canvas.width = MAX_WIDTH;
+                                            canvas.height = img.height * scaleSize;
+                                            const ctx = canvas.getContext('2d');
+                                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                            // Compress to JPEG with 80% quality to ensure tiny base64 size
+                                            setAvatarPreview(canvas.toDataURL('image/jpeg', 0.8));
+                                        };
+                                        img.src = reader.result;
+                                    };
                                     reader.readAsDataURL(file);
                                 }
                             }}

@@ -103,9 +103,9 @@ const login = async (email, password) => {
             id: user.id,
             email: user.email,
             role: user.role,
-            fullName: user.employee?.fullName || user.email.split('@')[0],
-            name: user.employee?.fullName || user.email.split('@')[0], 
-            avatar: user.employee?.avatar || null,
+            fullName: user.name || user.employee?.fullName || user.email.split('@')[0],
+            name: user.name || user.employee?.fullName || user.email.split('@')[0], 
+            avatar: user.avatar || user.employee?.avatar || null,
             employeeId: user.employeeId,
             organizationId: user.employee?.organizationId,
             teamId: user.employee?.teamId,
@@ -125,6 +125,8 @@ const getMe = async (userId) => {
             role: true,
             employeeId: true,
             createdAt: true,
+            name: true,
+            avatar: true,
             employee: {
                 include: {
                     organization: true,
@@ -140,9 +142,9 @@ const getMe = async (userId) => {
 
     // Flatten data if employee exists
     if (user.employee) {
-        user.fullName = user.employee.fullName;
-        user.name = user.employee.fullName; // For frontend compatibility
-        user.avatar = user.employee.avatar;
+        user.fullName = user.name || user.employee.fullName;
+        user.name = user.name || user.employee.fullName; // For frontend compatibility
+        user.avatar = user.avatar || user.employee.avatar;
         
         if (user.employee.organization) {
             user.organization = user.employee.organization;
@@ -151,9 +153,9 @@ const getMe = async (userId) => {
         user.teamId = user.employee.teamId;
     } else {
         // Provide fallbacks for users without employee record (like seeded admins)
-        user.fullName = user.email.split('@')[0];
+        user.fullName = user.name || user.email.split('@')[0];
         user.name = user.fullName;
-        user.avatar = null;
+        user.avatar = user.avatar || null;
     }
 
     return user;
@@ -173,13 +175,17 @@ const updateProfile = async (userId, data) => {
 
         if (!user) throw new Error('User not found');
 
-        // Update user email if changed
+        // Update user email, name, and avatar directly
         const updatedUser = await tx.user.update({
             where: { id: userId },
-            data: { email: email || user.email }
+            data: { 
+                email: email || user.email,
+                name: name || user.name,
+                avatar: avatar || user.avatar
+            }
         });
 
-        // Update employee name, email, and avatar
+        // If employee exists, also sync their data to keep DB consistent
         if (user.employeeId) {
             await tx.employee.update({
                 where: { id: user.employeeId },
@@ -188,22 +194,6 @@ const updateProfile = async (userId, data) => {
                     email: email || user.email,
                     avatar: avatar || user.employee.avatar
                 }
-            });
-        } else if (name || avatar) {
-            // Create employee if missing (for users created without employee profile like seeded admins)
-            const org = await tx.organization.findFirst() || { id: 'default-org-id' };
-            const employee = await tx.employee.create({
-                data: {
-                    fullName: name || user.email.split('@')[0],
-                    email: user.email,
-                    role: user.role,
-                    organizationId: org.id,
-                    avatar: avatar
-                }
-            });
-            await tx.user.update({
-                where: { id: userId },
-                data: { employeeId: employee.id }
             });
         }
 

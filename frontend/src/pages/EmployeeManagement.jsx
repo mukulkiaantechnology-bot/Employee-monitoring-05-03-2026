@@ -1017,7 +1017,8 @@ export function EmployeeManagement() {
                                 onClick={() => setShowAddModal(true)}
                                 className="flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-3 text-xs font-black uppercase tracking-wider text-white hover:bg-primary-700 transition-all shadow-xl hover:scale-[1.02] active:scale-95"
                             >
-                                <Plus size={16} strokeWidth={3} /> Add New Employee
+                                <Plus size={16} strokeWidth={3} />Invite
+                                 New Employee
                             </button>
                         </>
                     )}

@@ -5,6 +5,7 @@ class EmployeesService {
         return await prisma.employee.findMany({
             where: { 
                 organizationId,
+                role: 'EMPLOYEE', // EXCLUDE ADMIN AND MANAGER
                 ...filter
             },
             include: {
