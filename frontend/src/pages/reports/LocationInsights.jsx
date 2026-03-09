@@ -194,10 +194,13 @@ export function LocationInsights() {
                     <div className="relative">
                         <button
                             onClick={() => setIsCalendarOpen(!isCalendarOpen)}
-                            className={`loc-cal-toggle flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold shadow-sm ring-1 transition-all ${isCalendarOpen ? 'bg-primary-50 text-primary-600 ring-primary-100 dark:bg-primary-900/20 dark:text-primary-400' : 'bg-white text-slate-700 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-800'}`}
+                            className={`loc-cal-toggle flex w-full sm:w-auto items-center justify-between sm:justify-start gap-2 rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm ring-1 transition-all ${isCalendarOpen ? 'bg-primary-50 text-primary-600 ring-primary-100 dark:bg-primary-900/20 dark:text-primary-400' : 'bg-white text-slate-700 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-800'}`}
                         >
-                            <CalendarIcon size={16} className={isCalendarOpen ? 'text-primary-600' : 'text-slate-400'} />
-                            <span>{formatDateRange()}</span>
+                            <div className="flex items-center gap-2">
+                                <CalendarIcon size={16} className={isCalendarOpen ? 'text-primary-600' : 'text-slate-400'} />
+                                <span>{formatDateRange()}</span>
+                            </div>
+                            <ChevronDown size={14} className={cn("transition-transform duration-200 sm:hidden", isCalendarOpen && "rotate-180")} />
                         </button>
 
                         {/* Calendar Range Popover */}
@@ -299,7 +302,7 @@ export function LocationInsights() {
                     <div className="relative" ref={filterRef}>
                         <button
                             onClick={() => setIsFilterOpen(!isFilterOpen)}
-                            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold shadow-sm ring-1 transition-all ${isFilterOpen ? 'bg-primary-50 text-primary-600 ring-primary-100' : 'bg-white text-primary-600 ring-primary-500/20 hover:bg-primary-50 dark:bg-slate-900 dark:ring-slate-800'}`}
+                            className={`flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm ring-1 transition-all ${isFilterOpen ? 'bg-primary-50 text-primary-600 ring-primary-100' : 'bg-white text-primary-600 ring-primary-500/20 hover:bg-primary-50 dark:bg-slate-900 dark:ring-slate-800'}`}
                         >
                             <Plus size={14} className={`text-primary-600 transition-transform ${isFilterOpen ? 'rotate-45' : ''}`} />
                             <span>Add Filter</span>
@@ -324,18 +327,22 @@ export function LocationInsights() {
                     </div>
 
                     {/* Attendance Threshold */}
-                    <div className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
-                        <span className="font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">Attendance Threshold</span>
-                        <HelpCircle size={14} className="text-slate-400 flex-shrink-0" />
-                        <input
-                            type="number"
-                            min={0}
-                            max={100}
-                            value={globalThreshold}
-                            onChange={(e) => updateThreshold(parseFloat(e.target.value) || 0)}
-                            className="w-12 bg-transparent text-center text-sm font-black text-slate-900 dark:text-white outline-none"
-                        />
-                        <span className="text-slate-400 text-xs font-semibold">hours</span>
+                    <div className="flex flex-1 sm:flex-initial items-center justify-between sm:justify-start gap-2 rounded-xl bg-white px-4 py-2.5 text-sm shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
+                        <div className="flex items-center gap-2">
+                            <span className="font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap">Threshold</span>
+                            <HelpCircle size={14} className="text-slate-400 flex-shrink-0" />
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={globalThreshold}
+                                onChange={(e) => updateThreshold(parseFloat(e.target.value) || 0)}
+                                className="w-8 bg-transparent text-center text-sm font-black text-slate-900 dark:text-white outline-none"
+                            />
+                            <span className="text-slate-400 text-[10px] font-semibold uppercase tracking-wider">hrs</span>
+                        </div>
                     </div>
 
                     {/* <button className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-400 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:ring-slate-800 transition-all">
@@ -354,7 +361,7 @@ export function LocationInsights() {
             {/* Location Cards */}
             {activeData.length > 0 ? (
                 <div className="space-y-6">
-                    <div className="grid gap-6 md:grid-cols-3">
+                    <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                         {activeData.map((item, idx) => {
                             const isCompliant = item.hours >= (globalThreshold / 7); // Rough daily threshold check
                             

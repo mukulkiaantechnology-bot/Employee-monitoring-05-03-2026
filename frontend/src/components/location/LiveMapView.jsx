@@ -168,9 +168,9 @@ export const LiveMapView = () => {
     };
 
     return (
-        <div className="h-[calc(100vh-280px)] min-h-[500px] flex gap-4 mt-6 animate-in slide-in-from-bottom-4 duration-500">
+        <div className="lg:h-[calc(100vh-280px)] min-h-[600px] lg:min-h-[500px] flex flex-col lg:flex-row gap-4 mt-6 animate-in slide-in-from-bottom-4 duration-500">
             {/* Left Panel: Employee List */}
-            <div className="w-80 shrink-0 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
+            <div className="w-full lg:w-80 h-[400px] lg:h-auto shrink-0 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
                 <div className="p-4 border-b border-slate-100 dark:border-slate-800">
                     <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center justify-between">
                         Tracking Roster
