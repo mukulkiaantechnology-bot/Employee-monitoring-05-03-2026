@@ -1,31 +1,62 @@
 import React, { useState } from 'react';
-import { useUserStore } from '../../store/userStore';
 import { useAuthStore } from '../../store/authStore';
-import { ShieldCheck, Lock, Upload, KeyRound, AlertTriangle } from 'lucide-react';
+import authService from '../../services/authService';
+import { ShieldCheck, Lock, Upload, KeyRound, AlertTriangle, Eye, EyeOff } from 'lucide-react';
 
 export function PersonalInfoTab() {
-    const { currentUser, updateProfile, updatePassword, toggle2FA, connectAccount, disconnectAccount } = useUserStore();
-    const { user: authUser } = useAuthStore();
+    const { user: authUser, setSession } = useAuthStore();
+    const activeUser = authUser || {};
+    
     const [formData, setFormData] = useState({
-        name: authUser?.name || currentUser.name,
-        email: authUser?.email || currentUser.email,
+        name: activeUser.fullName || activeUser.name || '',
+        email: activeUser.email || '',
+        currentPassword: '',
         newPassword: '',
         retypePassword: ''
     });
+    const [status, setStatus] = useState({ loading: false, error: '', success: '' });
+    const [showPasswords, setShowPasswords] = useState({ current: false, new: false, retype: false });
+    const [avatarPreview, setAvatarPreview] = useState(activeUser.avatar || null);
+    const fileInputRef = React.useRef(null);
 
-    const activeUser = { ...currentUser, ...authUser };
-
-    const isDirty = formData.name !== activeUser.name || formData.email !== activeUser.email || formData.newPassword.length > 0;
+    const isDirty = formData.name !== (activeUser.fullName || activeUser.name) || formData.email !== activeUser.email || formData.newPassword.length > 0;
     const isPasswordMatch = formData.newPassword === formData.retypePassword;
     const canSave = isDirty && (formData.newPassword.length === 0 || isPasswordMatch);
 
-    const handleSave = () => {
-        if (!canSave) return;
-        updateProfile({ name: formData.name, email: formData.email });
-        if (formData.newPassword) {
-            updatePassword(formData.newPassword);
+    const handleSave = async () => {
+        setStatus({ loading: true, error: '', success: '' });
+        try {
+            // Update Profile if changed
+            if (formData.name !== (activeUser.fullName || activeUser.name) || formData.email !== activeUser.email || avatarPreview !== activeUser.avatar) {
+                const res = await authService.updateProfile({ 
+                    name: formData.name, 
+                    email: formData.email,
+                    avatar: avatarPreview
+                });
+                if (res.success) {
+                    setSession({ 
+                        ...authUser, 
+                        fullName: formData.name, 
+                        name: formData.name, // Ensure 'name' is also updated for header
+                        email: formData.email,
+                        avatar: avatarPreview
+                    });
+                }
+            }
+
+            // Change Password if provided
+            if (formData.newPassword) {
+                if (!formData.currentPassword) {
+                    throw new Error('Current password is required to change password');
+                }
+                await authService.changePassword(formData.currentPassword, formData.newPassword);
+            }
+
+            setStatus({ loading: false, error: '', success: 'Changes saved successfully!' });
+            setFormData(prev => ({ ...prev, currentPassword: '', newPassword: '', retypePassword: '' }));
+        } catch (err) {
+            setStatus({ loading: false, error: err.response?.data?.message || err.message, success: '' });
         }
-        setFormData(prev => ({ ...prev, newPassword: '', retypePassword: '' }));
     };
 
     return (
@@ -38,13 +69,36 @@ export function PersonalInfoTab() {
                 </div>
 
                 <div className="space-y-5 bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm">
-                    {/* Avatar Upload mockup */}
+                    {/* Avatar Upload */}
                     <div className="flex items-center gap-6 pb-6 border-b border-slate-100 dark:border-slate-800">
-                        <div className="h-20 w-20 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-600 flex items-center justify-center text-2xl font-black">
-                            {activeUser.name.substring(0, 2).toUpperCase()}
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            accept="image/*"
+                            onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => setAvatarPreview(reader.result);
+                                    reader.readAsDataURL(file);
+                                }
+                            }}
+                        />
+                        <div className="relative group">
+                            {avatarPreview ? (
+                                <img src={avatarPreview} alt="Avatar" className="h-20 w-20 rounded-full object-cover border-2 border-primary-500" />
+                            ) : (
+                                <div className="h-20 w-20 rounded-full bg-primary-100 dark:bg-primary-900/30 text-primary-600 flex items-center justify-center text-2xl font-black">
+                                    {(formData.name || '??').substring(0, 2).toUpperCase()}
+                                </div>
+                            )}
                         </div>
                         <div>
-                            <button className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition-colors flex items-center gap-2">
+                            <button 
+                                onClick={() => fileInputRef.current?.click()}
+                                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition-colors flex items-center gap-2"
+                            >
                                 <Upload size={14} /> Upload new avatar
                             </button>
                             <p className="text-[10px] text-slate-400 mt-2 uppercase tracking-wide">JPG, GIF or PNG. Max size of 800K</p>
@@ -71,128 +125,95 @@ export function PersonalInfoTab() {
                         />
                     </div>
 
-                    {activeUser.role !== 'Client' && (
                         <>
                             <div className="space-y-1.5 pt-4">
+                                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Current Password</label>
+                                <div className="relative">
+                                    <input
+                                        type={showPasswords.current ? "text" : "password"}
+                                        placeholder="Required to change password"
+                                        value={formData.currentPassword}
+                                        onChange={(e) => setFormData({ ...formData, currentPassword: e.target.value })}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium outline-none focus:border-primary-500 dark:text-white transition-colors"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPasswords(prev => ({ ...prev, current: !prev.current }))}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                                    >
+                                        {showPasswords.current ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1.5 pt-2">
                                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300">New Password</label>
-                                <input
-                                    type="password"
-                                    placeholder="Enter your new password"
-                                    value={formData.newPassword}
-                                    onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-                                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium outline-none focus:border-primary-500 dark:text-white transition-colors"
-                                />
+                                <div className="relative">
+                                    <input
+                                        type={showPasswords.new ? "text" : "password"}
+                                        placeholder="Enter your new password"
+                                        value={formData.newPassword}
+                                        onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
+                                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-medium outline-none focus:border-primary-500 dark:text-white transition-colors"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPasswords(prev => ({ ...prev, new: !prev.new }))}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                                    >
+                                        {showPasswords.new ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="space-y-1.5">
                                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Retype New Password</label>
-                                <input
-                                    type="password"
-                                    placeholder="Retype your new password"
-                                    value={formData.retypePassword}
-                                    onChange={(e) => setFormData({ ...formData, retypePassword: e.target.value })}
-                                    className={`w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border rounded-xl text-sm font-medium outline-none transition-colors dark:text-white ${
-                                        formData.newPassword && !isPasswordMatch ? 'border-red-500' : 'border-slate-200 dark:border-slate-700 focus:border-primary-500'
-                                    }`}
-                                />
+                                <div className="relative">
+                                    <input
+                                        type={showPasswords.retype ? "text" : "password"}
+                                        placeholder="Retype your new password"
+                                        value={formData.retypePassword}
+                                        onChange={(e) => setFormData({ ...formData, retypePassword: e.target.value })}
+                                        className={`w-full px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border rounded-xl text-sm font-medium outline-none transition-colors dark:text-white ${
+                                            formData.newPassword && !isPasswordMatch ? 'border-red-500' : 'border-slate-200 dark:border-slate-700 focus:border-primary-500'
+                                        }`}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPasswords(prev => ({ ...prev, retype: !prev.retype }))}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                                    >
+                                        {showPasswords.retype ? <EyeOff size={18} /> : <Eye size={18} />}
+                                    </button>
+                                </div>
                                 {formData.newPassword && !isPasswordMatch && (
                                     <p className="text-xs text-red-500 font-bold flex items-center gap-1 mt-1"><AlertTriangle size={12} /> Passwords do not match</p>
                                 )}
                             </div>
                         </>
+
+                    {status.error && (
+                        <p className="text-xs text-red-500 font-bold mt-2">{status.error}</p>
+                    )}
+                    {status.success && (
+                        <p className="text-xs text-emerald-500 font-bold mt-2">{status.success}</p>
                     )}
 
                     <div className="pt-4">
                         <button
                             onClick={handleSave}
-                            disabled={!canSave}
+                            disabled={!canSave || status.loading}
                             className={`px-6 py-3 rounded-xl text-sm font-bold transition-all shadow-sm ${
-                                canSave 
+                                canSave && !status.loading
                                     ? 'bg-primary-600 hover:bg-primary-700 text-white shadow-primary-500/30 hover:shadow-lg' 
                                     : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-600 cursor-not-allowed'
                             }`}
                         >
-                            Save Changes
+                            {status.loading ? 'Saving...' : 'Save Changes'}
                         </button>
                     </div>
                 </div>
             </section>
-
-            {/* Social Accounts Section */}
-            <section className="space-y-6">
-                <div>
-                    <h2 className="text-lg font-black text-slate-900 dark:text-white">Social Accounts</h2>
-                </div>
-
-                <div className="space-y-3">
-                    {/* Google */}
-                    <div className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                        <div className="flex items-center gap-4">
-                            <div className="h-10 w-10 flex items-center justify-center bg-red-50 dark:bg-red-900/10 rounded-xl">
-                                <span className="font-bold text-red-500">G</span>
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Sign in with Google</h3>
-                            </div>
-                        </div>
-                        {currentUser.connectedAccounts.google ? (
-                            <button onClick={() => disconnectAccount('google')} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">Disconnect</button>
-                        ) : (
-                            <button onClick={() => connectAccount('google')} className="px-4 py-2 text-xs font-bold text-primary-600 bg-primary-50 hover:bg-primary-100 dark:bg-primary-900/20 dark:hover:bg-primary-900/40 rounded-lg transition-colors">Connect</button>
-                        )}
-                    </div>
-
-                    {/* Slack */}
-                    <div className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                        <div className="flex items-center gap-4">
-                            <div className="h-10 w-10 flex items-center justify-center bg-green-50 dark:bg-green-900/10 rounded-xl">
-                                <span className="font-bold text-green-500">#</span>
-                            </div>
-                            <div>
-                                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Sign in with Slack</h3>
-                            </div>
-                        </div>
-                        {currentUser.connectedAccounts.slack ? (
-                            <button onClick={() => disconnectAccount('slack')} className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors">Disconnect</button>
-                        ) : (
-                            <button onClick={() => connectAccount('slack')} className="px-4 py-2 text-xs font-bold text-primary-600 bg-primary-50 hover:bg-primary-100 dark:bg-primary-900/20 dark:hover:bg-primary-900/40 rounded-lg transition-colors">Connect</button>
-                        )}
-                    </div>
-                </div>
-            </section>
-
-            {/* 2FA Section (Hidden for clients) */}
-            {activeUser.role !== 'Client' && (
-                <section className="space-y-6">
-                    <div>
-                        <h2 className="text-lg font-black text-slate-900 dark:text-white">Two Factor Authentication</h2>
-                    </div>
-
-                    <div className="p-6 sm:p-8 bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
-                        {currentUser.twoFactorEnabled && (
-                            <div className="absolute top-0 right-0 p-6 pointer-events-none">
-                                <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 text-[10px] font-black uppercase tracking-widest rounded-full flex items-center gap-1">
-                                    <ShieldCheck size={12} /> Enabled
-                                </span>
-                            </div>
-                        )}
-                        <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">Enhance Account Security</h3>
-                        <p className="text-sm font-medium text-slate-500 leading-relaxed mb-6 max-w-xl">
-                            Two factor authentication provides an extra layer of security to prevent unauthorized access to your account. Additionally to your email address and password, a security code generated on your mobile is needed to sign in.
-                        </p>
-                        <button
-                            onClick={toggle2FA}
-                            className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm ${
-                                currentUser.twoFactorEnabled
-                                    ? 'bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40'
-                                    : 'bg-primary-600 text-white hover:bg-primary-700 shadow-primary-500/30 hover:shadow-lg'
-                            }`}
-                        >
-                            {currentUser.twoFactorEnabled ? 'Deactivate' : 'Activate'}
-                        </button>
-                    </div>
-                </section>
-            )}
         </div>
     );
 }

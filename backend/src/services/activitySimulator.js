@@ -37,6 +37,7 @@ class ActivitySimulator {
 
     async generateLogs() {
         try {
+            const logsToCreate = [];
             // 1. Get all active employees (limit to a few for performance)
             const employees = await prisma.employee.findMany({
                 where: { status: 'ACTIVE' },

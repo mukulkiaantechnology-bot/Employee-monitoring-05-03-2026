@@ -458,3 +458,15 @@ model LiveActivity {
 
   @@map("live_activities")
 }
+
+model InvitationToken {
+  id             String   @id @default(uuid())
+  email          String
+  token          String   @unique
+  organizationId String
+  role           String
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  @@map("invitation_tokens")
+}

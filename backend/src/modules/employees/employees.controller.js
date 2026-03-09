@@ -1,11 +1,27 @@
 const employeesService = require('./employees.service');
+const invitationService = require('../auth/invitation.service');
 const { inviteEmployeeSchema, updateEmployeeSchema } = require('./employees.validation');
 const { getOrganizationId } = require('../../utils/orgId');
 
 const getEmployees = async (req, res, next) => {
     try {
         const orgId = await getOrganizationId(req);
-        const employees = await employeesService.getEmployees(orgId);
+        const { role, employeeId: currentEmployeeId } = req.user;
+
+        let filter = {};
+        if (role === 'MANAGER') {
+            // Get manager's teamId
+            const manager = await employeesService.getEmployeeById(currentEmployeeId);
+            if (manager && manager.teamId) {
+                filter.teamId = manager.teamId;
+            } else {
+                return res.status(200).json({ success: true, data: [] });
+            }
+        } else if (role === 'EMPLOYEE') {
+            filter.id = currentEmployeeId;
+        }
+
+        const employees = await employeesService.getEmployees(orgId, filter);
 
         // Map to industry/insightful format
         const formattedEmployees = employees.map(emp => ({
@@ -62,12 +78,26 @@ const getEmployeeById = async (req, res, next) => {
 
 const inviteEmployee = async (req, res, next) => {
     try {
+        if (req.user.role !== 'ADMIN' && req.user.role !== 'MANAGER') {
+            return res.status(403).json({ success: false, message: "Unauthorized" });
+        }
         const validatedData = inviteEmployeeSchema.parse(req.body);
+        
+        // 1. Create employee in DB (status: INVITED)
         const employee = await employeesService.inviteEmployee(validatedData);
+        
+        // 2. Generate invitation token and link
+        const { setupLink } = await invitationService.sendInvitation(
+            validatedData.email, 
+            'EMPLOYEE', // or validatedData.role if added to schema
+            validatedData.organizationId
+        );
+
         res.status(201).json({
             success: true,
             message: "Employee invited successfully",
-            data: employee
+            data: employee,
+            setupLink: setupLink // Returning the link for testing
         });
     } catch (error) {
         next(error);
@@ -76,6 +106,9 @@ const inviteEmployee = async (req, res, next) => {
 
 const updateEmployee = async (req, res, next) => {
     try {
+        if (req.user.role !== 'ADMIN') {
+            return res.status(403).json({ success: false, message: "Only admins can update employees" });
+        }
         const { id } = req.params;
         const validatedData = updateEmployeeSchema.parse(req.body);
         const employee = await employeesService.updateEmployee(id, validatedData);
@@ -91,6 +124,9 @@ const updateEmployee = async (req, res, next) => {
 
 const deleteEmployee = async (req, res, next) => {
     try {
+        if (req.user.role !== 'ADMIN') {
+            return res.status(403).json({ success: false, message: "Only admins can delete employees" });
+        }
         const { id } = req.params;
         await employeesService.deleteEmployee(id);
         res.status(200).json({

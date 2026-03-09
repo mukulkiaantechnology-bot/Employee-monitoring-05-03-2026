@@ -13,6 +13,8 @@ export function EmployeeProfile() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { employees } = useEmployeeStore();
+    const [employee, setEmployee] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
     const [stats, setStats] = useState({
         totalHours: '00:00',
         productivity: '0%',

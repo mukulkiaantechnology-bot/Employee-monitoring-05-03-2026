@@ -12,8 +12,26 @@ export function Login() {
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+    const [info, setInfo] = useState('');
 
     const from = location.state?.from?.pathname || '/';
+
+    const handleForgotPassword = async (e) => {
+        e.preventDefault();
+        if (!email) {
+            setError('Please enter your email address first.');
+            return;
+        }
+        setError('');
+        setInfo('Sending reset link...');
+        try {
+            await authService.forgotPassword(email);
+            setInfo('If an account exists, a reset link has been sent to your email.');
+        } catch (err) {
+            setError('Failed to process request.');
+            setInfo('');
+        }
+    };
 
     const handleQuickLogin = async (role) => {
         setIsLoading(true);
@@ -83,7 +101,13 @@ export function Login() {
                         <div>
                             <div className="flex items-center justify-between mb-2">
                                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Password</label>
-                                <a href="#" className="text-xs font-semibold text-primary-600 hover:text-primary-700">Forgot Password?</a>
+                                <button 
+                                    type="button"
+                                    onClick={handleForgotPassword}
+                                    className="text-xs font-semibold text-primary-600 hover:text-primary-700"
+                                >
+                                    Forgot Password?
+                                </button>
                             </div>
                             <div className="relative">
                                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -108,6 +132,12 @@ export function Login() {
                         {error && (
                             <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400 border border-red-100 dark:border-red-900/30">
                                 {error}
+                            </div>
+                        )}
+
+                        {info && (
+                            <div className="rounded-lg bg-emerald-50 p-4 text-sm text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30">
+                                {info}
                             </div>
                         )}
 

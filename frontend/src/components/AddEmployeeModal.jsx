@@ -318,31 +318,51 @@ export function AddEmployeeModal({ isOpen, onClose }) {
                                 return;
                             }
 
+                            let successCount = 0;
+                            let failCount = 0;
+
                             for (const emp of personalEmployees) {
                                 if (emp.email && emp.name) {
-                                    // Use first team as default if none selected or "Default team" remains
                                     const selectedTeamId = (emp.team === 'Default team' || !emp.team)
                                         ? teams[0]?.id
                                         : emp.team;
 
-                                    if (!selectedTeamId) {
-                                        console.warn("No team found for employee:", emp.name);
-                                        continue;
-                                    }
+                                    if (!selectedTeamId) continue;
 
-                                    await inviteEmployee({
-                                        fullName: emp.name,
-                                        email: emp.email,
-                                        teamId: selectedTeamId,
-                                        location: emp.location || 'Remote',
-                                        computerType: 'PERSONAL',
-                                        organizationId: orgId
-                                    });
-                                    logAction(user?.name || 'Admin', 'Owner', 'Create', 'Employee', `Invited new employee: "${emp.name}"`);
+                                    try {
+                                        const res = await inviteEmployee({
+                                            fullName: emp.name,
+                                            email: emp.email,
+                                            teamId: selectedTeamId,
+                                            location: emp.location || 'Remote',
+                                            computerType: 'PERSONAL',
+                                            organizationId: orgId
+                                        });
+                                        
+                                        // Log for testing as requested by user
+                                        console.log(`%c [INVITATION SENT] for ${emp.email}`, 'background: #222; color: #bada55; font-size: 14px');
+                                        console.log("Response:", res);
+                                        if (res.setupLink) {
+                                            console.log("SETUP LINK:", res.setupLink);
+                                        }
+
+                                        logAction(user?.name || 'Admin', 'Owner', 'Create', 'Employee', `Invited new employee: "${emp.name}"`);
+                                        successCount++;
+                                    } catch (err) {
+                                        failCount++;
+                                        const errorMsg = err.response?.data?.message || err.message;
+                                        alert(`Error inviting ${emp.email}: ${errorMsg}`);
+                                        if (errorMsg.toLowerCase().includes("duplicate")) break;
+                                    }
                                 }
                             }
-                            await fetchEmployees();
-                            onClose();
+
+                            if (successCount > 0) {
+                                await fetchEmployees();
+                                if (failCount === 0) {
+                                    onClose();
+                                }
+                            }
                         }}
                         className="px-6 py-2 bg-indigo-600 text-white rounded-lg text-xs font-black uppercase tracking-tight shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-colors"
                     >

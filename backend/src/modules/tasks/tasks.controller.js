@@ -16,7 +16,24 @@ class TasksController {
     async getTasks(req, res) {
         try {
             const organizationId = await getOrganizationId(req);
-            const tasks = await tasksService.getTasks(organizationId);
+            const { role, employeeId } = req.user;
+            let filter = {};
+
+            if (role === 'MANAGER') {
+                const { PrismaClient } = require('@prisma/client');
+                const prisma = new PrismaClient();
+                const manager = await prisma.employee.findUnique({
+                    where: { id: employeeId },
+                    select: { teamId: true }
+                });
+                if (manager && manager.teamId) {
+                    filter.employee = { teamId: manager.teamId };
+                }
+            } else if (role === 'EMPLOYEE') {
+                filter.employeeId = employeeId;
+            }
+
+            const tasks = await tasksService.getTasks(organizationId, filter);
             return successResponse(res, tasks, 'Tasks retrieved successfully');
         } catch (error) {
             return errorResponse(res, error.message);
@@ -56,6 +73,9 @@ class TasksController {
 
     async deleteTask(req, res) {
         try {
+            if (req.user.role !== 'ADMIN') {
+                return res.status(403).json({ success: false, message: "Only admins can delete tasks" });
+            }
             const { id } = req.params;
             await tasksService.deleteTask(id);
             return successResponse(res, null, 'Task deleted successfully');

@@ -82,6 +82,7 @@ const attendanceService = {
         const where = { organizationId };
 
         if (filters.employeeId) where.employeeId = filters.employeeId;
+        if (filters.teamId) where.employee = { teamId: filters.teamId };
         if (filters.startDate && filters.endDate) {
             where.date = {
                 gte: new Date(filters.startDate),
@@ -127,9 +128,12 @@ const attendanceService = {
         });
     },
 
-    getManualTimes: async (organizationId) => {
+    getManualTimes: async (filters) => {
+        const where = { organizationId: filters.organizationId };
+        if (filters.employeeId) where.employeeId = filters.employeeId;
+
         return await prisma.manualTime.findMany({
-            where: { organizationId },
+            where,
             include: {
                 employee: {
                     select: { fullName: true }

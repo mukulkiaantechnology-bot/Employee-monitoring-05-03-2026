@@ -31,8 +31,40 @@ const getMe = async (req, res, next) => {
     }
 };
 
+const updateProfile = async (req, res, next) => {
+    try {
+        const result = await authService.updateProfile(req.user.userId, req.body);
+        return successResponse(res, result, 'Profile updated successfully');
+    } catch (error) {
+        next(error);
+    }
+};
+
+const changePassword = async (req, res, next) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        await authService.changePassword(req.user.userId, currentPassword, newPassword);
+        return successResponse(res, null, 'Password changed successfully');
+    } catch (error) {
+        next(error);
+    }
+};
+
+const forgotPassword = async (req, res, next) => {
+    try {
+        const { email } = req.body;
+        await authService.forgotPassword(email);
+        return successResponse(res, null, 'If an account exists, a reset link will be sent.');
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     register,
     login,
     getMe,
+    updateProfile,
+    changePassword,
+    forgotPassword
 };

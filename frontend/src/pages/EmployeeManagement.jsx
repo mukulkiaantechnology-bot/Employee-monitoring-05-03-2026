@@ -30,6 +30,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useEmployeeStore } from '../store/employeeStore';
 import { useTeamStore } from '../store/teamStore';
+import { useAuthStore } from '../store/authStore';
+import { useRealTime } from '../hooks/RealTimeContext';
 import { AddEmployeeModal } from '../components/AddEmployeeModal';
 import { GlobalCalendar } from '../components/GlobalCalendar';
 import { clsx } from 'clsx';
@@ -699,6 +701,7 @@ const AdvancedCalendar = ({ isOpen, onClose, selectedPreset, onSelectPreset, tri
 const EmployeeRow = ({ employee, onSelect, onTransparencyClick, onEdit, onDelete, visibleColumns }) => {
     const navigate = useNavigate();
     const [showOptions, setShowOptions] = useState(false);
+    const { role } = useAuthStore();
     const optionsRef = useRef(null);
 
     const statusColor =
@@ -771,12 +774,14 @@ const EmployeeRow = ({ employee, onSelect, onTransparencyClick, onEdit, onDelete
                             >
                                 <Eye size={14} /> View
                             </button>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onEdit(employee); }}
-                                className="flex-1 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-all flex items-center justify-center gap-2"
-                            >
-                                <Edit size={14} /> Edit
-                            </button>
+                            {role === 'ADMIN' && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onEdit(employee); }}
+                                    className="flex-1 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-all flex items-center justify-center gap-2"
+                                >
+                                    <Edit size={14} /> Edit
+                                </button>
+                            )}
                         </div>
                     </div>
                 </td>
@@ -859,7 +864,7 @@ const EmployeeRow = ({ employee, onSelect, onTransparencyClick, onEdit, onDelete
                                 <MoreVertical size={18} />
                             </button>
 
-                            {showOptions && (
+                            {role === 'ADMIN' && showOptions && (
                                 <div className="absolute right-0 bottom-full mb-2 z-[110] w-48 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 p-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); onEdit(employee); setShowOptions(false); }}
@@ -888,6 +893,7 @@ export function EmployeeManagement() {
     const navigate = useNavigate();
     const { employees, fetchEmployees, updateEmployee, removeEmployee, isLoading } = useEmployeeStore();
     const { teams, fetchTeams } = useTeamStore();
+    const { role } = useAuthStore();
 
     // UI States
     const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -999,18 +1005,22 @@ export function EmployeeManagement() {
                     <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Employees</h1>
                 </div>
                 <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => setShowMergeModal(true)}
-                        className="h-11 px-6 rounded-xl border-2 border-slate-100 dark:border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary-600 hover:border-primary-100 transition-all"
-                    >
-                        Merge Employees
-                    </button>
-                    <button
-                        onClick={() => setShowAddModal(true)}
-                        className="flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-3 text-xs font-black uppercase tracking-wider text-white hover:bg-primary-700 transition-all shadow-xl hover:scale-[1.02] active:scale-95"
-                    >
-                        <Plus size={16} strokeWidth={3} /> Add New Employee
-                    </button>
+                    {role === 'ADMIN' && (
+                        <>
+                            <button
+                                onClick={() => setShowMergeModal(true)}
+                                className="h-11 px-6 rounded-xl border-2 border-slate-100 dark:border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary-600 hover:border-primary-100 transition-all"
+                            >
+                                Merge Employees
+                            </button>
+                            <button
+                                onClick={() => setShowAddModal(true)}
+                                className="flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-3 text-xs font-black uppercase tracking-wider text-white hover:bg-primary-700 transition-all shadow-xl hover:scale-[1.02] active:scale-95"
+                            >
+                                <Plus size={16} strokeWidth={3} /> Add New Employee
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
 

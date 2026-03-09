@@ -28,6 +28,29 @@ const activityController = {
         try {
             const { employeeId } = req.params;
             const { startDate, endDate } = req.query;
+            const { role, employeeId: currentEmployeeId } = req.user;
+
+            // RBAC Filtering
+            if (role === 'EMPLOYEE' && employeeId !== currentEmployeeId) {
+                return errorResponse(res, 'Access denied: You can only view your own activity', 403);
+            }
+
+            if (role === 'MANAGER') {
+                const { PrismaClient } = require('@prisma/client');
+                const prisma = new PrismaClient();
+                const manager = await prisma.employee.findUnique({
+                    where: { id: currentEmployeeId },
+                    select: { teamId: true }
+                });
+                const targetEmployee = await prisma.employee.findUnique({
+                    where: { id: employeeId },
+                    select: { teamId: true }
+                });
+
+                if (!manager || !targetEmployee || manager.teamId !== targetEmployee.teamId) {
+                    return errorResponse(res, 'Access denied: You can only view activity for your own team', 403);
+                }
+            }
 
             const logs = await activityService.getEmployeeActivity(employeeId, startDate, endDate);
             return successResponse(res, logs, 'Employee activity fetched successfully');
@@ -40,6 +63,25 @@ const activityController = {
         try {
             const { teamId } = req.params;
             const { startDate, endDate } = req.query;
+            const { role, employeeId: currentEmployeeId } = req.user;
+
+            // RBAC Filtering
+            if (role === 'EMPLOYEE') {
+                return errorResponse(res, 'Access denied: Employees cannot view team activity', 403);
+            }
+
+            if (role === 'MANAGER') {
+                const { PrismaClient } = require('@prisma/client');
+                const prisma = new PrismaClient();
+                const manager = await prisma.employee.findUnique({
+                    where: { id: currentEmployeeId },
+                    select: { teamId: true }
+                });
+
+                if (!manager || manager.teamId !== teamId) {
+                    return errorResponse(res, 'Access denied: You can only view your own team activity', 403);
+                }
+            }
 
             const logs = await activityService.getTeamActivity(teamId, startDate, endDate);
             return successResponse(res, logs, 'Team activity fetched successfully');
@@ -52,6 +94,12 @@ const activityController = {
         try {
             const organizationId = req.user.organizationId;
             const { startDate, endDate } = req.query;
+            const { role } = req.user;
+
+            // RBAC Filtering
+            if (role !== 'ADMIN') {
+                return errorResponse(res, 'Access denied: Admin access required', 403);
+            }
 
             const logs = await activityService.getOrganizationActivity(organizationId, startDate, endDate);
             return successResponse(res, logs, 'Organization activity fetched successfully');

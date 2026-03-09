@@ -99,10 +99,12 @@ export function Teams() {
                         {employees.length} employees · {contextTeams.length} teams
                     </div>
                 </div>
-                <button onClick={() => { setEditingTeam(null); setIsModalOpen(true); }}
-                    className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg text-xs font-black transition-all shadow-lg uppercase tracking-wider flex items-center gap-2">
-                    <Plus size={14} /> Create New Team
-                </button>
+                {user?.role === 'ADMIN' && (
+                    <button onClick={() => { setEditingTeam(null); setIsModalOpen(true); }}
+                        className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg text-xs font-black transition-all shadow-lg uppercase tracking-wider flex items-center gap-2">
+                        <Plus size={14} /> Create New Team
+                    </button>
+                )}
             </div>
 
             {/* Summary Cards */}
@@ -181,20 +183,22 @@ export function Teams() {
                                 <div className="h-full bg-violet-500 rounded-full transition-all duration-500" style={{ width: `${team.productivity || 0}%` }} />
                             </div>
                             <span className="text-xs font-black text-slate-600 dark:text-slate-300 min-w-[32px]">{team.productivity || 0}%</span>
-                            <div className="relative">
-                                <button onClick={() => setOpenMenu(openMenu === idx ? null : idx)}
-                                    className="text-slate-300 hover:text-slate-600 transition-colors p-1">
-                                    <MoreVertical size={16} />
-                                </button>
-                                {openMenu === idx && (
-                                    <div className="absolute right-0 top-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 py-1 min-w-[120px]">
-                                        <button onClick={() => handleEditClick(team)}
-                                            className="w-full text-left px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">Edit Team</button>
-                                        <button onClick={() => { deleteTeam(team.id); setOpenMenu(null); }}
-                                            className="w-full text-left px-4 py-2 text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20">Delete</button>
-                                    </div>
-                                )}
-                            </div>
+                            {user?.role === 'ADMIN' && (
+                                <div className="relative">
+                                    <button onClick={() => setOpenMenu(openMenu === idx ? null : idx)}
+                                        className="text-slate-300 hover:text-slate-600 transition-colors p-1">
+                                        <MoreVertical size={16} />
+                                    </button>
+                                    {openMenu === idx && (
+                                        <div className="absolute right-0 top-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-xl z-50 py-1 min-w-[120px]">
+                                            <button onClick={() => handleEditClick(team)}
+                                                className="w-full text-left px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">Edit Team</button>
+                                            <button onClick={() => { deleteTeam(team.id); setOpenMenu(null); }}
+                                                className="w-full text-left px-4 py-2 text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20">Delete</button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
                 ))}

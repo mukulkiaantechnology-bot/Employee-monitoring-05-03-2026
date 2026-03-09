@@ -6,12 +6,22 @@ const errorMiddleware = (err, req, res, next) => {
 
     // Prisma unique constraint error
     if (err.code === 'P2002') {
-        return errorResponse(res, `Duplicate field value: ${err.meta.target}`, 400);
+        const target = err.meta?.target || '';
+        if (target.includes('email')) {
+            return errorResponse(res, 'Employee with this email is already invited or exists.', 400);
+        }
+        return errorResponse(res, `Duplicate field value: ${target}`, 400);
     }
 
     // Zod validation error
     if (err.name === 'ZodError') {
-        const message = err.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const message = err.errors.map(e => {
+            const path = e.path.join(': ');
+            if (e.code === 'invalid_string' && e.validation === 'email') {
+                return `Invalid email format`;
+            }
+            return `${path}: ${e.message}`;
+        }).join(', ');
         return errorResponse(res, message, 400);
     }
 

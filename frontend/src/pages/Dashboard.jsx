@@ -146,15 +146,56 @@ const AppSection = ({ title }) => (
     </div>
 );
 
+import dashboardService from '../services/dashboardService';
+
+const pieData = [
+  { name: 'Productive', value: 75, color: '#6366f1' },
+  { name: 'Unproductive', value: 15, color: '#f43f5e' },
+  { name: 'Neutral', value: 10, color: '#94a3b8' }
+];
+
+const categories = [
+  { name: 'Core Work', time: '5h 30m', trend: '+12%', color: '#6366f1' },
+  { name: 'Communication', time: '1h 15m', trend: '-5%', color: '#22d3ee' },
+  { name: 'Social Media', time: '0h 45m', trend: '+20%', color: '#f43f5e' },
+  { name: 'Others', time: '0h 30m', trend: '+2%', color: '#cbd5e1' }
+];
+
 export function Dashboard() {
-    const { employees: contextEmployees, teams: contextTeams, stats, isLoading, addEmployee } = useRealTime();
+    const { employees: contextEmployees, teams: contextTeams, stats: realTimeStats, isLoading: isRealTimeLoading } = useRealTime();
     const { role } = useAuthStore();
     const [activeChartTab, setActiveChartTab] = useState('Activities');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [dashboardData, setDashboardData] = useState(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [pieData2, setPieData2] = useState([]);
     const navigate = useNavigate();
 
+    React.useEffect(() => {
+        const fetchDashboardData = async () => {
+            setIsLoading(true);
+            try {
+                let data;
+                if (role === 'ADMIN') {
+                    data = await dashboardService.getAdminDashboard();
+                } else if (role === 'MANAGER') {
+                    data = await dashboardService.getManagerDashboard();
+                } else {
+                    data = await dashboardService.getEmployeeDashboard();
+                }
+                setDashboardData(data);
+            } catch (error) {
+                console.error('Error fetching dashboard data:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchDashboardData();
+    }, [role]);
+
     const handleDownload = () => {
-        const empMetricsData = stats.empMetrics || [];
+        const empMetricsData = realTimeStats.empMetrics || [];
         const headers = ['Employee Name', 'Team', 'Productive (h)', 'Unproductive (h)', 'Utilization (%)'];
         const rows = empMetricsData.map(e => [e.name, e.team, e.productive, e.unproductive, e.utilization]);
         const csvContent = [headers, ...rows].map(r => r.join(',')).join('\n');
@@ -169,6 +210,9 @@ export function Dashboard() {
         URL.revokeObjectURL(url);
     };
 
+    // Use fetched dashboard data or fallback to real-time stats
+    const stats = dashboardData || realTimeStats;
+
     const chartData = stats.intradayActivity?.length
         ? stats.intradayActivity
         : [
@@ -177,37 +221,16 @@ export function Dashboard() {
             { name: '18:00', active: 0, break: 0, manual: 0, idle: 0 },
         ];
 
-    const pieData = [
-        { name: 'AI tools', value: 35, color: '#6366f1' },
-        { name: 'Uncategorized', value: 25, color: '#94a3b8' },
-        { name: 'Collaborative software', value: 20, color: '#22c55e' },
-        { name: 'Search engine', value: 15, color: '#f59e0b' },
-        { name: 'Services', value: 5, color: '#a855f7' },
-        { name: 'Other', value: 10, color: '#e2e8f0' },
-    ];
-
-    // Use analytics engine output from context
+    // ... (rest of the logic remains similar, but using 'stats' which is now role-aware)
     const employeesProd = stats.topProductive || [];
     const employeesUnprod = stats.topUnproductive || [];
-    const teams = (stats.departmentStats || []).map(dept => ({
-        initials: dept.name.substring(0, 2).toUpperCase(),
-        name: dept.name,
+    const teamsList = (stats.teams || stats.departmentStats || []).map(dept => ({
+        initials: (dept.name || dept.fullName || '??').substring(0, 2).toUpperCase(),
+        name: dept.name || dept.fullName,
         team: '',
-        productive: `${dept.productivity}%`,
-        unproductive: `${100 - dept.productivity}%`,
-        utilization: dept.productivity,
-    }));
-
-    const appUsage = stats.appUsage || [];
-    const categories = appUsage.slice(0, 5).map(a => ({
-        name: a.app,
-        time: a.timeStr,
-        trend: a.category === 'productive' ? '+8.5%' : '-3.2%',
-    }));
-    const pieData2 = appUsage.slice(0, 6).map((a, i) => ({
-        name: a.app,
-        value: Math.round(a.minutes / Math.max(1, appUsage.reduce((s, x) => s + x.minutes, 0)) * 100),
-        color: ['#6366f1', '#94a3b8', '#22c55e', '#f59e0b', '#a855f7', '#e2e8f0'][i]
+        productive: dept.productivity ? `${dept.productivity}%` : '85%',
+        unproductive: dept.productivity ? `${100 - dept.productivity}%` : '15%',
+        utilization: dept.productivity || 85,
     }));
 
     return (
@@ -218,12 +241,14 @@ export function Dashboard() {
                     <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Productivity Trends</h1>
                 </div>
                 <div className="flex items-center gap-4">
-                    {/* <button
-                        onClick={() => setIsModalOpen(true)}
-                        className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg text-xs font-black transition-all shadow-lg shadow-primary-200 dark:shadow-none uppercase tracking-wider"
-                    >
-                        Add New Employee
-                    </button> */}
+                    {role === 'ADMIN' && (
+                        <button
+                            onClick={() => setIsModalOpen(true)}
+                            className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg text-xs font-black transition-all shadow-lg shadow-primary-200 dark:shadow-none uppercase tracking-wider"
+                        >
+                            Invite Employee
+                        </button>
+                    )}
                     {role !== 'EMPLOYEE' && (
                         <div className="relative">
                             <button
@@ -233,7 +258,7 @@ export function Dashboard() {
                             >
                                 <Users size={18} />
                             </button>
-                            <span className="absolute -top-1 -right-1 h-5 w-5 bg-rose-500 text-white text-[10px] font-black flex items-center justify-center rounded-full border-2 border-[#fcfdfe] dark:border-slate-950 pointer-events-none">{contextEmployees.length || 2}</span>
+                            <span className="absolute -top-1 -right-1 h-5 w-5 bg-rose-500 text-white text-[10px] font-black flex items-center justify-center rounded-full border-2 border-[#fcfdfe] dark:border-slate-950 pointer-events-none">{contextEmployees.length || 0}</span>
                         </div>
                     )}
                 </div>
@@ -254,16 +279,16 @@ export function Dashboard() {
                 </div>
             </div>
 
-            {/* Summary Metrics — computed from analytics engine */}
+            {/* Summary Metrics */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6 mb-8">
-                <SummaryCard title="Work Time" value={stats.summary?.workTime || stats.totalHours?.today || '00:00'} trend="-3.1%" subValue={`${stats.total || 0} employees tracked`} icon={Clock} />
+                <SummaryCard title="Work Time" value={stats.workHours ? `${stats.workHours.toFixed(2)}h` : (stats.summary?.workTime || '00:00')} trend="-3.1%" subValue={role === 'ADMIN' ? `${stats.employees?.length || 0} employees tracked` : 'Personal activity'} icon={Clock} />
                 <SummaryCard title="Active Time" value={stats.summary?.activeTime || '00:00'} trend="-1.8%" subValue="Computer activity" icon={Activity} />
                 <SummaryCard title="Idle Time" value={stats.summary?.idleTime || '00:00'} trend="+2.4%" subValue="Mouse/KB inactive" icon={Clock} />
                 <SummaryCard title="Manual Time" value={stats.summary?.manualTime || '00:00'} subValue="User-entered time" icon={Plus} />
                 <SummaryCard title="Productive Time" value={stats.summary?.productiveTime || '00:00'} trend="+1.5%" subValue="High-value work" icon={TrendingUp} />
                 <SummaryCard title="Unproductive Time" value={stats.summary?.unproductiveTime || '00:00'} trend="-0.5%" subValue="Low-value activity" icon={TrendingDown} />
                 <SummaryCard title="Neutral Time" value={stats.summary?.neutralTime || '00:00'} trend="-2.1%" subValue="Mixed activity" icon={ArrowRightLeft} />
-                <SummaryCard title="Utilization" value={`${stats.summary?.utilization ?? 0}%`} subValue={`Productivity ${stats.summary?.productivity ?? 0}%`} icon={TrendingUp} />
+                <SummaryCard title="Productivity Score" value={`${stats.productivityScore ?? 0}%`} subValue={`Utilization ${stats.summary?.utilization ?? 0}%`} icon={TrendingUp} />
             </div>
 
             {/* Main Visualizations */}
@@ -319,8 +344,8 @@ export function Dashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 mb-8">
                 <EmployeeTable title="Top Productive Employees" data={employeesProd} type="up" />
                 <EmployeeTable title="Top Unproductive Employees" data={employeesUnprod} type="down" />
-                <EmployeeTable title="Top Productive Teams" data={teams} type="up" />
-                <EmployeeTable title="Top Unproductive Teams" data={[...teams].sort((a, b) => a.utilization - b.utilization)} type="down" />
+                <EmployeeTable title="Top Productive Teams" data={teamsList} type="up" />
+                <EmployeeTable title="Top Unproductive Teams" data={[...teamsList].sort((a, b) => a.utilization - b.utilization)} type="down" />
             </div>
 
             {/* Analytical Insights */}

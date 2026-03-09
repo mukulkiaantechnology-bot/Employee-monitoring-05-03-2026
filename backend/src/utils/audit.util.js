@@ -14,6 +14,12 @@ const prisma = new PrismaClient();
  */
 const createAuditLog = async ({ organizationId, userId, action, status, ipAddress, metadata }) => {
     try {
+        // Guard: Prisma requires these fields to be non-null based on schema
+        if (!organizationId || !userId) {
+            console.warn(`[AuditLog] Skipping log entry for "${action}" due to missing organizationId (${organizationId}) or userId (${userId})`);
+            return;
+        }
+
         await prisma.auditLog.create({
             data: {
                 organizationId,
@@ -25,8 +31,7 @@ const createAuditLog = async ({ organizationId, userId, action, status, ipAddres
             }
         });
     } catch (error) {
-        console.error('Failed to create audit log:', error);
-        // We don't want to throw here as audit logging shouldn't break the main flow
+        console.error('Failed to create audit log:', error.message || error);
     }
 };
 

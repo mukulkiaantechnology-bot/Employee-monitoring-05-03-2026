@@ -23,6 +23,7 @@ import { Notifications } from './pages/Notifications';
 import { RealTimeInsights } from './pages/RealTimeInsights';
 import { Teams } from './pages/Teams';
 import { Projects } from './pages/Projects';
+import { SetupPassword } from './pages/SetupPassword';
 import { Login } from './pages/Login';
 import { WorkloadDistributionSettings } from './pages/settings/reports/WorkloadDistributionSettings';
 import { LocationInsightsSettings } from './pages/settings/reports/LocationInsightsSettings';
@@ -116,6 +117,7 @@ function App() {
                             <Login />
                         </PublicRoute>
                     } />
+                    <Route path="/setup-password" element={<SetupPassword />} />
 
                     {/* Protected Dashboard Routes */}
                     <Route path="/" element={<ProtectedRoute><Navigate to="/" replace /></ProtectedRoute>} />

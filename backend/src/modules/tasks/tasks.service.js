@@ -33,9 +33,12 @@ class TasksService {
         });
     }
 
-    async getTasks(organizationId) {
+    async getTasks(organizationId, filter = {}) {
         return await prisma.task.findMany({
-            where: { organizationId },
+            where: { 
+                organizationId,
+                ...filter
+            },
             include: {
                 project: true,
                 employee: true,

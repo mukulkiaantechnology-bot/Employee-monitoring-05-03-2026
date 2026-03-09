@@ -1,9 +1,12 @@
 const prisma = require('../../config/db');
 
 class EmployeesService {
-    async getEmployees(organizationId) {
+    async getEmployees(organizationId, filter = {}) {
         return await prisma.employee.findMany({
-            where: { organizationId },
+            where: { 
+                organizationId,
+                ...filter
+            },
             include: {
                 team: {
                     select: { name: true }

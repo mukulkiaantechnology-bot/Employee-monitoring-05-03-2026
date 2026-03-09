@@ -489,3 +489,63 @@ Agar galti se ek hi employee do baar add ho jaye (Duplicate), toh aap Merge Empl
 Merge From: Jise delete karna hai.
 Merge Into: Jisme sara data transfer karna hai.
 Iska form Employee Management page par "Merge Employees" button daba kar fill kar sakte hain.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Maine implementation complete kar liya hai. Yeh rahi details Hinglish me:
+
+1. Role-Based Dashboard (Backend & Frontend)
+Maine dashboard ko poori tarah se role-aware bana diya hai.
+
+Admin: Ab poore organization ka data dekh sakta hai.
+Manager: Sirf apni team ka data dekh sakta hai.
+Employee: Sirf apna personal metrics dekh sakta hai. Iske liye naye API endpoints banaye hain: /api/dashboard/admin, /api/dashboard/manager, aur /api/dashboard/me.
+2. Data Filtering (RBAC)
+Ab data visibility strictly roles ke hisaab se hai:
+
+Teams & Employees: Managers ab sirf apne team members ko dekh sakte hain aur Employees ko sirf apna data dikhega.
+Activity & Attendance: Saare reports aur logs ab auto-filter hote hain user ke role ke according.
+Security: Maine EmployeesController aur 
+
+TasksController
+ me checks laga diye hain taaki sirf Admin hi employees ko invite, update, ya delete kar sake.
+3. Employee Invitation Flow
+Ek naya invitation system implement kiya hai:
+
+Prisma Schema: InvitationToken model add kiya hai.
+Backend Flow: Admin ab employee ko invite kar sakta hai, jisse ek secure token generate hoga.
+Frontend Page: Ek naya 
+
+SetupPassword.jsx
+ page banaya hai jahan invited employees apna password set karke onboard ho sakte hain.
+4. UI Updates (Frontend Restrictions)
+Frontend par unnecessary buttons hide kar diye hain:
+
+Teams Page: "Create New Team" aur Edit/Delete options ab sirf Admins ko dikhenge.
+Employee Management: "Add New Employee" aur "Merge Employees" buttons ab non-admins ke liye hidden hain.

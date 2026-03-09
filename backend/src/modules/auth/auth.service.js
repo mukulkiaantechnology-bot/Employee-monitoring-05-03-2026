@@ -103,6 +103,9 @@ const login = async (email, password) => {
             id: user.id,
             email: user.email,
             role: user.role,
+            fullName: user.employee?.fullName || user.email.split('@')[0],
+            name: user.employee?.fullName || user.email.split('@')[0], 
+            avatar: user.employee?.avatar || null,
             employeeId: user.employeeId,
             organizationId: user.employee?.organizationId,
             teamId: user.employee?.teamId,
@@ -135,18 +138,111 @@ const getMe = async (userId) => {
         throw new Error('User not found');
     }
 
-    // Flatten organization data if employee exists
-    if (user.employee && user.employee.organization) {
-        user.organization = user.employee.organization;
-        user.organizationId = user.employee.organizationId;
+    // Flatten data if employee exists
+    if (user.employee) {
+        user.fullName = user.employee.fullName;
+        user.name = user.employee.fullName; // For frontend compatibility
+        user.avatar = user.employee.avatar;
+        
+        if (user.employee.organization) {
+            user.organization = user.employee.organization;
+            user.organizationId = user.employee.organizationId;
+        }
         user.teamId = user.employee.teamId;
+    } else {
+        // Provide fallbacks for users without employee record (like seeded admins)
+        user.fullName = user.email.split('@')[0];
+        user.name = user.fullName;
+        user.avatar = null;
     }
 
     return user;
+};
+
+/**
+ * Update user/employee profile
+ */
+const updateProfile = async (userId, data) => {
+    const { name, email, avatar } = data;
+
+    return await prisma.$transaction(async (tx) => {
+        const user = await tx.user.findUnique({
+            where: { id: userId },
+            include: { employee: true }
+        });
+
+        if (!user) throw new Error('User not found');
+
+        // Update user email if changed
+        const updatedUser = await tx.user.update({
+            where: { id: userId },
+            data: { email: email || user.email }
+        });
+
+        // Update employee name, email, and avatar
+        if (user.employeeId) {
+            await tx.employee.update({
+                where: { id: user.employeeId },
+                data: {
+                    fullName: name || user.employee.fullName,
+                    email: email || user.email,
+                    avatar: avatar || user.employee.avatar
+                }
+            });
+        } else if (name || avatar) {
+            // Create employee if missing (for users created without employee profile like seeded admins)
+            const org = await tx.organization.findFirst() || { id: 'default-org-id' };
+            const employee = await tx.employee.create({
+                data: {
+                    fullName: name || user.email.split('@')[0],
+                    email: user.email,
+                    role: user.role,
+                    organizationId: org.id,
+                    avatar: avatar
+                }
+            });
+            await tx.user.update({
+                where: { id: userId },
+                data: { employeeId: employee.id }
+            });
+        }
+
+        return updatedUser;
+    });
+};
+
+/**
+ * Change user password
+ */
+const changePassword = async (userId, currentPassword, newPassword) => {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new Error('User not found');
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) throw new Error('Invalid current password');
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await prisma.user.update({
+        where: { id: userId },
+        data: { password: hashedPassword }
+    });
+};
+
+/**
+ * Forgot password (Mock)
+ */
+const forgotPassword = async (email) => {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return; // Silent return for security
+
+    console.log(`[ForgotPassword] Mock reset link generated for ${email}`);
 };
 
 module.exports = {
     register,
     login,
     getMe,
+    updateProfile,
+    changePassword,
+    forgotPassword
 };

@@ -1,13 +1,12 @@
 const prisma = require('../../config/db');
 
 class TeamsService {
-    async getTeams(organizationId, role, userId) {
-        // If Admin, see all teams in org
-        // If Manager, see all teams in org (or could be filtered by managed teams)
-        // For now, simplify based on user requirement: "Manager: See team employees only."
-        // We'll filter the data return in controller but service provides raw data.
+    async getTeams(organizationId, filter = {}) {
         return await prisma.team.findMany({
-            where: { organizationId },
+            where: { 
+                organizationId,
+                ...filter
+            },
             include: {
                 _count: {
                     select: { employees: true }

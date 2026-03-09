@@ -47,7 +47,7 @@ export function ProfileDropdown() {
                 )}
 
                 <div className="hidden text-left md:block pr-2">
-                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-tight">{currentUser?.name || 'User'}</p>
+                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-tight">{currentUser?.fullName || currentUser?.name || 'User'}</p>
                     <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">{currentUser?.role || 'Member'}</p>
                 </div>
             </button>
@@ -59,11 +59,11 @@ export function ProfileDropdown() {
                             <img src={currentUser.avatar} alt="Profile" className="h-10 w-10 rounded-full object-cover" />
                         ) : (
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-100 text-primary-700 dark:bg-primary-900 dark:text-primary-300">
-                                <span className="text-sm font-black">{currentUser?.name?.substring(0, 2).toUpperCase()}</span>
+                                <span className="text-sm font-black">{(currentUser?.fullName || currentUser?.name || '??').substring(0, 2).toUpperCase()}</span>
                             </div>
                         )}
                         <div className="overflow-hidden">
-                            <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{currentUser?.name}</p>
+                            <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{currentUser?.fullName || currentUser?.name}</p>
                             <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{currentUser?.email}</p>
                             <span className={`inline-block mt-1.5 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest rounded-md ${getRoleBrandColor(currentUser?.role)}`}>
                                 {currentUser?.role}
