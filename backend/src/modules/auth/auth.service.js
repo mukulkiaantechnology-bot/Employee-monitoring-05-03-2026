@@ -48,7 +48,7 @@ const register = async (userData) => {
             employeeId: employee.id, // Added: include employeeId in token
             organizationId: employee.organizationId 
         });
-        return { token, user: { id: user.id, email: user.email, role: user.role, employeeId: employee.id, organizationId: employee.organizationId } };
+        return { token, user: { id: user.id, email: user.email, role: user.role, employeeId: employee.id, organizationId: employee.organizationId, teamId: employee.teamId } };
     });
 };
 
@@ -105,6 +105,7 @@ const login = async (email, password) => {
             role: user.role,
             employeeId: user.employeeId,
             organizationId: user.employee?.organizationId,
+            teamId: user.employee?.teamId,
         },
     };
 };
@@ -138,6 +139,7 @@ const getMe = async (userId) => {
     if (user.employee && user.employee.organization) {
         user.organization = user.employee.organization;
         user.organizationId = user.employee.organizationId;
+        user.teamId = user.employee.teamId;
     }
 
     return user;

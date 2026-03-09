@@ -801,14 +801,14 @@ export function RealTimeProvider({ children }) {
             };
         }
 
-        if (role === 'Manager') {
-            const allowedTeamIds = state.teams.slice(0, 2).map(t => t.id);
-            const filteredEmployees = currentEmployees.filter(e => allowedTeamIds.includes(e.teamId));
+        if (role === 'MANAGER') {
+            const managerTeamId = user?.teamId || currentEmployees.find(e => e.id === user?.employeeId)?.teamId;
+            const filteredEmployees = currentEmployees.filter(e => e.teamId === managerTeamId);
             return {
                 employees: filteredEmployees,
                 tasks: state.tasks.filter(t => filteredEmployees.find(e => e.id === t.employeeId)),
                 projects: state.projects,
-                teams: state.teams.filter(t => allowedTeamIds.includes(t.id)),
+                teams: state.teams.filter(t => t.id === managerTeamId),
                 activityLogs: state.activityLogs.filter(l => filteredEmployees.find(e => e.id === l.employeeId)),
             };
         }

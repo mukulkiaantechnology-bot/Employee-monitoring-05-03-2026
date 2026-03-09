@@ -78,6 +78,17 @@ const activityController = {
             return errorResponse(res, error.message);
         }
     },
+    getEmployeeSummary: async (req, res) => {
+        try {
+            const { employeeId } = req.params;
+            const { startDate, endDate } = req.query;
+
+            const summary = await activityService.getEmployeeSummary(employeeId, startDate, endDate);
+            return successResponse(res, summary, 'Employee summary fetched successfully');
+        } catch (error) {
+            return errorResponse(res, error.message);
+        }
+    },
 };
 
 module.exports = activityController;

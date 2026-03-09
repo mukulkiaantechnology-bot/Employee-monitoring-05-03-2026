@@ -7,13 +7,17 @@ import {
 } from 'lucide-react';
 import { useEmployeeStore } from '../store/employeeStore';
 import employeeService from '../services/employeeService';
+import activityService from '../services/activityService';
 
 export function EmployeeProfile() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { employees } = useEmployeeStore();
-    const [employee, setEmployee] = useState(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [stats, setStats] = useState({
+        totalHours: '00:00',
+        productivity: '0%',
+        activity: '0%'
+    });
 
     useEffect(() => {
         const fetchDetail = async () => {
@@ -22,7 +26,6 @@ export function EmployeeProfile() {
                 setEmployee(response.data);
             } catch (error) {
                 console.error("Failed to fetch employee details:", error);
-                // Fallback to store if API fails or for immediate display
                 const found = employees.find(e => e.id === id);
                 if (found) setEmployee(found);
             } finally {
@@ -30,7 +33,29 @@ export function EmployeeProfile() {
             }
         };
 
+        const fetchStats = async () => {
+            try {
+                const res = await activityService.getEmployeeSummary(id);
+                if (res.success && res.data) {
+                    const data = res.data;
+                    const formatHrs = (h) => {
+                        const whole = Math.floor(h);
+                        const mins = Math.round((h % 1) * 60);
+                        return `${String(whole).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+                    };
+                    setStats({
+                        totalHours: formatHrs(data.totalHours),
+                        productivity: `${data.productivityPct}%`,
+                        activity: `${data.utilizationPct}%`
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to fetch stats:", err);
+            }
+        };
+
         fetchDetail();
+        fetchStats();
     }, [id, employees]);
 
     if (isLoading) {
@@ -114,9 +139,9 @@ export function EmployeeProfile() {
                 <div className="lg:col-span-2 space-y-6">
                     <div className="grid grid-cols-3 gap-4">
                         {[
-                            { label: 'Total Hours', value: '00:00', icon: Clock, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-                            { label: 'Productivity', value: '0%', icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50' },
-                            { label: 'Activity', value: '0%', icon: Shield, color: 'text-purple-600', bg: 'bg-purple-50' }
+                            { label: 'Total Hours', value: stats.totalHours, icon: Clock, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                            { label: 'Productivity', value: stats.productivity, icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50' },
+                            { label: 'Activity', value: stats.activity, icon: Shield, color: 'text-purple-600', bg: 'bg-purple-50' }
                         ].map((stat, i) => (
                             <div key={i} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col justify-between">
                                 <div className="flex items-center justify-between mb-2">

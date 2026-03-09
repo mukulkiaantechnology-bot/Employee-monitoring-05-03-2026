@@ -43,6 +43,14 @@ const activityService = {
     getOrganizationSummary: async (params = {}) => {
         const response = await api.get('/activity/summary', { params });
         return response.data;
+    },
+
+    /**
+     * Get summary stats for a specific employee
+     */
+    getEmployeeSummary: async (employeeId, params = {}) => {
+        const response = await api.get(`/activity/employee/${employeeId}/summary`, { params });
+        return response.data;
     }
 };
 

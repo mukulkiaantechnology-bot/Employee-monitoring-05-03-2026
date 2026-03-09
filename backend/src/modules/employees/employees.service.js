@@ -15,7 +15,17 @@ class EmployeesService {
     async getEmployeeById(id) {
         return await prisma.employee.findUnique({
             where: { id },
-            include: { team: true }
+            include: { 
+                team: true,
+                organization: true,
+                user: {
+                    select: {
+                        id: true,
+                        email: true,
+                        role: true
+                    }
+                }
+            }
         });
     }
 

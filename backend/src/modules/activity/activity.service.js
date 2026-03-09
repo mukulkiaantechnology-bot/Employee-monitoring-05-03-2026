@@ -198,6 +198,44 @@ const activityService = {
             };
         });
     },
+    getEmployeeSummary: async (employeeId, startDate, endDate) => {
+        const where = {
+            employeeId,
+        };
+
+        if (startDate && endDate) {
+            where.timestamp = {
+                gte: new Date(startDate),
+                lte: new Date(endDate),
+            };
+        }
+
+        const logs = await prisma.activityLog.findMany({
+            where,
+        });
+
+        const summary = {
+            activeHours: 0,
+            idleHours: 0,
+            productiveHours: 0,
+            unproductiveHours: 0,
+            totalHours: 0
+        };
+
+        logs.forEach(log => {
+            const durationHrs = log.duration / 3600;
+            if (log.activityType === 'ACTIVE') summary.activeHours += durationHrs;
+            if (log.activityType === 'IDLE') summary.idleHours += durationHrs;
+            if (log.productivity === 'PRODUCTIVE') summary.productiveHours += durationHrs;
+            if (log.productivity === 'UNPRODUCTIVE') summary.unproductiveHours += durationHrs;
+        });
+
+        summary.totalHours = summary.activeHours + summary.idleHours;
+        summary.productivityPct = summary.activeHours > 0 ? Math.round((summary.productiveHours / summary.activeHours) * 100) : 0;
+        summary.utilizationPct = summary.totalHours > 0 ? Math.round((summary.activeHours / summary.totalHours) * 100) : 0;
+
+        return summary;
+    },
 };
 
 module.exports = activityService;
