@@ -22,6 +22,15 @@ const login = async (req, res, next) => {
     }
 };
 
+const logout = async (req, res, next) => {
+    try {
+        await authService.logout(req.user.employeeId);
+        return successResponse(res, null, 'Logout successful');
+    } catch (error) {
+        next(error);
+    }
+};
+
 const getMe = async (req, res, next) => {
     try {
         const user = await authService.getMe(req.user.userId);
@@ -63,6 +72,7 @@ const forgotPassword = async (req, res, next) => {
 module.exports = {
     register,
     login,
+    logout,
     getMe,
     updateProfile,
     changePassword,

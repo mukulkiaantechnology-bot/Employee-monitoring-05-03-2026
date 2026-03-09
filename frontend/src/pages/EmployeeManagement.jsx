@@ -25,7 +25,8 @@ import {
     Info,
     ShieldCheck,
     Lock,
-    Clock
+    Clock,
+    Copy,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useEmployeeStore } from '../store/employeeStore';
@@ -287,7 +288,8 @@ const EditEmployeeModal = ({ isOpen, onClose, employee, onUpdate }) => {
         teamId: '',
         location: '',
         hourlyRate: 0,
-        status: ''
+        status: '',
+        password: ''
     });
 
     useEffect(() => {
@@ -298,15 +300,42 @@ const EditEmployeeModal = ({ isOpen, onClose, employee, onUpdate }) => {
                 teamId: employee.teamId || '',
                 location: employee.location || 'Remote',
                 hourlyRate: employee.hourlyRate || 0,
-                status: employee.status.toUpperCase()
+                status: employee.status.toUpperCase(),
+                password: ''
             });
         }
     }, [employee, isOpen]);
 
-    const handleSubmit = (e) => {
+    const generatePassword = () => {
+        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+        let retVal = "";
+        for (let i = 0; i < 12; i++) {
+            retVal += charset.charAt(Math.floor(Math.random() * charset.length));
+        }
+        setFormData({ ...formData, password: retVal });
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        onUpdate(employee.id, formData);
-        onClose();
+
+        // Final validation and data prep
+        const submitData = { ...formData };
+
+        // Remove empty password so it doesn't fail backend min(6) validation
+        if (!submitData.password || submitData.password.trim() === '') {
+            delete submitData.password;
+        }
+
+        // Ensure hourlyRate is a valid number
+        submitData.hourlyRate = isNaN(submitData.hourlyRate) ? 0 : submitData.hourlyRate;
+
+        try {
+            await onUpdate(employee.id, submitData);
+            alert("Employee updated successfully!");
+            onClose();
+        } catch (error) {
+            alert(`Error: ${error.message || 'Failed to update employee'}`);
+        }
     };
 
     return (
@@ -347,14 +376,14 @@ const EditEmployeeModal = ({ isOpen, onClose, employee, onUpdate }) => {
                     <div className="space-y-1.5">
                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Status</label>
                         <select
-                            value={formData.status}
-                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                            value={formData.status.toUpperCase()}
+                            onChange={(e) => setFormData({ ...formData, status: e.target.value.toUpperCase() })}
                             className="w-full h-11 px-4 rounded-xl border-2 border-slate-100 bg-slate-50 text-xs font-bold outline-none focus:border-primary-500 transition-all appearance-none"
                         >
                             <option value="ACTIVE">Active</option>
-                            <option value="INVITED">Invited</option>
-                            <option value="OFFLINE">Offline</option>
                             <option value="IDLE">Idle</option>
+                            <option value="OFFLINE">Offline</option>
+                            <option value="INVITED">Invited</option>
                             <option value="DEACTIVATED">Deactivated</option>
                         </select>
                     </div>
@@ -365,8 +394,11 @@ const EditEmployeeModal = ({ isOpen, onClose, employee, onUpdate }) => {
                         <input
                             type="number"
                             step="0.01"
-                            value={formData.hourlyRate}
-                            onChange={(e) => setFormData({ ...formData, hourlyRate: parseFloat(e.target.value) })}
+                            value={formData.hourlyRate || 0}
+                            onChange={(e) => {
+                                const val = e.target.value === '' ? 0 : parseFloat(e.target.value);
+                                setFormData({ ...formData, hourlyRate: val });
+                            }}
                             className="w-full h-11 px-4 rounded-xl border-2 border-slate-100 bg-slate-50 text-xs font-bold outline-none focus:border-primary-500 transition-all"
                         />
                     </div>
@@ -378,6 +410,40 @@ const EditEmployeeModal = ({ isOpen, onClose, employee, onUpdate }) => {
                             onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                             className="w-full h-11 px-4 rounded-xl border-2 border-slate-100 bg-slate-50 text-xs font-bold outline-none focus:border-primary-500 transition-all"
                         />
+                    </div>
+                </div>
+                <div className="space-y-1.5">
+                    <div className="flex items-center justify-between px-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">New Password (Optional)</label>
+                        <button
+                            type="button"
+                            onClick={generatePassword}
+                            className="text-[10px] font-black text-primary-600 uppercase tracking-widest hover:underline"
+                        >
+                            Generate Password
+                        </button>
+                    </div>
+                    <div className="relative">
+                        <input
+                            type="text" // Changed to text so they can see the generated password
+                            placeholder="Type or generate new password"
+                            value={formData.password}
+                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                            className="w-full h-11 px-4 rounded-xl border-2 border-slate-100 bg-slate-50 text-xs font-bold outline-none focus:border-primary-500 transition-all pr-12"
+                        />
+                        {formData.password && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    navigator.clipboard.writeText(formData.password);
+                                    alert("Password copied to clipboard!");
+                                }}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary-600 p-1"
+                                title="Copy password"
+                            >
+                                <Copy size={16} />
+                            </button>
+                        )}
                     </div>
                 </div>
                 <div className="flex gap-3 pt-4">
@@ -395,10 +461,10 @@ const DeleteConfirmationModal = ({ isOpen, onClose, employee, onConfirm }) => {
             <div className="space-y-6">
                 <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100 text-center">
                     <p className="text-sm font-bold text-rose-700">
-                        Are you sure you want to delete <span className="font-black underline">{employee?.name}</span>?
+                        Are you sure you want to <span className="uppercase underline">permanently delete</span> <span className="font-black underline">{employee?.name}</span>?
                     </p>
                     <p className="text-[11px] text-rose-500 mt-2">
-                        This will deactivate the employee and stop all monitoring activities.
+                        This action cannot be undone. All related data will be removed from the database.
                     </p>
                 </div>
                 <div className="flex gap-3">
@@ -1018,7 +1084,7 @@ export function EmployeeManagement() {
                                 className="flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-3 text-xs font-black uppercase tracking-wider text-white hover:bg-primary-700 transition-all shadow-xl hover:scale-[1.02] active:scale-95"
                             >
                                 <Plus size={16} strokeWidth={3} />Invite
-                                 New Employee
+                                New Employee
                             </button>
                         </>
                     )}

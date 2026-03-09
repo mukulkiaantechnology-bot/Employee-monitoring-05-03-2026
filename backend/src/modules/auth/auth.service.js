@@ -97,6 +97,14 @@ const login = async (email, password) => {
         status: 'Success'
     });
 
+    // Update employee status to ACTIVE on login
+    if (user.employeeId) {
+        await prisma.employee.update({
+            where: { id: user.employeeId },
+            data: { status: 'ACTIVE' },
+        });
+    }
+
     return {
         token,
         user: {
@@ -228,10 +236,23 @@ const forgotPassword = async (email) => {
     console.log(`[ForgotPassword] Mock reset link generated for ${email}`);
 };
 
+/**
+ * Logout user - update status to OFFLINE
+ */
+const logout = async (employeeId) => {
+    if (!employeeId) return;
+    
+    await prisma.employee.update({
+        where: { id: employeeId },
+        data: { status: 'OFFLINE' },
+    });
+};
+
 module.exports = {
     register,
     login,
     getMe,
+    logout,
     updateProfile,
     changePassword,
     forgotPassword

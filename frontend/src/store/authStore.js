@@ -39,8 +39,8 @@ export const useAuthStore = create(
                 }
             },
 
-            logout: () => {
-                authService.logout();
+            logout: async () => {
+                await authService.logout();
                 set({ user: null, role: null, isAuthenticated: false, token: null });
             },
 

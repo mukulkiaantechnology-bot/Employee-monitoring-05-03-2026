@@ -19,17 +19,8 @@ class TasksController {
             const { role, employeeId } = req.user;
             let filter = {};
 
-            if (role === 'MANAGER') {
-                const { PrismaClient } = require('@prisma/client');
-                const prisma = new PrismaClient();
-                const manager = await prisma.employee.findUnique({
-                    where: { id: employeeId },
-                    select: { teamId: true }
-                });
-                if (manager && manager.teamId) {
-                    filter.employee = { teamId: manager.teamId };
-                }
-            } else if (role === 'EMPLOYEE') {
+            // Managers now see all tasks in their organization, same as Admin
+            if (role === 'EMPLOYEE') {
                 filter.employeeId = employeeId;
             }
 

@@ -81,10 +81,10 @@ export function RealTimeInsights() {
                             Live Map
                         </button>
                     </div>
-                    <button onClick={() => setIsModalOpen(true)}
+                    {/* <button onClick={() => setIsModalOpen(true)}
                         className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg text-xs font-black transition-all shadow-lg uppercase tracking-wider">
                         Add New Employee
-                    </button>
+                    </button> */}
                 </div>
             </div>
 

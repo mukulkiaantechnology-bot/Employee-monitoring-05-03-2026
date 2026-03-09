@@ -104,10 +104,15 @@ export function AppsWebsites() {
     }, [selectedPreset, fetchReportData]);
 
     const activeData = React.useMemo(() => {
+        const formatLabel = (label) => {
+            if (!label) return "Neutral";
+            return label.charAt(0).toUpperCase() + label.slice(1).toLowerCase();
+        };
+
         return rawData.map(item => ({
             name: item.appName,
             usage: Math.round((item._sum.duration / 3600) * 10) / 10,
-            type: item.productivity || 'Neutral'
+            type: formatLabel(item.productivity)
         }));
     }, [rawData]);
 

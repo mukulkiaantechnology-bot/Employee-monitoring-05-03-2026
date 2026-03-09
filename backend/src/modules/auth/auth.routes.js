@@ -6,6 +6,7 @@ const authMiddleware = require('../../middlewares/auth.middleware');
 
 router.post('/register', authController.register);
 router.post('/login', authController.login);
+router.post('/logout', authMiddleware, authController.logout);
 router.post('/invitations/send', authMiddleware, invitationController.sendInvitation);
 router.post('/invitations/complete', invitationController.completeInvitation);
 router.get('/me', authMiddleware, authController.getMe);

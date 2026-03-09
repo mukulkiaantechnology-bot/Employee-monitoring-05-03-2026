@@ -57,7 +57,7 @@ export function WorkloadDistribution() {
     const navigate = useNavigate();
     const { reportsSettings, reportData, fetchReportData, loading } = useReportsStore();
     const { optimalFrom, optimalTo } = reportsSettings.workloadDistribution;
-    
+
     const rawData = reportData['workload'] || [];
 
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
@@ -77,7 +77,7 @@ export function WorkloadDistribution() {
         const start = new Date();
         switch (preset) {
             case 'Today': start.setHours(0, 0, 0, 0); break;
-            case 'Yesterday': 
+            case 'Yesterday':
                 start.setDate(start.getDate() - 1); start.setHours(0, 0, 0, 0);
                 end.setDate(end.getDate() - 1); end.setHours(23, 59, 59, 999);
                 break;
@@ -221,7 +221,7 @@ export function WorkloadDistribution() {
                         )}
                     </div>
 
-                    <button className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-400 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:ring-slate-800 transition-all">
+                    {/* <button className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-400 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:ring-slate-800 transition-all">
                         <Download size={18} />
                     </button>
 
@@ -230,7 +230,7 @@ export function WorkloadDistribution() {
                         className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white shadow-sm ring-1 ring-slate-800 hover:scale-105 active:scale-95 transition-all dark:bg-white dark:text-slate-900"
                     >
                         <SettingsIcon size={18} />
-                    </button>
+                    </button> */}
                 </div>
             </div>
 
@@ -248,17 +248,16 @@ export function WorkloadDistribution() {
                                         </div>
                                         <h3 className="font-bold text-slate-900 dark:text-white">{item.team}</h3>
                                     </div>
-                                    <div className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                        pct >= optimalFrom && pct <= optimalTo 
-                                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' 
+                                    <div className={`px-3 py-1 rounded-full text-xs font-bold ${pct >= optimalFrom && pct <= optimalTo
+                                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                                             : pct > optimalTo
                                                 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                                                 : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                                    }`}>
-                                        {pct >= optimalFrom && pct <= optimalTo 
-                                            ? 'Optimal' 
-                                            : pct > optimalTo 
-                                                ? 'Overloaded' 
+                                        }`}>
+                                        {pct >= optimalFrom && pct <= optimalTo
+                                            ? 'Optimal'
+                                            : pct > optimalTo
+                                                ? 'Overloaded'
                                                 : 'Underloaded'}
                                     </div>
                                 </div>
@@ -271,15 +270,14 @@ export function WorkloadDistribution() {
                                         <p className="text-sm font-bold text-primary-600 dark:text-primary-400">{pct}% Used</p>
                                     </div>
                                     <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                                        <div 
-                                            className={`h-full rounded-full transition-all duration-700 ${
-                                                pct >= optimalFrom && pct <= optimalTo 
-                                                    ? 'bg-emerald-500' 
-                                                    : pct > optimalTo 
-                                                        ? 'bg-red-500' 
+                                        <div
+                                            className={`h-full rounded-full transition-all duration-700 ${pct >= optimalFrom && pct <= optimalTo
+                                                    ? 'bg-emerald-500'
+                                                    : pct > optimalTo
+                                                        ? 'bg-red-500'
                                                         : 'bg-amber-500'
-                                            }`} 
-                                            style={{ width: `${pct}%` }} 
+                                                }`}
+                                            style={{ width: `${pct}%` }}
                                         />
                                     </div>
                                     <div className="flex items-center gap-4 pt-2">

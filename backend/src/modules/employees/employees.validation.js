@@ -16,6 +16,7 @@ const updateEmployeeSchema = z.object({
     status: z.enum(['INVITED', 'ACTIVE', 'OFFLINE', 'IDLE', 'DEACTIVATED', 'MERGED']).optional(),
     hourlyRate: z.number().optional(),
     avatar: z.string().optional(),
+    password: z.string().min(6).optional(),
 });
 
 module.exports = {

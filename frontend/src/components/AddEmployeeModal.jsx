@@ -339,12 +339,13 @@ export function AddEmployeeModal({ isOpen, onClose }) {
                                             organizationId: orgId
                                         });
                                         
-                                        // Log for testing as requested by user
-                                        console.log(`%c [INVITATION SENT] for ${emp.email}`, 'background: #222; color: #bada55; font-size: 14px');
-                                        console.log("Response:", res);
+                                        // Log for testing as requested by user - Made extremely prominent
+                                        console.log("%c 🚀 [INVITATION SENT] 🚀 ", 'background: #10b981; color: white; font-size: 16px; font-weight: bold; padding: 4px; border-radius: 4px;');
+                                        console.log(`%c User: ${emp.email}`, 'color: #10b981; font-weight: bold;');
                                         if (res.setupLink) {
-                                            console.log("SETUP LINK:", res.setupLink);
+                                            console.log(`%c SETUP LINK: %c ${res.setupLink} `, 'color: #6366f1; font-weight: bold;', 'background: #6366f1; color: white; padding: 2px; border-radius: 2px;');
                                         }
+                                        console.log("Full Response Object:", res);
 
                                         logAction(user?.name || 'Admin', 'Owner', 'Create', 'Employee', `Invited new employee: "${emp.name}"`);
                                         successCount++;

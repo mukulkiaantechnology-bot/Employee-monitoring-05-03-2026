@@ -34,7 +34,7 @@ import { GlobalCalendar } from '../components/GlobalCalendar';
 import { NewProjectModal } from '../components/NewProjectModal';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { performanceKPIs as mockKPIs, projectProductivity as mockProjectProd, workLogs as mockLogs } from '../data/mockData'; // Fallbacks if needed
+import { performanceKPIs as mockKPIs, projectProductivity, workLogs as mockLogs } from '../data/mockData'; // Fallbacks if needed
 import { useRealTime } from '../hooks/RealTimeContext';
 import {
     BarChart,
@@ -714,7 +714,7 @@ export function TasksProjects() {
                 <div className="w-full lg:flex-1 flex flex-wrap items-center justify-center gap-2 md:gap-3">
                     {[
                         { id: 'board', name: 'Board', icon: Kanban },
-                        { id: 'logs', name: 'Work Logs', icon: Clock },
+                        // { id: 'logs', name: 'Work Logs', icon: Clock },
                         { id: 'projects', name: 'Projects', icon: Layout },
                         { id: 'performance', name: 'Performance', icon: Trophy },
                         { id: 'goals', name: 'Goals', icon: Target }

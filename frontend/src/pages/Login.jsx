@@ -195,10 +195,10 @@ export function Login() {
                         </button>
                     </div>
 
-                    <p className="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
+                    {/* <p className="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
                         Don't have an account?{' '}
                         <a href="#" className="font-bold text-primary-600 hover:text-primary-700">Sign Up</a>
-                    </p>
+                    </p> */}
                 </div>
             </div>
         </div>

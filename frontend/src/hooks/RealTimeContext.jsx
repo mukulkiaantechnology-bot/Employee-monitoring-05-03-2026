@@ -806,7 +806,7 @@ export function RealTimeProvider({ children }) {
             const filteredEmployees = currentEmployees.filter(e => e.teamId === managerTeamId);
             return {
                 employees: filteredEmployees,
-                tasks: state.tasks.filter(t => filteredEmployees.find(e => e.id === t.employeeId)),
+                tasks: state.tasks, // Managers now see all tasks, same as Admin
                 projects: state.projects,
                 teams: state.teams.filter(t => t.id === managerTeamId),
                 activityLogs: state.activityLogs.filter(l => filteredEmployees.find(e => e.id === l.employeeId)),

@@ -106,16 +106,25 @@ const inviteEmployee = async (req, res, next) => {
 
 const updateEmployee = async (req, res, next) => {
     try {
-        if (req.user.role !== 'ADMIN') {
-            return res.status(403).json({ success: false, message: "Only admins can update employees" });
+        if (req.user.role !== 'ADMIN' && req.user.role !== 'MANAGER') {
+            return res.status(403).json({ success: false, message: "Only admins and managers can update employees" });
         }
         const { id } = req.params;
         const validatedData = updateEmployeeSchema.parse(req.body);
         const employee = await employeesService.updateEmployee(id, validatedData);
+        
+        // Map to industry/insightful format for frontend consistency
+        const formattedEmployee = {
+            ...employee,
+            name: employee.fullName,
+            status: employee.status.toLowerCase(),
+            avatar: employee.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(employee.fullName)}&background=random`
+        };
+
         res.status(200).json({
             success: true,
             message: "Employee updated successfully",
-            data: employee
+            data: formattedEmployee
         });
     } catch (error) {
         next(error);

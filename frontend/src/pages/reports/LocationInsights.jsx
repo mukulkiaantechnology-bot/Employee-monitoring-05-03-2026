@@ -338,7 +338,7 @@ export function LocationInsights() {
                         <span className="text-slate-400 text-xs font-semibold">hours</span>
                     </div>
 
-                    <button className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-400 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:ring-slate-800 transition-all">
+                    {/* <button className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-400 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:ring-slate-800 transition-all">
                         <Download size={18} />
                     </button>
 
@@ -347,7 +347,7 @@ export function LocationInsights() {
                         className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-white shadow-sm ring-1 ring-slate-800 hover:scale-105 active:scale-95 transition-all dark:bg-white dark:text-slate-900"
                     >
                         <SettingsIcon size={18} />
-                    </button>
+                    </button> */}
                 </div>
             </div>
 

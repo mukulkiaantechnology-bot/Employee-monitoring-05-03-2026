@@ -104,8 +104,14 @@ export function WorkType() {
     const rawData = reportData['work-type'] || [];
     const activeData = React.useMemo(() => {
         const colors = ["bg-blue-500", "bg-purple-500", "bg-emerald-500", "bg-indigo-500", "bg-slate-400"];
+        const formatLabel = (label) => {
+            if (!label) return "Unknown";
+            // Convert PRODUCTIVE to Productive, etc.
+            return label.charAt(0).toUpperCase() + label.slice(1).toLowerCase();
+        };
+
         return rawData.map((item, idx) => ({
-            name: item.productivity || item.appName || "Unknown",
+            name: formatLabel(item.productivity || item.appName),
             hours: Math.round((item.duration / 3600) * 10) / 10,
             color: colors[idx % colors.length]
         }));

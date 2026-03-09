@@ -15,7 +15,7 @@ const getWorkTypeReport = async (organizationId, startDate, endDate) => {
     });
 
     return logs.map(log => ({
-        type: log.productivity,
+        productivity: log.productivity,
         duration: log._sum.duration || 0
     }));
 };
