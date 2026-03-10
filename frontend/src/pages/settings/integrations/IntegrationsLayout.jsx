@@ -1,20 +1,26 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { ChevronLeft, Search, Puzzle } from 'lucide-react';
-import { INTEGRATION_TABS } from '../../../store/integrationStore';
+import { useIntegrationStore, INTEGRATION_TABS } from '../../../store/integrationStore';
+import { useAuthStore } from '../../../store/authStore';
 import { cn } from '../../../utils/cn';
 
 const TAB_SUBTITLES = {
     'org-chart': 'Synchronize your organizational hierarchy by integrating your app with Insightful.',
-    'data-warehouse': "Import Insightful's data into your data warehouse solution",
-    'project-management': 'Integrate your project management applications with Insightful',
-    'calendar': "Use calendar integration as an additional data source for better visibility into employee's work activities.",
 };
 
 export function IntegrationsLayout() {
     const navigate = useNavigate();
     const location = useLocation();
     const [searchQuery, setSearchQuery] = useState('');
+    const { fetchIntegrations } = useIntegrationStore();
+    const { role } = useAuthStore();
+
+    React.useEffect(() => {
+        fetchIntegrations();
+    }, [fetchIntegrations]);
+
+    const rolePath = role?.toLowerCase() === 'admin' ? '/admin' : '/manager';
 
     const activeTab = INTEGRATION_TABS.find((t) => location.pathname.includes(t.id));
     const activeTabId = activeTab?.id ?? 'org-chart';
@@ -25,7 +31,7 @@ export function IntegrationsLayout() {
             {/* Header */}
             <div className="flex items-center gap-4 pt-8 pb-6">
                 <button
-                    onClick={() => navigate('/settings')}
+                    onClick={() => navigate(`${rolePath}/settings`)}
                     className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:scale-105 shadow-sm"
                 >
                     <ChevronLeft size={20} />
@@ -34,7 +40,7 @@ export function IntegrationsLayout() {
                     <nav className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
                         <span
                             className="hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer transition-colors"
-                            onClick={() => navigate('/settings')}
+                            onClick={() => navigate(`${rolePath}/settings`)}
                         >
                             Settings
                         </span>

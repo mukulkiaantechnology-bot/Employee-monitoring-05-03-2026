@@ -113,9 +113,13 @@ export function IntegrationTabPage({ integrationKeys, searchQuery, disabled = fa
                 integrationId={configuringId}
                 existingConfig={configuringId ? integrations[configuringId]?.config : {}}
                 onClose={() => setConfiguringId(null)}
-                onSave={(id, config) => {
-                    connectIntegration(id, config);
-                    showToast(`${INTEGRATION_META[id]?.name} connected successfully!`);
+                onSave={async (id, config) => {
+                    try {
+                        await connectIntegration(id, config);
+                        showToast(`${INTEGRATION_META[id]?.name} connected successfully!`);
+                    } catch (err) {
+                        showToast(`Failed to connect ${INTEGRATION_META[id]?.name}`, 'error');
+                    }
                 }}
             />
 
@@ -124,9 +128,13 @@ export function IntegrationTabPage({ integrationKeys, searchQuery, disabled = fa
                 isOpen={!!disconnectingId}
                 integrationId={disconnectingId}
                 onClose={() => setDisconnectingId(null)}
-                onConfirm={(id) => {
-                    disconnectIntegration(id);
-                    showToast(`${INTEGRATION_META[id]?.name} disconnected.`, 'error');
+                onConfirm={async (id) => {
+                    try {
+                        await disconnectIntegration(id);
+                        showToast(`${INTEGRATION_META[id]?.name} disconnected.`, 'error');
+                    } catch (err) {
+                        showToast(`Failed to disconnect ${INTEGRATION_META[id]?.name}`, 'error');
+                    }
                 }}
             />
 

@@ -54,9 +54,6 @@ import { Plans } from './pages/settings/billing/Plans';
 import { AddOns } from './pages/settings/billing/AddOns';
 import { IntegrationsLayout } from './pages/settings/integrations/IntegrationsLayout';
 import { OrgChart } from './pages/settings/integrations/OrgChart';
-import { DataWarehouse } from './pages/settings/integrations/DataWarehouse';
-import { ProjectManagement } from './pages/settings/integrations/ProjectManagement';
-import { Calendar } from './pages/settings/integrations/Calendar';
 import { ProtectedRoute, PublicRoute } from './components/ProtectedRoute';
 import { RealTimeProvider } from './hooks/RealTimeContext';
 
@@ -181,9 +178,6 @@ function App() {
                                     <Route path="settings/integrations" element={<IntegrationsLayout />}>
                                         <Route index element={<Navigate to="overview/org-chart" replace />} />
                                         <Route path="overview/org-chart" element={<OrgChart />} />
-                                        <Route path="overview/data-warehouse" element={<DataWarehouse />} />
-                                        <Route path="overview/project-management" element={<ProjectManagement />} />
-                                        <Route path="overview/calendar" element={<Calendar />} />
                                     </Route>
 
                                     <Route path="settings/billing" element={<BillingLayout />}>

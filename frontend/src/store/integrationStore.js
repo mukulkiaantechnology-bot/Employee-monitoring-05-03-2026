@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import integrationService from '../services/integrationService';
 
 // ── Integration metadata (logos + descriptions + config type) ──────────────
 export const INTEGRATION_META = {
@@ -148,28 +148,6 @@ export const INTEGRATION_TABS = [
         subtitle: 'Synchronize your organizational hierarchy by integrating your app with Insightful.',
         keys: ['csvImport', 'alexisHR', 'bambooHR', 'chartHop', 'googleWorkspace', 'hibob'],
     },
-    {
-        id: 'data-warehouse',
-        label: 'Data Warehouse',
-        route: '/settings/integrations/overview/data-warehouse',
-        subtitle: "Import Insightful's data into your data warehouse solution",
-        keys: ['bigQuery', 'snowflake'],
-        featureGate: 'dataWarehouse',
-    },
-    {
-        id: 'project-management',
-        label: 'Project Management',
-        route: '/settings/integrations/overview/project-management',
-        subtitle: 'Integrate your project management applications with Insightful',
-        keys: ['asana', 'azureDevops', 'clickup', 'height', 'jira', 'teamwork'],
-    },
-    {
-        id: 'calendar',
-        label: 'Calendar',
-        route: '/settings/integrations/overview/calendar',
-        subtitle: "Use calendar integration as an additional data source for better visibility into employee's work activities.",
-        keys: ['googleCalendar', 'outlookCalendar'],
-    },
 ];
 
 // ── Default state ──────────────────────────────────────────────────────────
@@ -178,41 +156,64 @@ const buildDefault = (keys) =>
 
 const DEFAULT_INTEGRATIONS = {
     ...buildDefault(['csvImport', 'alexisHR', 'bambooHR', 'chartHop', 'googleWorkspace', 'hibob']),
-    ...buildDefault(['bigQuery', 'snowflake']),
-    ...buildDefault(['asana', 'azureDevops', 'clickup', 'height', 'jira', 'teamwork']),
-    ...buildDefault(['googleCalendar', 'outlookCalendar']),
 };
 
 // ── Store ─────────────────────────────────────────────────────────────────
-export const useIntegrationStore = create(
-    persist(
-        (set) => ({
-            integrations: DEFAULT_INTEGRATIONS,
+export const useIntegrationStore = create((set, get) => ({
+    integrations: DEFAULT_INTEGRATIONS,
+    loading: false,
+    error: null,
 
-            connectIntegration: (id, config = {}) =>
-                set((state) => ({
-                    integrations: {
-                        ...state.integrations,
-                        [id]: { connected: true, config },
-                    },
-                })),
+    fetchIntegrations: async () => {
+        set({ loading: true, error: null });
+        try {
+            const data = await integrationService.getIntegrations();
+            // Merge with default to ensure all keys exist
+            set({ 
+                integrations: { ...DEFAULT_INTEGRATIONS, ...data }, 
+                loading: false 
+            });
+        } catch (error) {
+            set({ error: error.message, loading: false });
+        }
+    },
 
-            disconnectIntegration: (id) =>
-                set((state) => ({
-                    integrations: {
-                        ...state.integrations,
-                        [id]: { connected: false, config: {} },
-                    },
-                })),
+    connectIntegration: async (id, config = {}) => {
+        set({ loading: true });
+        try {
+            await integrationService.configureIntegration(id, config);
+            set((state) => ({
+                integrations: {
+                    ...state.integrations,
+                    [id]: { connected: true, config },
+                },
+                loading: false
+            }));
+        } catch (error) {
+            set({ error: error.message, loading: false });
+            throw error;
+        }
+    },
 
-            updateIntegrationConfig: (id, config) =>
-                set((state) => ({
-                    integrations: {
-                        ...state.integrations,
-                        [id]: { ...state.integrations[id], config },
-                    },
-                })),
-        }),
-        { name: 'integrations-storage' }
-    )
-);
+    disconnectIntegration: async (id) => {
+        set({ loading: true });
+        try {
+            await integrationService.disconnectIntegration(id);
+            set((state) => ({
+                integrations: {
+                    ...state.integrations,
+                    [id]: { connected: false, config: {} },
+                },
+                loading: false
+            }));
+        } catch (error) {
+            set({ error: error.message, loading: false });
+            throw error;
+        }
+    },
+
+    updateIntegrationConfig: async (id, config) => {
+        // Reuse connect as it's an upsert on backend
+        return get().connectIntegration(id, config);
+    },
+}));

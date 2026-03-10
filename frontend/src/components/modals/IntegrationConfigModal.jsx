@@ -55,15 +55,19 @@ export function IntegrationConfigModal({ isOpen, integrationId, existingConfig, 
         return errs;
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         const errs = validate();
         if (Object.keys(errs).length) { setErrors(errs); return; }
         setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
-            onSave(integrationId, config);
+        try {
+            await onSave?.(integrationId, config);
             onClose();
-        }, 1000);
+        } catch (err) {
+            console.error('Failed to save integration config:', err);
+            // Error is handled by parent toast, but we stop loading here
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleTestConnection = () => {

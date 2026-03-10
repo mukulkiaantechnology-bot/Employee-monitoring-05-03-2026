@@ -5,8 +5,8 @@ import { usePrivacyStore } from '../../store/privacyStore';
 import { cn } from '../../utils/cn';
 
 const TABS = [
-    { id: 'overview', label: 'Overview', route: '/settings/privacy/overview' },
-    { id: 'compliance', label: 'Compliance', route: '/settings/privacy/compliance' },
+    // { id: 'overview', label: 'Overview', route: '/settings/privacy/overview' },
+    // { id: 'compliance', label: 'Compliance', route: '/settings/privacy/compliance' },
 ];
 
 // Mini toast
