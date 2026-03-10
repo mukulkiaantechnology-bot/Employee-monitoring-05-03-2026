@@ -113,6 +113,7 @@ model Organization {
   auditLogs        AuditLog[]
   alertRules       AlertRule[]
   alertSettings    AlertSettings?
+  emailReports     EmailReport[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -518,4 +519,20 @@ model AlertSettings {
   updatedAt                 DateTime     @updatedAt
 
   @@map("alert_settings")
+}
+
+model EmailReport {
+  id             String       @id @default(uuid())
+  title          String
+  frequency      String       // 'daily', 'weekly', 'monthly'
+  recipients     Json         // Array of emails
+  sendToSelf     Boolean      @default(true)
+  content        Json         // Array of content options
+  isActive       Boolean      @default(true)
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("email_reports")
 }

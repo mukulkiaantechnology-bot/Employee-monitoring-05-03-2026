@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Plus, Search, Mail } from 'lucide-react';
 import { useEmailReportStore } from '../../store/emailReportStore';
@@ -20,7 +20,11 @@ function Toast({ show, message }) {
 
 export function EmailReports() {
     const navigate = useNavigate();
-    const { reports, createReport, updateReport, deleteReport, toggleReport } = useEmailReportStore();
+    const { reports, fetchReports, createReport, updateReport, deleteReport, toggleReport, loading } = useEmailReportStore();
+
+    useEffect(() => {
+        fetchReports();
+    }, [fetchReports]);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -102,20 +106,20 @@ export function EmailReports() {
                 </div>
 
                 {/* Top Right Controls */}
-                <div className="flex items-center gap-3">
-                    <div className="relative">
+                <div className="flex flex-col sm:flex-row w-full md:w-auto items-stretch sm:items-center gap-3 mt-4 md:mt-0">
+                    <div className="relative w-full sm:w-auto">
                         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                         <input
                             type="text"
                             placeholder="Search"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="h-10 w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all shadow-sm"
+                            className="h-10 w-full sm:w-52 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 outline-none transition-all shadow-sm"
                         />
                     </div>
                     <button
                         onClick={() => { setEditingReport(null); setIsCreateOpen(true); }}
-                        className="flex items-center gap-2 h-10 px-5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-violet-200 dark:shadow-none hover:from-violet-700 hover:to-indigo-700 hover:scale-[1.02] active:scale-95 transition-all"
+                        className="flex justify-center items-center gap-2 h-10 w-full sm:w-auto px-5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-black uppercase tracking-widest shadow-lg shadow-violet-200 dark:shadow-none hover:from-violet-700 hover:to-indigo-700 hover:scale-[1.02] active:scale-95 transition-all"
                     >
                         <Plus size={16} strokeWidth={3} /> Create new report
                     </button>

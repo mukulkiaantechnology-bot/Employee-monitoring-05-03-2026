@@ -11,6 +11,8 @@ function simulateScheduler(report) {
     console.log(msgs[report.frequency] ?? msgs.daily);
 }
 
+import { emailReportService } from '../services/emailReportService';
+
 export const CONTENT_OPTIONS = [
     { id: 'attendance', label: 'Attendance' },
     { id: 'utilization', label: 'Utilization' },
@@ -20,59 +22,82 @@ export const CONTENT_OPTIONS = [
     { id: 'location', label: 'Location Insights' },
 ];
 
-const INITIAL_REPORTS = [
-    {
-        id: '1',
-        title: 'Daily report',
-        frequency: 'daily',
-        recipients: ['admin@company.com'],
-        content: ['attendance', 'utilization', 'projects', 'tasks', 'apps'],
-        sendToSelf: true,
-        isActive: true,
-        createdAt: Date.now() - 86400000,
+
+export const useEmailReportStore = create((set, get) => ({
+    reports: [],
+    loading: false,
+
+    fetchReports: async () => {
+        set({ loading: true });
+        try {
+            const data = await emailReportService.getReports();
+            if (data?.success) {
+                set({ reports: data.data });
+            }
+        } catch (error) {
+            console.error('Failed to fetch email reports:', error);
+        } finally {
+            set({ loading: false });
+        }
     },
-];
 
-export const useEmailReportStore = create(
-    persist(
-        (set, get) => ({
-            reports: INITIAL_REPORTS,
+    createReport: async (reportData) => {
+        try {
+            const data = await emailReportService.createReport(reportData);
+            if (data?.success) {
+                set((state) => ({ reports: [data.data, ...state.reports] }));
+            }
+        } catch (error) {
+            console.error('Failed to create email report:', error);
+            throw error;
+        }
+    },
 
-            createReport: (reportData) => {
-                const newReport = {
-                    id: `report_${Date.now()}`,
-                    isActive: true,
-                    createdAt: Date.now(),
-                    ...reportData,
-                };
-                set((state) => ({ reports: [newReport, ...state.reports] }));
-                simulateScheduler(newReport);
-            },
-
-            updateReport: (id, updatedData) => {
+    updateReport: async (id, updatedData) => {
+        try {
+            const data = await emailReportService.updateReport(id, updatedData);
+            if (data?.success) {
                 set((state) => ({
                     reports: state.reports.map((r) =>
-                        r.id === id ? { ...r, ...updatedData } : r
+                        r.id === id ? data.data : r
                     ),
                 }));
-                const updated = get().reports.find((r) => r.id === id);
-                if (updated) simulateScheduler(updated);
-            },
+            }
+        } catch (error) {
+            console.error('Failed to update email report:', error);
+            throw error;
+        }
+    },
 
-            deleteReport: (id) => {
-                set((state) => ({
+    deleteReport: async (id) => {
+        try {
+            const data = await emailReportService.deleteReport(id);
+            if (data?.success) {
+                 set((state) => ({
                     reports: state.reports.filter((r) => r.id !== id),
                 }));
-            },
+            }
+        } catch (error) {
+            console.error('Failed to delete email report:', error);
+            throw error;
+        }
+    },
 
-            toggleReport: (id) => {
-                set((state) => ({
+    toggleReport: async (id) => {
+        const report = get().reports.find(r => r.id === id);
+        if (!report) return;
+        try {
+            const updated = { ...report, isActive: !report.isActive };
+            const data = await emailReportService.updateReport(id, { isActive: updated.isActive });
+            if (data?.success) {
+                 set((state) => ({
                     reports: state.reports.map((r) =>
-                        r.id === id ? { ...r, isActive: !r.isActive } : r
+                        r.id === id ? data.data : r
                     ),
                 }));
-            },
-        }),
-        { name: 'email-reports-storage' }
-    )
-);
+            }
+        } catch (error) {
+            console.error('Failed to toggle email report:', error);
+        }
+    },
+}));

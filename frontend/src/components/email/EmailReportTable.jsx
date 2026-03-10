@@ -5,7 +5,9 @@ import { cn } from '../../utils/cn';
 
 function ActionMenu({ report, onEdit, onDelete, onToggle }) {
     const [open, setOpen] = useState(false);
+    const [position, setPosition] = useState({ top: 0, left: 0 });
     const ref = useRef(null);
+    const buttonRef = useRef(null);
 
     useEffect(() => {
         const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -13,17 +15,32 @@ function ActionMenu({ report, onEdit, onDelete, onToggle }) {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
+    const toggleMenu = () => {
+        if (!open && buttonRef.current) {
+            const rect = buttonRef.current.getBoundingClientRect();
+            setPosition({
+                top: rect.bottom + window.scrollY + 4,
+                left: rect.right + window.scrollX - 192, // 192 is w-48
+            });
+        }
+        setOpen(!open);
+    };
+
     return (
-        <div className="relative" ref={ref}>
+        <div ref={ref}>
             <button
-                onClick={() => setOpen(!open)}
+                ref={buttonRef}
+                onClick={toggleMenu}
                 className="h-9 w-9 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-200 transition-all"
             >
                 <MoreVertical size={18} />
             </button>
 
             {open && (
-                <div className="absolute right-0 top-full mt-1 z-50 w-48 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                <div 
+                    style={{ top: position.top, left: position.left }}
+                    className="fixed z-[100] w-48 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
+                >
                     <button
                         onClick={() => { onEdit(report); setOpen(false); }}
                         className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
@@ -78,9 +95,11 @@ export function EmailReportTable({ reports, onEdit, onDelete, onToggle }) {
     }
 
     return (
-        <div className="overflow-x-auto">
-            <table className="w-full text-left">
-                <thead className="border-b border-slate-100 dark:border-slate-800">
+        <div className="w-full relative">
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto min-h-[200px]">
+                <table className="w-full text-left">
+                    <thead className="border-b border-slate-100 dark:border-slate-800">
                     <tr>
                         {['Title', 'Frequency', 'Recipients', 'Content', ''].map((h, i) => (
                             <th
@@ -154,7 +173,62 @@ export function EmailReportTable({ reports, onEdit, onDelete, onToggle }) {
                         );
                     })}
                 </tbody>
-            </table>
+                </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden flex flex-col divide-y divide-slate-100 dark:divide-slate-800">
+                {reports.map((report) => {
+                    const contentText = getContentLabels(report.content);
+
+                    return (
+                        <div 
+                            key={report.id}
+                            className={cn(
+                                "flex flex-col gap-3 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors",
+                                !report.isActive && 'opacity-50'
+                            )}
+                        >
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className={cn(
+                                        'h-2 w-2 rounded-full shrink-0',
+                                        report.isActive ? 'bg-emerald-400' : 'bg-slate-300 dark:bg-slate-600'
+                                    )} />
+                                    <span className="text-sm font-black text-slate-900 dark:text-white">
+                                        {report.title}
+                                    </span>
+                                </div>
+                                <ActionMenu
+                                    report={report}
+                                    onEdit={onEdit}
+                                    onDelete={onDelete}
+                                    onToggle={onToggle}
+                                />
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4 mt-2">
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Frequency</p>
+                                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 capitalize">{report.frequency}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Recipients</p>
+                                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                                        {report.recipients.length === 1 ? '1 recipient' : `${report.recipients.length} recipients`}
+                                    </p>
+                                </div>
+                                <div className="col-span-2">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Content</p>
+                                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 line-clamp-2" title={contentText}>
+                                        {contentText || '—'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 }
