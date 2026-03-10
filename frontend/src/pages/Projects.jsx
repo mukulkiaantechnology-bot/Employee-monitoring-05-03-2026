@@ -57,74 +57,70 @@ export function Projects() {
     return (
         <div className="min-h-screen bg-[#fcfdfe] dark:bg-slate-950 pb-12 px-2 sm:px-4 lg:px-8 transition-colors duration-200">
             {/* Top Bar */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-8 mb-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 py-6 md:py-8 mb-4">
                 <div>
                     <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Projects</h1>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                     {activeTab !== 'Integrated' && (
                         <button
                             onClick={() => setIsModalOpen(true)}
-                            className="bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-lg text-xs font-black transition-all shadow-lg shadow-primary-200 dark:shadow-primary-900/20 uppercase tracking-wider"
+                            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-xl text-xs font-black transition-all shadow-xl shadow-primary-200 dark:shadow-none uppercase tracking-wider hover:scale-[1.02] active:scale-95"
                         >
-                            Add New Project
+                            <Plus size={16} strokeWidth={3} />
+                            <span>Add New Project</span>
                         </button>
                     )}
                 </div>
             </div>
 
             {/* Tabs */}
-            <div className="flex items-center gap-10 mb-8 border-b border-slate-100 dark:border-slate-800">
-                {['Insightful', 'Integrated'].map(tab => (
-                    <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={`pb-4 text-sm font-black transition-all relative ${activeTab === tab ? 'text-primary-600 dark:text-primary-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                            }`}
-                    >
-                        {tab}
-                        {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-primary-600 dark:bg-primary-500 rounded-full" />}
-                    </button>
-                ))}
+            <div className="px-0 pt-2 overflow-x-auto no-scrollbar mb-8">
+                <div className="flex items-center gap-8 border-b border-slate-100 dark:border-slate-800 min-w-max">
+                    {['Insightful', 'Integrated'].map(tab => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className={`pb-4 text-[11px] uppercase tracking-[0.15em] font-black transition-all relative ${activeTab === tab ? 'text-primary-600 dark:text-primary-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                                }`}
+                        >
+                            {tab}
+                            {activeTab === tab && (
+                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600 animate-in fade-in duration-300" />
+                            )}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* Filter Bar */}
-            <div className="flex flex-wrap items-center gap-4 mb-4">
-                <GlobalCalendar />
-                <FilterDropdown />
+            <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6 md:mb-8">
+                <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-1 md:pb-0">
+                    <div className="shrink-0 flex items-center gap-3">
+                        <GlobalCalendar />
+                        <FilterDropdown />
+                    </div>
+                </div>
 
-                <div className="ml-auto flex items-center gap-3">
-                    <div className="relative group w-full md:w-64">
-                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
+                <div className="flex items-center gap-3 w-full md:w-auto md:ml-auto">
+                    <div className="relative group flex-1 md:w-72">
+                        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
                         <input
                             type="text"
-                            placeholder="Search projects..."
+                            placeholder="Search projects by name..."
                             value={projectSearch}
                             onChange={(e) => setProjectSearch(e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs font-medium dark:text-slate-200 focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all placeholder:text-slate-400"
+                            className="w-full h-11 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all placeholder:text-slate-400 shadow-sm"
                         />
                     </div>
                     {activeTab !== 'Integrated' && (
-                        <>
-                            <button
-                                onClick={handleDownload}
-                                title="Download CSV"
-                                className="p-2 border border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 rounded-lg hover:bg-primary-50 dark:hover:bg-slate-800/50 transition-colors hover:text-primary-600 dark:hover:text-primary-400"
-                            >
-                                <Download size={18} strokeWidth={2.5} />
-                            </button>
-                            {/* <button
-                                onClick={() => setIsGridView(!isGridView)}
-                                title={isGridView ? "List View" : "Grid View"}
-                                className={`p-2 border rounded-lg transition-colors ${
-                                    isGridView
-                                        ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30 text-primary-600'
-                                        : 'border-slate-200 dark:border-slate-800 text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50 hover:text-primary-600'
-                                }`}
-                            >
-                                <LayoutGrid size={18} strokeWidth={2.5} />
-                            </button> */}
-                        </>
+                        <button
+                            onClick={handleDownload}
+                            title="Download CSV report"
+                            className="h-11 w-11 flex items-center justify-center shrink-0 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-400 hover:text-primary-600 hover:border-primary-200 transition-all rounded-xl shadow-sm"
+                        >
+                            <Download size={18} strokeWidth={2.5} />
+                        </button>
                     )}
                 </div>
             </div>
@@ -168,47 +164,89 @@ export function Projects() {
                 <div className="space-y-6">
                     <div className="space-y-6">
                         {/* Info Bar */}
-                        <div className="bg-[#eef8ff] dark:bg-primary-900/10 border border-primary-100 dark:border-primary-800/50 text-[#00609b] dark:text-primary-300 px-5 py-3.5 rounded-lg flex items-center gap-3 text-xs font-bold w-full shadow-sm">
-                            <Info size={18} className="text-[#0092e0] dark:text-primary-400" />
-                            <span>Choose task statuses visible to employees. <button className="hover:underline font-black text-primary-600 dark:text-primary-400">Learn More.</button></span>
+                        {/* Info Bar */}
+                        <div className="bg-[#eef8ff] dark:bg-primary-900/10 border border-primary-100 dark:border-primary-800/50 text-[#00609b] dark:text-primary-300 px-5 py-4 rounded-[1.25rem] flex items-start md:items-center gap-4 text-xs font-bold w-full shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                            <Info size={18} className="text-[#0092e0] dark:text-primary-400 shrink-0" />
+                            <p className="leading-relaxed">
+                                Choose task statuses visible to employees. <button className="underline font-black hover:text-primary-700 transition-colors">Learn More.</button>
+                            </p>
                         </div>
 
-                        {/* Table Header */}
-                        <div className="grid grid-cols-9 px-6 py-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center border-b border-slate-100 dark:border-slate-800">
-                            {tableHeaders.map((header, idx) => (
-                                <div key={idx} className={idx === 0 ? "text-left col-span-2" : idx === 1 ? "ml-12" : "col-span-1"}>{header}</div>
-                            ))}
+                        {/* Table Layout (Hidden on Mobile) */}
+                        <div className="hidden lg:block">
+                            <div className="grid grid-cols-9 px-6 py-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center border-b border-slate-100 dark:border-slate-800">
+                                {tableHeaders.map((header, idx) => (
+                                    <div key={idx} className={idx === 0 ? "text-left col-span-2" : idx === 1 ? "ml-12" : "col-span-1"}>{header}</div>
+                                ))}
+                            </div>
                         </div>
 
-                        {/* Product Rows */}
-                        <div className={isGridView ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-3"}>
+                        {/* Product Rows / Mobile Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-4 md:gap-6 lg:gap-0 lg:space-y-3">
                             {(() => {
-                                if (loading) return <div className="text-center py-10 font-bold text-slate-400">Loading projects...</div>;
+                                if (loading) return <div className="text-center py-20 font-bold text-slate-400 animate-pulse">Fetching project data...</div>;
 
                                 const filtered = projects.filter(p => (p.projectName || p.name || '').toLowerCase().includes(projectSearch.toLowerCase()));
                                 if (filtered.length === 0) {
                                     return (
-                                        <div className="flex flex-col items-center justify-center py-32 text-center col-span-full">
-                                            <h3 className="text-3xl font-black text-slate-200 dark:text-slate-800 select-none">No Projects</h3>
+                                        <div className="flex flex-col items-center justify-center py-20 text-center col-span-full">
+                                            <div className="h-20 w-20 rounded-full bg-slate-50 dark:bg-slate-900 flex items-center justify-center mb-4">
+                                                <Search size={32} className="text-slate-200 dark:text-slate-800" />
+                                            </div>
+                                            <h3 className="text-xl font-black text-slate-300 dark:text-slate-800 select-none">No Projects Found</h3>
+                                            <p className="text-xs font-bold text-slate-400 mt-2">Try adjusting your search or filters</p>
                                         </div>
                                     );
                                 }
                                 return filtered.map((project, idx) => (
-                                    <div key={idx} className={`bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 hover:shadow-md transition-all group ${isGridView ? 'flex flex-col gap-4' : 'grid grid-cols-9 items-center'
-                                        }`}>
-                                        <div className={`${isGridView ? 'w-full' : 'col-span-2'} flex items-center gap-3`}>
-                                            <div className={`h-8 w-8 rounded-lg bg-primary-500 flex items-center justify-center text-[10px] font-black text-white`}>
+                                    <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[1.5rem] lg:rounded-2xl p-5 md:p-6 lg:p-4 hover:shadow-xl hover:border-primary-100 dark:hover:border-primary-900/30 transition-all group lg:grid lg:grid-cols-9 lg:items-center">
+                                        {/* Desktop-only hidden / Mobile visible labels */}
+                                        <div className="lg:col-span-2 flex items-center gap-4 mb-4 lg:mb-0">
+                                            <div className="h-12 w-12 lg:h-9 lg:lg:w-9 rounded-2xl lg:rounded-xl bg-primary-600 flex items-center justify-center text-xs lg:text-[10px] font-black text-white shadow-lg shadow-primary-200 dark:shadow-none transition-transform group-hover:scale-105">
                                                 {(project.projectName || project.name || 'PR').substring(0, 2).toUpperCase()}
                                             </div>
-                                            <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{project.projectName || project.name}</span>
+                                            <div className="flex flex-col lg:flex-row lg:items-center gap-0.5 lg:gap-0">
+                                                <span className="text-sm lg:text-xs font-black text-slate-900 dark:text-slate-100">{project.projectName || project.name}</span>
+                                                <span className="lg:hidden text-[10px] font-bold text-slate-400 uppercase tracking-wider">{project.tasks} Tasks active</span>
+                                            </div>
                                         </div>
-                                        <div className="col-span-1 text-center text-xs font-bold text-slate-500">{project.assignees}</div>
-                                        <div className="col-span-1 text-center text-xs font-bold text-slate-500">{project.tasks}</div>
-                                        <div className="col-span-1 text-center text-xs font-bold text-slate-500">{project.totalTime}</div>
-                                        <div className="col-span-1 text-center text-xs font-bold text-slate-500">{project.clockedTime}</div>
-                                        <div className="col-span-1 text-center text-xs font-bold text-slate-500">{project.manualTime}</div>
-                                        <div className="col-span-1 text-center text-xs font-bold text-slate-500">${project.billRate}</div>
-                                        <div className="col-span-1 text-center text-xs font-bold text-slate-900 dark:text-white">${project.totalCosts}</div>
+
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 lg:gap-0 lg:col-span-7 items-center">
+                                            {/* Assignees */}
+                                            <div className="flex flex-col lg:items-center gap-1 lg:col-span-1">
+                                                <span className="lg:hidden text-[9px] font-black text-slate-400 uppercase tracking-widest">Assignees</span>
+                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{project.assignees}</span>
+                                            </div>
+                                            {/* Tasks (Desktop only here, mobile has it in header) */}
+                                            <div className="hidden lg:flex flex-col lg:items-center gap-1 lg:col-span-1">
+                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{project.tasks}</span>
+                                            </div>
+                                            {/* Total Time */}
+                                            <div className="flex flex-col lg:items-center gap-1 lg:col-span-1">
+                                                <span className="lg:hidden text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Time</span>
+                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{project.totalTime}</span>
+                                            </div>
+                                            {/* Clocked Time */}
+                                            <div className="flex flex-col lg:items-center gap-1 lg:col-span-1">
+                                                <span className="lg:hidden text-[9px] font-black text-slate-400 uppercase tracking-widest">Clocked</span>
+                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{project.clockedTime}</span>
+                                            </div>
+                                            {/* Manual Time */}
+                                            <div className="hidden md:flex flex-col lg:items-center gap-1 lg:col-span-1">
+                                                <span className="lg:hidden text-[9px] font-black text-slate-400 uppercase tracking-widest">Manual</span>
+                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{project.manualTime}</span>
+                                            </div>
+                                            {/* Bill Rate */}
+                                            <div className="flex flex-col lg:items-center gap-1 lg:col-span-1">
+                                                <span className="lg:hidden text-[9px] font-black text-emerald-500/70 uppercase tracking-widest">Bill Rate</span>
+                                                <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">${project.billRate}</span>
+                                            </div>
+                                            {/* Total Costs */}
+                                            <div className="flex flex-col lg:items-center gap-1 lg:col-span-1">
+                                                <span className="lg:hidden text-[9px] font-black text-primary-500/70 uppercase tracking-widest">Costs</span>
+                                                <span className="text-sm lg:text-xs font-black text-primary-600 dark:text-primary-400">${project.totalCosts}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 ));
                             })()}

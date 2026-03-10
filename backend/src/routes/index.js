@@ -17,6 +17,7 @@ const payrollRoutes = require('../modules/payroll/payroll.routes');
 const monitoringRoutes = require('../modules/monitoring/monitoring.routes');
 const complianceRoutes = require('../modules/compliance/compliance.routes');
 const dashboardRoutes = require('../modules/dashboard/dashboard.routes');
+const alertsRoutes = require('../modules/alerts/alerts.routes');
 const { successResponse } = require('../utils/response');
 
 // Routes
@@ -37,6 +38,7 @@ router.use('/payroll', payrollRoutes);
 router.use('/monitoring', monitoringRoutes);
 router.use('/compliance', complianceRoutes);
 router.use('/dashboard', dashboardRoutes);
+router.use('/alerts', alertsRoutes);
 router.get('/health', (req, res) => {
     return successResponse(res, null, 'Backend Running', 200);
 });

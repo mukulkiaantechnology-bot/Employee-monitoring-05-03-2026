@@ -16,15 +16,17 @@ export function AlertsLayout() {
     const navigate = useNavigate();
     const location = useLocation();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [alertToEdit, setAlertToEdit] = useState(null);
 
     const tabs = [
-        { id: 'attendance', label: 'Attendance', path: '/settings/alerts/attendance', icon: Bell },
-        { id: 'security', label: 'Security', path: '/settings/alerts/security', icon: ShieldCheck },
-        { id: 'shift-scheduling', label: 'Shift Scheduling', path: '/settings/alerts/shift-scheduling', icon: CalendarRange },
-        { id: 'other', label: 'Other', path: '/settings/alerts/other', icon: MoreHorizontal },
+        { id: 'attendance', label: 'Attendance', path: 'attendance', icon: Bell },
+        { id: 'security', label: 'Security', path: 'security', icon: ShieldCheck },
+        { id: 'shift-scheduling', label: 'Shift Scheduling', path: 'shift-scheduling', icon: CalendarRange },
+        { id: 'other', label: 'Other', path: 'other', icon: MoreHorizontal },
     ];
 
-    const currentTab = tabs.find(tab => location.pathname === tab.path) || tabs[0];
+    // Check if the current pathname ends with /path or just the path itself
+    const currentTab = tabs.find(tab => location.pathname.endsWith(`/${tab.path}`) || location.pathname.endsWith(tab.path)) || tabs[0];
     const alertType = location.pathname.includes('security') ? 'security' : 'attendance';
 
     return (
@@ -33,14 +35,14 @@ export function AlertsLayout() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div className="flex items-center gap-4">
                     <button
-                        onClick={() => navigate('/settings')}
-                        className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:scale-105 shadow-sm"
+                        onClick={() => navigate(-1)}
+                        className="h-10 w-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center text-slate-400 hover:text-primary-600 hover:border-primary-200 transition-all shadow-sm group"
                     >
-                        <ChevronLeft size={20} />
+                        <ChevronLeft size={20} className="group-hover:-translate-x-0.5 transition-transform" />
                     </button>
                     <div>
                         <nav className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                            <span className="hover:text-slate-600 transition-colors cursor-pointer" onClick={() => navigate('/settings')}>Settings</span>
+                            <span className="hover:text-slate-600 transition-colors cursor-pointer" onClick={() => navigate(-1)}>Settings</span>
                             <span>/</span>
                             <span className="text-primary-600">Alerts</span>
                         </nav>
@@ -60,7 +62,10 @@ export function AlertsLayout() {
 
                     {(location.pathname.includes('attendance') || location.pathname.includes('security')) && (
                         <button
-                            onClick={() => setIsModalOpen(true)}
+                            onClick={() => {
+                                setAlertToEdit(null);
+                                setIsModalOpen(true);
+                            }}
                             className="flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-3 text-xs font-black uppercase tracking-wider text-white hover:bg-primary-700 transition-all shadow-xl hover:scale-[1.02] active:scale-95"
                         >
                             <Plus size={16} />
@@ -78,7 +83,7 @@ export function AlertsLayout() {
                         onClick={() => navigate(tab.path)}
                         className={cn(
                             "pb-4 px-1 text-xs font-black uppercase tracking-widest transition-all relative",
-                            location.pathname === tab.path
+                            currentTab.id === tab.id
                                 ? "text-primary-600"
                                 : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                         )}
@@ -87,7 +92,7 @@ export function AlertsLayout() {
                             <tab.icon size={16} />
                             {tab.label}
                         </div>
-                        {location.pathname === tab.path && (
+                        {currentTab.id === tab.id && (
                             <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary-600 rounded-full animate-in zoom-in-x-50 duration-300" />
                         )}
                     </button>
@@ -96,13 +101,22 @@ export function AlertsLayout() {
 
             {/* Content Area */}
             <div className="mt-8">
-                <Outlet />
+                <Outlet context={{
+                    onEditAlert: (alert) => {
+                        setAlertToEdit(alert);
+                        setIsModalOpen(true);
+                    }
+                }} />
             </div>
 
             <NewAlertModal
                 isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={() => {
+                    setIsModalOpen(false);
+                    setTimeout(() => setAlertToEdit(null), 300); // clear after animation
+                }}
                 type={alertType}
+                editAlert={alertToEdit}
             />
         </div>
     );

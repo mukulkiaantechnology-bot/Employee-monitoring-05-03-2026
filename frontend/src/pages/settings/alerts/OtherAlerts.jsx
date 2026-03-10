@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 import { 
     Info, 
     CheckCircle,
@@ -10,8 +10,20 @@ import { useAlertsStore } from '../../../store/alertsStore';
 import { cn } from '../../../utils/cn';
 
 export function OtherAlerts() {
-    const { alertsSettings, updateOtherSettings } = useAlertsStore();
+    const { alertsSettings, updateOtherSettings, fetchSettings, loading } = useAlertsStore();
     const other = alertsSettings.other;
+
+    useEffect(() => {
+        fetchSettings();
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center p-20 animate-in fade-in duration-500">
+                <div className="h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+        );
+    }
 
     const frequencies = [
         { id: 'daily', label: 'Once per day' },

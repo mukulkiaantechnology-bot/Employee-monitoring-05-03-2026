@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
     Clock, 
     Bell, 
@@ -16,10 +16,22 @@ import { logAction } from '../../../utils/logAction';
 import { cn } from '../../../utils/cn';
 
 export function ShiftScheduling() {
-    const { alertsSettings, updateShiftScheduling, toggleNotification } = useAlertsStore();
+    const { alertsSettings, updateShiftScheduling, toggleNotification, fetchSettings, loading } = useAlertsStore();
     const config = alertsSettings.shiftScheduling;
     
     const [showToast, setShowToast] = useState(false);
+
+    useEffect(() => {
+        fetchSettings();
+    }, []);
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center p-20 animate-in fade-in duration-500">
+                <div className="h-8 w-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+        );
+    }
 
     const handleSave = () => {
         setShowToast(true);

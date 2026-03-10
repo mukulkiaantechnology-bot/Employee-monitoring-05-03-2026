@@ -85,7 +85,7 @@ const TransparencyModal = ({ isOpen, onClose, employee }) => {
             maxWidth="max-w-lg"
         >
             <div className="space-y-4 mb-8">
-                <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
                     <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tracking Hours</p>
                         <p className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
@@ -109,9 +109,9 @@ const TransparencyModal = ({ isOpen, onClose, employee }) => {
                         { name: 'Activity Levels', status: 'Enabled', desc: 'Keystroke and mouse movement frequency (no logging).' }
                     ].map((type, i) => (
                         <div key={i} className="group p-4 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-primary-200 dark:hover:border-primary-900/40 transition-all hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
-                            <div className="flex items-center justify-between mb-1">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
                                 <span className="text-sm font-black text-slate-800 dark:text-slate-200">{type.name}</span>
-                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 uppercase tracking-tighter">
+                                <span className="w-fit text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 uppercase tracking-tighter">
                                     {type.status}
                                 </span>
                             </div>
@@ -143,39 +143,39 @@ const PrivacyControlsPanel = ({ isExpanded, toggleExpand }) => {
         <div className={cn(
             "rounded-[2.5rem] border transition-all duration-500 overflow-hidden",
             isExpanded
-                ? "bg-white dark:bg-slate-900 shadow-2xl border-primary-100 dark:border-primary-900/30 p-8"
-                : "bg-slate-50/80 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 p-6"
+                ? "bg-white dark:bg-slate-900 shadow-2xl border-primary-100 dark:border-primary-900/30 p-5 md:p-8"
+                : "bg-slate-50/80 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 p-5 md:p-6"
         )}>
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-5">
+                <div className="flex items-center gap-3 md:gap-5">
                     <div className={cn(
-                        "h-12 w-12 rounded-2xl flex items-center justify-center transition-all duration-500",
+                        "h-10 w-10 md:h-12 md:w-12 rounded-2xl flex items-center justify-center transition-all duration-500 shrink-0",
                         isExpanded ? "bg-primary-600 text-white shadow-lg shadow-primary-200 dark:shadow-none" : "bg-white dark:bg-slate-800 text-slate-400 shadow-sm"
                     )}>
-                        <Lock size={22} />
+                        <Shield size={isExpanded ? 20 : 18} strokeWidth={isExpanded ? 2.5 : 2} />
                     </div>
                     <div>
-                        <h2 className="text-lg font-black text-slate-900 dark:text-white leading-tight">Privacy & Monitoring Controls</h2>
-                        <p className="text-xs font-bold text-slate-400 mt-0.5">Enterprise-level data governance & transparency settings</p>
+                        <h2 className="text-base md:text-lg font-black text-slate-900 dark:text-white leading-tight">Privacy & Monitoring Controls</h2>
+                        <p className="text-[10px] md:text-xs font-bold text-slate-400 mt-0.5">Enterprise-level data governance & transparency settings</p>
                     </div>
                 </div>
                 <button
                     onClick={toggleExpand}
-                    className="h-10 w-10 rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-primary-600 hover:border-primary-200 transition-all group"
+                    className="h-10 w-10 rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-center text-slate-400 hover:text-primary-600 hover:border-primary-200 transition-all group shrink-0"
                 >
                     <ChevronDown size={20} className={cn("transition-transform duration-500", isExpanded && "rotate-180")} />
                 </button>
             </div>
 
             {isExpanded && (
-                <div className="mt-8 pt-8 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-top-4 fade-in duration-500">
+                <div className="mt-6 md:mt-8 pt-6 md:pt-8 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-6 animate-in slide-in-from-top-4 fade-in duration-500">
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-4">
                             <div className="space-y-1">
                                 <p className="text-sm font-black text-slate-800 dark:text-slate-200">Work-Hours Monitoring</p>
                                 <p className="text-[11px] font-medium text-slate-400">Auto pause tracking outside shift</p>
                             </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
+                            <label className="relative inline-flex items-center cursor-pointer shrink-0">
                                 <input type="checkbox" className="sr-only peer" defaultChecked />
                                 <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary-600 shadow-inner"></div>
                             </label>
@@ -791,61 +791,85 @@ const EmployeeRow = ({ employee, onSelect, onTransparencyClick, onEdit, onDelete
     return (
         <>
             {/* ── MOBILE CARD (hidden on md+) ── */}
-            <tr className="md:hidden border-b border-slate-100 dark:border-slate-800 last:border-0">
+            <tr className="md:hidden border-b border-slate-100 dark:border-slate-800 last:border-0 relative">
                 <td className="p-4" colSpan={99}>
                     <div
-                        className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-4 flex flex-col gap-3 active:scale-[0.98] transition-transform cursor-pointer"
+                        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm p-5 flex flex-col gap-4 active:scale-[0.98] transition-transform cursor-pointer relative"
                         onClick={() => navigate(`/admin/employees/${employee.id}`)}
                     >
-                        {/* Header row: avatar + name + status */}
-                        <div className="flex items-center gap-3">
-                            <div className="h-11 w-11 shrink-0 rounded-2xl border-2 border-white dark:border-slate-700 shadow-sm overflow-hidden">
+                        {/* Status Badge (Top Right) */}
+                        <div className="absolute top-5 right-5 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shrink-0">
+                            <div className={cn("h-1.5 w-1.5 rounded-full ring-1 ring-white dark:ring-slate-900", statusColor)} />
+                            <span className="text-[8px] font-black uppercase tracking-widest text-slate-500">{employee.status}</span>
+                        </div>
+
+                        {/* Header: Avatar + Info */}
+                        <div className="flex items-center gap-4 pr-16">
+                            <div className="h-14 w-14 shrink-0 rounded-2xl border-2 border-white dark:border-slate-700 shadow-md overflow-hidden">
                                 <img src={employee.avatar} className="h-full w-full object-cover" alt="" />
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-black text-slate-900 dark:text-white truncate">{employee.name}</p>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide truncate">{employee.email}</p>
-                            </div>
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 shrink-0">
-                                <div className={cn("h-2 w-2 rounded-full ring-1 ring-white dark:ring-slate-900", statusColor)} />
-                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">{employee.status}</span>
+                                <h4 className="text-base font-black text-slate-900 dark:text-white truncate leading-tight">{employee.name}</h4>
+                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide truncate mt-0.5">{employee.email}</p>
+                                <div className="mt-1.5 inline-flex items-center px-2 py-0.5 rounded-md bg-primary-50 dark:bg-primary-900/20 text-[9px] font-black text-primary-600 dark:text-primary-400 uppercase tracking-tighter">
+                                    {employee.team}
+                                </div>
                             </div>
                         </div>
 
-                        {/* Stats grid */}
-                        <div className="grid grid-cols-3 gap-2">
-                            {visibleColumns.includes('Team') && (
-                                <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-2.5 flex flex-col gap-1">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Team</span>
-                                    <span className="text-[11px] font-black text-slate-700 dark:text-slate-200 truncate">{employee.team}</span>
+                        {/* Stats Grid */}
+                        <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-3 border border-slate-100/50 dark:border-slate-800/50 flex flex-col gap-0.5">
+                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Location</span>
+                                <span className="text-[12px] font-black text-slate-700 dark:text-slate-200 truncate">{employee.location || 'Remote'}</span>
+                            </div>
+                            <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-3 border border-slate-100/50 dark:border-slate-800/50 flex flex-col gap-0.5">
+                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Work Time</span>
+                                <span className="text-[12px] font-black text-slate-700 dark:text-slate-200">0h 00m</span>
+                            </div>
+                            <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-3 border border-slate-100/50 dark:border-slate-800/50 flex flex-col gap-0.5">
+                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Activity</span>
+                                <span className="text-[12px] font-black text-slate-700 dark:text-slate-200">0h 00m</span>
+                            </div>
+                            <div className="bg-slate-50 dark:bg-slate-800/40 rounded-2xl p-3 border border-slate-100/50 dark:border-slate-800/50 flex flex-col gap-0.5">
+                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Productivity</span>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                    <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                        <div className="h-full bg-primary-500 w-[85%]" />
+                                    </div>
+                                    <span className="text-[10px] font-black text-primary-600">85%</span>
                                 </div>
-                            )}
-                            {visibleColumns.includes('Location') && (
-                                <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-2.5 flex flex-col gap-1">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Location</span>
-                                    <span className="text-[11px] font-black text-slate-700 dark:text-slate-200 truncate">{employee.location || '—'}</span>
-                                </div>
-                            )}
-                            <div className="bg-slate-50 dark:bg-slate-800/60 rounded-xl p-2.5 flex flex-col gap-1">
-                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Work</span>
-                                <span className="text-[11px] font-black text-slate-700 dark:text-slate-200">0h 00m</span>
                             </div>
                         </div>
 
-                        {/* Action buttons */}
-                        <div className="flex gap-2">
+                        {/* Actions */}
+                        <div className="flex flex-wrap gap-2.5 pt-1">
                             <button
                                 onClick={(e) => { e.stopPropagation(); navigate(`/admin/employees/${employee.id}`); }}
-                                className="flex-1 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary-600 transition-all flex items-center justify-center gap-2"
+                                className="flex-1 h-11 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all flex items-center justify-center gap-2"
                             >
-                                <Eye size={14} /> View
+                                <Eye size={16} /> Profile
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onTransparencyClick(employee); }}
+                                className="flex-1 h-11 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-100 transition-all flex items-center justify-center gap-2"
+                            >
+                                <ShieldCheck size={16} /> Privacy
                             </button>
                             {role === 'ADMIN' && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onEdit(employee); }}
-                                    className="flex-1 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-indigo-600 transition-all flex items-center justify-center gap-2"
+                                    className="h-11 w-11 shrink-0 rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-amber-500 transition-all flex items-center justify-center border border-slate-100 dark:border-slate-700 shadow-sm"
                                 >
-                                    <Edit size={14} /> Edit
+                                    <Edit size={16} />
+                                </button>
+                            )}
+                            {role === 'ADMIN' && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onDelete(employee); }}
+                                    className="h-11 w-11 shrink-0 rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-rose-500 transition-all flex items-center justify-center border border-slate-100 dark:border-slate-700 shadow-sm"
+                                >
+                                    <Trash2 size={16} />
                                 </button>
                             )}
                         </div>
@@ -1070,21 +1094,21 @@ export function EmployeeManagement() {
                 <div>
                     <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Employees</h1>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2 md:gap-3">
                     {role === 'ADMIN' && (
                         <>
                             <button
                                 onClick={() => setShowMergeModal(true)}
-                                className="h-11 px-6 rounded-xl border-2 border-slate-100 dark:border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary-600 hover:border-primary-100 transition-all"
+                                className="flex-1 md:flex-none h-11 px-6 rounded-xl border-2 border-slate-100 dark:border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-primary-600 hover:border-primary-100 transition-all"
                             >
-                                Merge Employees
+                                Merge
                             </button>
                             <button
                                 onClick={() => setShowAddModal(true)}
-                                className="flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-3 text-xs font-black uppercase tracking-wider text-white hover:bg-primary-700 transition-all shadow-xl hover:scale-[1.02] active:scale-95"
+                                className="flex-[2] md:flex-none flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 py-3 text-xs font-black uppercase tracking-wider text-white hover:bg-primary-700 transition-all shadow-xl hover:scale-[1.02] active:scale-95"
                             >
-                                <Plus size={16} strokeWidth={3} />Invite
-                                New Employee
+                                <Plus size={16} strokeWidth={3} />
+                                <span>Invite Employee</span>
                             </button>
                         </>
                     )}
@@ -1124,10 +1148,12 @@ export function EmployeeManagement() {
 
                 {/* Filter Bar */}
                 <div className="p-4 md:p-6 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950">
-                    <div className="flex flex-wrap items-center gap-3">
-                        <GlobalCalendar />
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                        <div className="flex-none">
+                            <GlobalCalendar />
+                        </div>
 
-                        <div className="relative flex-1 min-w-[160px] group">
+                        <div className="relative flex-1 group">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" size={16} />
                             <input
                                 type="text"
@@ -1138,7 +1164,7 @@ export function EmployeeManagement() {
                             />
                         </div>
 
-                        <div className="flex items-center gap-2 ml-auto">
+                        <div className="flex items-center gap-2 justify-end sm:justify-start">
                             <button className="h-10 w-10 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition-all">
                                 <Filter size={18} />
                             </button>

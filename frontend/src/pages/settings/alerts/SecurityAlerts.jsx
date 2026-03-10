@@ -1,12 +1,25 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { Monitor, Trash2, ShieldAlert, Users, Calendar } from 'lucide-react';
 import { useAlertsStore } from '../../../store/alertsStore';
 import { cn } from '../../../utils/cn';
 
 export function SecurityAlerts() {
-    const { alertsSettings, deleteAlert } = useAlertsStore();
+    const { onEditAlert } = useOutletContext();
+    const { alertsSettings, deleteAlert, fetchAlertRules, loading } = useAlertsStore();
     const alerts = alertsSettings.security.alerts;
 
+    useEffect(() => {
+        fetchAlertRules('security');
+    }, []);
+
+    if (loading && alerts.length === 0) {
+        return (
+            <div className="flex items-center justify-center p-20">
+                <div className="h-8 w-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+        );
+    }
     if (alerts.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center p-20 rounded-[3rem] border-2 border-dashed border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50">
@@ -50,7 +63,10 @@ export function SecurityAlerts() {
                     </div>
                     
                     <div className="flex items-center gap-4">
-                        <button className="h-10 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-[10px] uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                        <button 
+                            onClick={() => onEditAlert(alert)}
+                            className="h-10 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-[10px] uppercase tracking-widest hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                        >
                             Edit
                         </button>
                         <button 

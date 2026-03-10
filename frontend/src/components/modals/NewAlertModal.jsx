@@ -3,8 +3,8 @@ import { X, Bell, ShieldCheck, Save, Loader2, Info } from 'lucide-react';
 import { useAlertsStore } from '../../store/alertsStore';
 import { cn } from '../../utils/cn';
 
-export function NewAlertModal({ isOpen, onClose, type = 'attendance' }) {
-    const { addAlert } = useAlertsStore();
+export function NewAlertModal({ isOpen, onClose, type = 'attendance', editAlert = null }) {
+    const { addAlert, updateAlert } = useAlertsStore();
     const [loading, setLoading] = useState(false);
     
     const [formData, setFormData] = useState({
@@ -13,21 +13,45 @@ export function NewAlertModal({ isOpen, onClose, type = 'attendance' }) {
         scope: 'All Employees'
     });
 
+    // Populate form data when opening in edit mode
+    React.useEffect(() => {
+        if (isOpen && editAlert) {
+            setFormData({
+                name: editAlert.name,
+                trigger: editAlert.trigger,
+                scope: editAlert.scope
+            });
+        } else if (isOpen && !editAlert) {
+             setFormData({
+                name: '',
+                trigger: type === 'attendance' ? 'Late' : 'Unauthorized Access',
+                scope: 'All Employees'
+            });
+        }
+    }, [isOpen, editAlert, type]);
+
     if (!isOpen) return null;
 
     const triggers = type === 'attendance' 
         ? ['Late', 'Absent', 'Overtime', 'Incomplete Shift']
         : ['Unauthorized Access', 'Suspicious Login', 'Data Export', 'IP Mismatch'];
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         
-        setTimeout(() => {
-            addAlert(type, formData);
-            setLoading(false);
+        try {
+            if (editAlert) {
+                await updateAlert(type, editAlert.id, formData);
+            } else {
+                await addAlert(type, formData);
+            }
             onClose();
-        }, 800);
+        } catch (error) {
+            console.error("Failed to save alert:", error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -43,7 +67,9 @@ export function NewAlertModal({ isOpen, onClose, type = 'attendance' }) {
                             {type === 'attendance' ? <Bell size={24} /> : <ShieldCheck size={24} />}
                         </div>
                         <div>
-                            <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">New {type === 'attendance' ? 'Attendance' : 'Security'} Alert</h2>
+                            <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
+                                {editAlert ? 'Edit' : 'New'} {type === 'attendance' ? 'Attendance' : 'Security'} Alert
+                            </h2>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Custom monitoring trigger</p>
                         </div>
                     </div>

@@ -133,7 +133,7 @@ export function Settings() {
         // { icon: CreditCard, title: "Billing", description: "Manage your subscriptions, billing details, and view or download invoices.", path: "/settings/billing" },
         { icon: Mail, title: "Email Reports", description: "Manage your email reports on an organization level.", path: "/settings/email-reports" },
         { icon: Puzzle, title: "Integrations", description: "View and configure your Insightful integrations.", path: "/settings/integrations" },
-        { icon: Clock, title: "Manual Time", description: "Manage manual time settings like notifications, types, etc.", path: "/settings/manual-time" },
+        // { icon: Clock, title: "Manual Time", description: "Manage manual time settings like notifications, types, etc.", path: "/settings/manual-time" },
         { icon: Building, title: "Organization", description: "View and update basic info about your company.", path: "/settings/organization" },
         { icon: Shield, title: "Privacy", description: "View and change privacy-related settings on an organizational level.", path: "/settings/privacy" },
         { icon: LineChart, title: "Productivity", description: "Manage your productivity labels on an organization, team and individual level.", path: "/settings/productivity/apps" },

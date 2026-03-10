@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { ChevronLeft } from 'lucide-react';
 import { PersonalInfoTab } from '../../components/settings/PersonalInfoTab';
 import { LocalizationTab } from '../../components/settings/LocalizationTab';
 
 export function PersonalSettings() {
+    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const currentTab = searchParams.get('tab') || 'info';
 
@@ -14,7 +16,15 @@ export function PersonalSettings() {
     return (
         <div className="min-h-screen bg-[#fcfdfe] dark:bg-slate-950 pb-12 px-2 sm:px-4 lg:px-8">
             <div className="py-8 mb-4 border-b border-slate-200 dark:border-slate-800">
-                <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Personal Settings</h1>
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => navigate(-1)}
+                        className="h-10 w-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center text-slate-400 hover:text-primary-600 hover:border-primary-200 transition-all shadow-sm group"
+                    >
+                        <ChevronLeft size={20} className="group-hover:-translate-x-0.5 transition-transform" />
+                    </button>
+                    <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Personal Settings</h1>
+                </div>
 
                 {/* Tabs */}
                 <div className="flex items-center gap-8 mt-6">

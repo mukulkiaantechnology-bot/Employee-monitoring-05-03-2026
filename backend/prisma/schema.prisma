@@ -111,6 +111,8 @@ model Organization {
   invoices         Invoice[]
   liveActivities   LiveActivity[]
   auditLogs        AuditLog[]
+  alertRules       AlertRule[]
+  alertSettings    AlertSettings?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -471,4 +473,49 @@ model InvitationToken {
   createdAt      DateTime @default(now())
 
   @@map("invitation_tokens")
+}
+
+model AlertRule {
+  id             String       @id @default(uuid())
+  name           String
+  type           String       // "attendance", "security"
+  trigger        String       // e.g., "Late", "No-show"
+  scope          String       @default("All Employees")
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("alert_rules")
+}
+
+model AlertSettings {
+  id                        String       @id @default(uuid())
+  organization              Organization @relation(fields: [organizationId], references: [id])
+  organizationId            String       @unique
+  
+  // Shift Scheduling
+  earliestClockIn           Int          @default(15)
+  latestClockOut            Int          @default(30)
+  tolerance                 Int          @default(10)
+  
+  // Absent Notification
+  absentInApp               Boolean      @default(true)
+  absentEmail               Boolean      @default(false)
+  
+  // Headcount Notification
+  headcountEnabled          Boolean      @default(true)
+  headcountLateThreshold    Int          @default(15)
+  headcountSendAfter        String       @default("scheduled_time")
+  headcountInApp            Boolean      @default(true)
+  headcountEmail            Boolean      @default(false)
+  
+  // Other
+  productivityLabeling      String       @default("daily")
+  manualTimeEntries         String       @default("daily")
+  
+  createdAt                 DateTime     @default(now())
+  updatedAt                 DateTime     @updatedAt
+
+  @@map("alert_settings")
 }
