@@ -36,6 +36,7 @@ import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { performanceKPIs as mockKPIs, projectProductivity, workLogs as mockLogs } from '../data/mockData'; // Fallbacks if needed
 import { useRealTime } from '../hooks/RealTimeContext';
+import { useFilterStore } from '../store/filterStore';
 import {
     BarChart,
     Bar,
@@ -255,6 +256,117 @@ const CreateGoalModal = ({ isOpen, onClose, onSave }) => {
     );
 };
 
+// ── Edit Task Modal ────────────────────────────────────────────────────────
+const EditTaskModal = ({ isOpen, onClose, onSave, task, employees = [], projects = [] }) => {
+    const [title, setTitle] = useState(task?.title || '');
+    const [assignee, setAssignee] = useState(task?.assignee || '');
+    const [assigneeId, setAssigneeId] = useState(task?.assigneeId || '');
+    const [priority, setPriority] = useState(task?.priority || 'Medium');
+    const [dueDate, setDueDate] = useState(task?.dueDate && task?.dueDate !== 'No Date' ? task.dueDate : '');
+    const [status, setStatus] = useState(task?.status || 'To Do');
+    const [showSuggestions, setShowSuggestions] = useState(false);
+
+    // Reset form whenever task changes
+    useEffect(() => {
+        if (task) {
+            setTitle(task.title || '');
+            setAssignee(task.assignee || '');
+            setAssigneeId(task.assigneeId || '');
+            setPriority(task.priority || 'Medium');
+            setDueDate(task.dueDate && task.dueDate !== 'No Date' ? task.dueDate : '');
+            setStatus(task.status || 'To Do');
+        }
+    }, [task]);
+
+    useEffect(() => {
+        if (isOpen) document.body.style.overflow = 'hidden';
+        else document.body.style.overflow = 'unset';
+        return () => document.body.style.overflow = 'unset';
+    }, [isOpen]);
+
+    if (!isOpen || !task) return null;
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave(task.id, { title, assignee, assigneeId, priority, dueDate, status });
+        onClose();
+    };
+
+    return createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-md animate-in fade-in duration-200 p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 w-full max-w-sm shadow-2xl border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 duration-200">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-black text-slate-900 dark:text-white">Edit Task</h3>
+                    <button onClick={onClose} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+                        <X size={18} className="text-slate-500" />
+                    </button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-3">
+                    <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Title</label>
+                        <input autoFocus type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm" placeholder="Task name..." required />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="relative">
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Assignee</label>
+                            <input
+                                type="text"
+                                value={assignee}
+                                onChange={e => { setAssignee(e.target.value); setShowSuggestions(true); }}
+                                onFocus={() => setShowSuggestions(true)}
+                                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                                className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm"
+                                placeholder="Assignee..."
+                            />
+                            {showSuggestions && (
+                                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl max-h-40 overflow-y-auto z-50">
+                                    {employees.filter(e => e.name.toLowerCase().includes(assignee.toLowerCase())).map(e => (
+                                        <div key={e.id} onClick={() => { setAssignee(e.name); setAssigneeId(e.id); setShowSuggestions(false); }}
+                                            className="p-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 cursor-pointer flex items-center gap-2 transition-colors">
+                                            <div className="h-6 w-6 rounded-full bg-slate-200 overflow-hidden flex-shrink-0">
+                                                <img src={e.avatar || `https://i.pravatar.cc/150?u=${e.name}`} alt="" className="h-full w-full object-cover" />
+                                            </div>
+                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{e.name}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Priority</label>
+                            <select value={priority} onChange={e => setPriority(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm">
+                                <option>Low</option>
+                                <option>Medium</option>
+                                <option>High</option>
+                                <option>Critical</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Status</label>
+                            <select value={status} onChange={e => setStatus(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm">
+                                <option value="To Do">Backlog</option>
+                                <option value="In Progress">In Operations</option>
+                                <option value="Review">Quality Assurance</option>
+                                <option value="Completed">Finalized</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Due Date</label>
+                            <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm" />
+                        </div>
+                    </div>
+                    <div className="pt-2 flex gap-2">
+                        <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Cancel</button>
+                        <button type="submit" className="flex-1 py-2.5 rounded-xl bg-indigo-600 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-colors">Update Task</button>
+                    </div>
+                </form>
+            </div>
+        </div>,
+        document.body
+    );
+};
 
 const GoalStreamModal = ({ goal, onClose }) => {
     if (!goal) return null;
@@ -372,7 +484,7 @@ const KPICard = ({ title, value, subValue, trend, icon: Icon, color, delay }) =>
     </div>
 );
 
-const KanbanColumn = ({ title, tasks, status, color, onAdd, updateTaskStatus }) => {
+const KanbanColumn = ({ title, tasks, status, color, onAdd, updateTaskStatus, onEdit, onDelete }) => {
     // Determine gradient based on column color/status
     const getGradient = () => {
         if (color.includes('slate')) return 'from-slate-300 to-transparent';
@@ -408,7 +520,7 @@ const KanbanColumn = ({ title, tasks, status, color, onAdd, updateTaskStatus }) 
             </div>
 
             <div className="flex-1 space-y-4 overflow-y-auto pr-1 pl-1 -ml-1 custom-scrollbar thin-scrollbar">
-                <style jsx>{`
+                <style>{`
                     .thin-scrollbar::-webkit-scrollbar { width: 4px; }
                     .thin-scrollbar::-webkit-scrollbar-track { background: transparent; }
                     .thin-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
@@ -474,19 +586,21 @@ const KanbanColumn = ({ title, tasks, status, color, onAdd, updateTaskStatus }) 
                                 </div>
                             </div>
 
-                            {/* Move Action */}
-                            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {/* Edit / Delete Actions */}
+                            <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1.5">
                                 <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        const nextStatus = status === 'To Do' ? 'In Progress' : status === 'In Progress' ? 'Review' : status === 'Review' ? 'Completed' : 'Completed';
-                                        if (status !== 'Completed') updateTaskStatus(task.id, nextStatus);
-                                    }}
-                                    disabled={status === 'Completed'}
-                                    className="p-1.5 bg-indigo-600 text-white rounded-lg shadow-lg hover:scale-110 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title="Move to Next Phase"
+                                    onClick={(e) => { e.stopPropagation(); onEdit && onEdit(task); }}
+                                    className="p-1.5 bg-indigo-600 text-white rounded-lg shadow-lg hover:scale-110 active:scale-95 transition-all"
+                                    title="Edit Task"
                                 >
-                                    <ArrowRight size={14} strokeWidth={3} />
+                                    <Edit2 size={13} strokeWidth={2.5} />
+                                </button>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onDelete && onDelete(task.id); }}
+                                    className="p-1.5 bg-rose-500 text-white rounded-lg shadow-lg hover:scale-110 active:scale-95 transition-all"
+                                    title="Delete Task"
+                                >
+                                    <Trash2 size={13} strokeWidth={2.5} />
                                 </button>
                             </div>
                         </div>
@@ -520,8 +634,11 @@ export function TasksProjects() {
         employees,
         teams: contextTeams,
         stats,
-        deleteTask
+        deleteTask,
+        updateTask,
     } = useRealTime();
+
+    const { quickFilter, dateRange, selectedEmployee, selectedTeam } = useFilterStore();
 
     // Board, Logs, Projects (Time Tracking + Productivity), Performance (KPIs), Goals
     const [activeTab, setActiveTab] = useState('board');
@@ -534,6 +651,9 @@ export function TasksProjects() {
     const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
     const [viewArchive, setViewArchive] = useState(false);
     const [selectedGoalStream, setSelectedGoalStream] = useState(null);
+    // Edit modal
+    const [editingTask, setEditingTask] = useState(null);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     const openGoalStream = (goal) => {
         setSelectedGoalStream(goal);
@@ -608,13 +728,49 @@ export function TasksProjects() {
         addProject(projectData);
     };
 
+    // Edit / Delete handlers
+    const handleEditTask = (task) => {
+        setEditingTask(task);
+        setIsEditModalOpen(true);
+    };
 
-    // Filtered data
-    const filteredTasks = useMemo(() =>
-        tasks.filter(t => t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            t.project.toLowerCase().includes(searchQuery.toLowerCase())),
-        [tasks, searchQuery]
-    );
+    const handleDeleteTask = async (taskId) => {
+        if (window.confirm('Delete this task? This cannot be undone.')) {
+            await deleteTask(taskId);
+        }
+    };
+
+    const handleUpdateTask = async (id, taskData) => {
+        await updateTask(id, taskData);
+    };
+
+    // Filtered data — respects search, calendar date range, and employee/team filter
+    const filteredTasks = useMemo(() => {
+        // dateRange from filterStore already has the resolved start/end for the active preset
+        const hasDateFilter = quickFilter !== 'today';
+        return tasks.filter(t => {
+            // Search filter
+            const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                t.project.toLowerCase().includes(searchQuery.toLowerCase());
+            if (!matchesSearch) return false;
+
+            // Date filter: only restrict when user explicitly changed from 'today'
+            if (hasDateFilter && t.dueDate && t.dueDate !== 'No Date') {
+                if (t.dueDate < dateRange.start || t.dueDate > dateRange.end) return false;
+            }
+
+            // Employee filter
+            if (selectedEmployee && t.assigneeId !== selectedEmployee) return false;
+
+            // Team filter
+            if (selectedTeam) {
+                const emp = employees.find(e => e.id === t.assigneeId);
+                if (!emp || emp.teamId !== selectedTeam) return false;
+            }
+
+            return true;
+        });
+    }, [tasks, searchQuery, quickFilter, dateRange, selectedEmployee, selectedTeam, employees]);
 
     const getTasksByStatus = (status) => filteredTasks.filter(t => t.status === status || (status === 'To Do' && t.status === 'Pending'));
 
@@ -770,11 +926,21 @@ export function TasksProjects() {
                         </div>
 
                         <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4 pb-10 w-full">
-                            <KanbanColumn title="Backlog" tasks={getTasksByStatus('To Do')} status="To Do" color="bg-slate-200" updateTaskStatus={updateTaskStatus} />
-                            <KanbanColumn title="In Operations" tasks={getTasksByStatus('In Progress')} status="In Progress" color="bg-blue-500" updateTaskStatus={updateTaskStatus} />
-                            <KanbanColumn title="Quality Assurance" tasks={getTasksByStatus('Review')} status="Review" color="bg-amber-400" updateTaskStatus={updateTaskStatus} />
-                            <KanbanColumn title="Finalized" tasks={getTasksByStatus('Completed')} status="Completed" color="bg-emerald-500" updateTaskStatus={updateTaskStatus} />
+                            <KanbanColumn title="Backlog" tasks={getTasksByStatus('To Do')} status="To Do" color="bg-slate-200" updateTaskStatus={updateTaskStatus} onEdit={handleEditTask} onDelete={handleDeleteTask} />
+                            <KanbanColumn title="In Operations" tasks={getTasksByStatus('In Progress')} status="In Progress" color="bg-blue-500" updateTaskStatus={updateTaskStatus} onEdit={handleEditTask} onDelete={handleDeleteTask} />
+                            <KanbanColumn title="Quality Assurance" tasks={getTasksByStatus('Review')} status="Review" color="bg-amber-400" updateTaskStatus={updateTaskStatus} onEdit={handleEditTask} onDelete={handleDeleteTask} />
+                            <KanbanColumn title="Finalized" tasks={getTasksByStatus('Completed')} status="Completed" color="bg-emerald-500" updateTaskStatus={updateTaskStatus} onEdit={handleEditTask} onDelete={handleDeleteTask} />
                         </div>
+
+                        {/* Edit Task Modal */}
+                        <EditTaskModal
+                            isOpen={isEditModalOpen}
+                            task={editingTask}
+                            employees={employees}
+                            projects={projects}
+                            onClose={() => { setIsEditModalOpen(false); setEditingTask(null); }}
+                            onSave={handleUpdateTask}
+                        />
                     </div>
                 )}
 

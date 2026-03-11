@@ -65,7 +65,7 @@ export function IntegrationsLayout() {
                     {INTEGRATION_TABS.map((tab) => (
                         <NavLink
                             key={tab.id}
-                            to={tab.route}
+                            to={`${rolePath}${tab.route}`}
                             className={({ isActive }) =>
                                 cn(
                                     'relative px-4 py-4 text-sm font-bold whitespace-nowrap transition-all',

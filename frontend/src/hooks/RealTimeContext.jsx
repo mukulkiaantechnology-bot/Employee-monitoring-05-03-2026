@@ -688,6 +688,35 @@ export function RealTimeProvider({ children }) {
         }
     }, [addNotification]);
 
+    const updateTask = useCallback(async (id, taskData) => {
+        try {
+            const statusMap = {
+                'To Do': 'BACKLOG',
+                'In Progress': 'IN_PROGRESS',
+                'Review': 'QA',
+                'Completed': 'COMPLETED'
+            };
+            const backendPayload = {
+                name: taskData.title,
+                priority: taskData.priority?.toUpperCase() || 'MEDIUM',
+                status: statusMap[taskData.status] || undefined,
+                dueDate: taskData.dueDate || undefined,
+                employeeId: taskData.assigneeId || undefined,
+            };
+            const res = await taskService.updateTask(id, backendPayload);
+            if (res.success) {
+                setState(prev => ({
+                    ...prev,
+                    tasks: prev.tasks.map(t => t.id === id ? { ...t, ...taskData } : t)
+                }));
+                addNotification(`Task "${taskData.title}" updated`, 'success');
+            }
+        } catch (error) {
+            console.error('Failed to update task:', error);
+            addNotification('Failed to update task', 'alert');
+        }
+    }, [addNotification]);
+
     // Projects
     const addProject = useCallback((project) => {
         const id = Date.now();
@@ -848,7 +877,7 @@ export function RealTimeProvider({ children }) {
         addTeam, updateTeam, deleteTeam,
         toggleTimer, startTimer, stopTimer, pauseTimer,
         addTimeEntry, updateTimeEntry, deleteTimeEntry,
-        addTask, updateTaskStatus, deleteTask,
+        addTask, updateTaskStatus, deleteTask, updateTask,
         addProject,
         deleteScreenshot,
         addGeofence, toggleGeofence,
@@ -864,7 +893,7 @@ export function RealTimeProvider({ children }) {
         addTeam, updateTeam, deleteTeam,
         toggleTimer, startTimer, stopTimer, pauseTimer,
         addTimeEntry, updateTimeEntry, deleteTimeEntry,
-        addTask, updateTaskStatus, deleteTask,
+        addTask, updateTaskStatus, deleteTask, updateTask,
         addProject, deleteScreenshot, addGeofence, toggleGeofence,
         addLeaveRequest, updateLeaveStatus, deleteLeaveRequest,
         dismissAlert, dismissAllAlerts, updateComplianceSetting,

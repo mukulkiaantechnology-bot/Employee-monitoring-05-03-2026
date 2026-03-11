@@ -134,6 +134,15 @@ export function WorkType() {
         setFilterOpen(false);
     };
 
+    const handleCancelCalendar = () => {
+        setIsCalendarOpen(false);
+    };
+
+    const handleApplyCalendar = () => {
+        setActivePeriod(selectedPreset);
+        setIsCalendarOpen(false);
+    };
+
     const totalHours = activeData.reduce((acc, curr) => acc + curr.hours, 0);
 
     return (
