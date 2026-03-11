@@ -8,10 +8,10 @@ const usePayrollStore = create((set, get) => ({
     loading: false,
     error: null,
 
-    fetchSummary: async () => {
+    fetchSummary: async (params) => {
         set({ loading: true });
         try {
-            const res = await payrollService.getSummary();
+            const res = await payrollService.getSummary(params);
             if (res.success) {
                 set({ summary: res.data, loading: false });
             }
@@ -20,10 +20,10 @@ const usePayrollStore = create((set, get) => ({
         }
     },
 
-    fetchRecords: async (startDate, endDate) => {
+    fetchRecords: async (params) => {
         set({ loading: true });
         try {
-            const res = await payrollService.getRecords(startDate, endDate);
+            const res = await payrollService.getRecords(params);
             if (res.success) {
                 set({ records: res.data, loading: false });
             }

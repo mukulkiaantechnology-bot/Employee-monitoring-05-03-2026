@@ -271,7 +271,7 @@ export function Dashboard() {
 
             {/* Summary Metrics */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6 mb-8">
-                <SummaryCard title="Work Time" value={stats.summary?.workTime || '00:00'} trend="" subValue={role === 'ADMIN' ? `${stats.employees?.length || 0} employees tracked` : 'Personal activity'} icon={Clock} />
+                <SummaryCard title="Work Time" value={stats.summary?.workTime || '00:00'} trend="" subValue={(role === 'ADMIN' || role === 'MANAGER') ? `${stats.employees?.length || 0} employees tracked` : 'Personal activity'} icon={Clock} />
                 <SummaryCard title="Active Time" value={stats.summary?.activeTime || '00:00'} trend="" subValue="Computer activity" icon={Activity} />
                 <SummaryCard title="Idle Time" value={stats.summary?.idleTime || '00:00'} trend="" subValue="Keyboard/mouse inactive" icon={Clock} />
                 <SummaryCard title="Manual Time" value={stats.summary?.manualTime || '00:00'} subValue="User-entered time" icon={Plus} />

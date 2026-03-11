@@ -14,6 +14,8 @@ import {
     Globe
 } from 'lucide-react';
 import { useReportsStore } from '../../store/reportsStore';
+import { useFilterStore } from '../../store/filterStore';
+import { FilterDropdown } from '../../components/FilterDropdown';
 
 const presets = [
     "Today", "Yesterday", "This Week", "Last 7 Days",
@@ -70,11 +72,11 @@ function CalendarPopover({ buttonRef, isOpen, onClose, children }) {
 
 export function ScheduleAdherence() {
     const { reportData, fetchReportData, loading } = useReportsStore();
+    const { selectedEmployee, selectedTeam } = useFilterStore();
     const data = reportData['adherence'] || [];
 
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const [isCompareOpen, setIsCompareOpen] = useState(false);
-    const [isFilterOpen, setIsFilterOpen] = useState(false);
 
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [viewDate, setViewDate] = useState(new Date());
@@ -83,14 +85,12 @@ export function ScheduleAdherence() {
 
     const calendarBtnRef = useRef(null);
     const compareRef = useRef(null);
-    const filterRef = useRef(null);
 
     const closeCalendar = useCallback(() => setIsCalendarOpen(false), []);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (compareRef.current && !compareRef.current.contains(event.target)) setIsCompareOpen(false);
-            if (filterRef.current && !filterRef.current.contains(event.target)) setIsFilterOpen(false);
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -115,8 +115,13 @@ export function ScheduleAdherence() {
 
     useEffect(() => {
         const { start, end } = getDatesFromPreset(selectedPreset);
-        fetchReportData('adherence', { startDate: start, endDate: end });
-    }, [selectedPreset, fetchReportData]);
+        fetchReportData('adherence', { 
+            startDate: start, 
+            endDate: end,
+            userId: selectedEmployee,
+            teamId: selectedTeam
+        });
+    }, [selectedPreset, fetchReportData, selectedEmployee, selectedTeam]);
 
     const handleApplyCalendar = () => {
         setSelectedPreset(selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }));
@@ -128,9 +133,6 @@ export function ScheduleAdherence() {
         setIsCompareOpen(false);
     };
 
-    const handleFilterOption = () => {
-        setIsFilterOpen(false);
-    };
 
     const calendarDays = React.useMemo(() => {
         const year = viewDate.getFullYear();
@@ -147,8 +149,8 @@ export function ScheduleAdherence() {
         d1.getDate() === d2.getDate() && d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear();
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-8 relative z-30">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Schedule Adherence</h1>
                     <p className="text-sm text-slate-500 dark:text-slate-400">View and analyze your schedule adherence data.</p>
@@ -236,24 +238,7 @@ export function ScheduleAdherence() {
                     </div>
 
                     {/* Add Filter */}
-                    <div className="relative" ref={filterRef}>
-                        <button onClick={() => setIsFilterOpen(v => !v)} className={`flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-bold shadow-sm ring-1 ring-primary-500/10 transition-all ${isFilterOpen ? 'text-primary-600 bg-primary-50' : 'text-primary-600 hover:bg-primary-50'}`}>
-                            <X size={14} className={`text-primary-600 transition-transform ${isFilterOpen ? 'rotate-45' : ''}`} />
-                            <span>Add Filter</span>
-                        </button>
-                        {isFilterOpen && (
-                            <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-100 dark:border-slate-800 p-1 z-50">
-                                <div className="px-4 py-2 border-b border-slate-50 dark:border-slate-800 mb-1">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Filter By</p>
-                                </div>
-                                {[{ label: 'Employees', icon: User }, { label: 'Teams', icon: Users2 }].map(({ label, icon: Icon }) => (
-                                    <button key={label} onClick={handleFilterOption} className="flex items-center gap-3 w-full px-4 py-3 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">
-                                        <Icon size={16} className="text-slate-400" /><span>{label}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    <FilterDropdown />
 
                     <button className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-600 text-white shadow-lg shadow-primary-500/20 hover:bg-primary-700 transition-all">
                         <Download size={18} />

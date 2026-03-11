@@ -30,17 +30,7 @@ const attendanceController = {
             const { role, employeeId } = req.user;
             let filters = { ...req.query };
 
-            if (role === 'MANAGER') {
-                const { PrismaClient } = require('@prisma/client');
-                const prisma = new PrismaClient();
-                const manager = await prisma.employee.findUnique({
-                    where: { id: employeeId },
-                    select: { teamId: true }
-                });
-                if (manager && manager.teamId) {
-                    filters.teamId = manager.teamId;
-                }
-            } else if (role === 'EMPLOYEE') {
+            if (role === 'EMPLOYEE') {
                 filters.employeeId = employeeId;
             }
 

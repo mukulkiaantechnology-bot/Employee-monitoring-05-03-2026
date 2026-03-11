@@ -25,6 +25,8 @@ import { cn } from '../../utils/cn';
 import { LiveMapView } from '../../components/location/LiveMapView';
 
 import { useReportsStore } from '../../store/reportsStore';
+import { useFilterStore } from '../../store/filterStore';
+import { FilterDropdown } from '../../components/FilterDropdown';
 
 const presets = [
     "Today", "Yesterday", "This Week", "Last 7 Days",
@@ -39,10 +41,10 @@ export function LocationInsights() {
     const { locationLogs } = useRealTime();
     
     const { reportData, fetchReportData, loading } = useReportsStore();
+    const { selectedEmployee, selectedTeam } = useFilterStore();
     const rawData = reportData['location'] || [];
 
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-    const [isFilterOpen, setIsFilterOpen] = useState(false);
     
     // Default to last 7 days
     const [startDate, setStartDate] = useState(new Date(new Date().setDate(new Date().getDate() - 7)));
@@ -51,7 +53,6 @@ export function LocationInsights() {
     const [hoverDate, setHoverDate] = useState(null);
     const [selectingEnd, setSelectingEnd] = useState(false);
     const [selectedPreset, setSelectedPreset] = useState("Last 7 Days");
-    const [selectedFilter, setSelectedFilter] = useState("All Locations");
 
     const getDatesFromPreset = (preset) => {
         const end = new Date();
@@ -82,9 +83,14 @@ export function LocationInsights() {
     // 2. Fetch data when dates change
     useEffect(() => {
         if (startDate && endDate) {
-            fetchReportData('location', { startDate, endDate });
+            fetchReportData('location', { 
+                startDate, 
+                endDate,
+                userId: selectedEmployee,
+                teamId: selectedTeam
+            });
         }
-    }, [startDate?.getTime(), endDate?.getTime(), fetchReportData]);
+    }, [startDate?.getTime(), endDate?.getTime(), fetchReportData, selectedEmployee, selectedTeam]);
 
     const activeData = React.useMemo(() => {
         return rawData.map(item => ({
@@ -103,9 +109,6 @@ export function LocationInsights() {
         const handleClickOutside = (event) => {
             if (calendarRef.current && !calendarRef.current.contains(event.target) && !event.target.closest('.loc-cal-toggle')) {
                 setIsCalendarOpen(false);
-            }
-            if (filterRef.current && !filterRef.current.contains(event.target)) {
-                setIsFilterOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -161,10 +164,6 @@ export function LocationInsights() {
         setIsCalendarOpen(false);
     };
 
-    const handleFilterSelect = (filter) => {
-        setSelectedFilter(filter);
-        setIsFilterOpen(false);
-    };
 
     const getIcon = (loc) => {
         if (loc === 'Office') return <Building2 size={24} />;
@@ -181,9 +180,9 @@ export function LocationInsights() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 relative z-30">
             {/* Header */}
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Location Insights</h1>
                     <p className="text-sm text-slate-500 dark:text-slate-400">View and analyze your location data.</p>
@@ -299,32 +298,7 @@ export function LocationInsights() {
                     </div>
 
                     {/* Add Filter Dropdown */}
-                    <div className="relative" ref={filterRef}>
-                        <button
-                            onClick={() => setIsFilterOpen(!isFilterOpen)}
-                            className={`flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm ring-1 transition-all ${isFilterOpen ? 'bg-primary-50 text-primary-600 ring-primary-100' : 'bg-white text-primary-600 ring-primary-500/20 hover:bg-primary-50 dark:bg-slate-900 dark:ring-slate-800'}`}
-                        >
-                            <Plus size={14} className={`text-primary-600 transition-transform ${isFilterOpen ? 'rotate-45' : ''}`} />
-                            <span>Add Filter</span>
-                        </button>
-                        {isFilterOpen && (
-                            <div className="absolute left-0 mt-2 w-48 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-100 dark:border-slate-800 p-1 z-50 animate-in fade-in slide-in-from-top-1">
-                                <div className="px-4 py-2 border-b border-slate-50 dark:border-slate-800 mb-1">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Filter By</p>
-                                </div>
-                                {[{ label: 'Employee', icon: User }, { label: 'Teams', icon: Users2 }].map(({ label, icon: Icon }) => (
-                                    <button
-                                        key={label}
-                                        onClick={() => handleFilterSelect(label)}
-                                        className={`flex items-center gap-3 w-full px-4 py-3 text-sm font-medium rounded-lg transition-colors ${selectedFilter === label ? 'bg-primary-50 text-primary-600' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}
-                                    >
-                                        <Icon size={16} className="text-slate-400" />
-                                        <span>{label}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    <FilterDropdown />
 
                     {/* Attendance Threshold */}
                     <div className="flex flex-1 sm:flex-initial items-center justify-between sm:justify-start gap-2 rounded-xl bg-white px-4 py-2.5 text-sm shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">

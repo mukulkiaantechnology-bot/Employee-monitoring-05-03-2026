@@ -12,6 +12,8 @@ import {
     Download 
 } from 'lucide-react';
 import { useReportsStore } from '../../store/reportsStore';
+import { useFilterStore } from '../../store/filterStore';
+import { FilterDropdown } from '../../components/FilterDropdown';
 
 const presets = [
     "Today", "Yesterday", "This Week", "Last 7 Days",
@@ -21,22 +23,18 @@ const presets = [
 
 export function WorkType() {
     const { reportData, fetchReportData, loading } = useReportsStore();
+    const { selectedEmployee, selectedTeam } = useFilterStore();
     // --- State ---
     const [activeTab, setActiveTab] = useState('category'); // 'category' or 'tags'
     const [activePeriod, setActivePeriod] = useState('Last 7 Days');
 
-    const [compareOpen, setCompareOpen] = useState(false);
-    const [filterOpen, setFilterOpen] = useState(false);
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
 
-    const [selectedCompare, setSelectedCompare] = useState('Compare to');
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [viewDate, setViewDate] = useState(new Date());
     const [selectedPreset, setSelectedPreset] = useState('Last 7 Days');
 
     // --- Refs for Click Outside ---
-    const compareRef = useRef(null);
-    const filterRef = useRef(null);
     const calendarRef = useRef(null);
 
     // --- Calendar Logic ---
@@ -67,8 +65,6 @@ export function WorkType() {
     // --- Effects ---
     useEffect(() => {
         const handleClickOutside = (event) => {
-            if (compareRef.current && !compareRef.current.contains(event.target)) setCompareOpen(false);
-            if (filterRef.current && !filterRef.current.contains(event.target)) setFilterOpen(false);
             if (calendarRef.current && !calendarRef.current.contains(event.target)) {
                 // Check if the click target isn't the toggle button too
                 if (!event.target.closest('.calendar-toggle')) setIsCalendarOpen(false);
@@ -98,8 +94,13 @@ export function WorkType() {
 
     useEffect(() => {
         const { start, end } = getDatesFromPreset(activePeriod);
-        fetchReportData('work-type', { startDate: start, endDate: end });
-    }, [activePeriod, fetchReportData]);
+        fetchReportData('work-type', { 
+            startDate: start, 
+            endDate: end,
+            userId: selectedEmployee,
+            teamId: selectedTeam
+        });
+    }, [activePeriod, fetchReportData, selectedEmployee, selectedTeam]);
 
     const rawData = reportData['work-type'] || [];
     const activeData = React.useMemo(() => {
@@ -121,17 +122,6 @@ export function WorkType() {
     const handleTabChange = (tab) => {
         setActiveTab(tab);
         // In a real app, tags might fetch a different endpoint or use different grouping
-    };
-
-    const handleCompareChange = (option) => {
-        setSelectedCompare(option);
-        setCompareOpen(false);
-    };
-
-    const handleFilterSelect = (filter) => {
-        const filtered = [...activeData].sort(() => Math.random() - 0.5);
-        setActiveData(filtered);
-        setFilterOpen(false);
     };
 
     const handleCancelCalendar = () => {
@@ -169,7 +159,7 @@ export function WorkType() {
                     </div>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="relative z-30 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex flex-wrap items-center gap-2">
                         {/* Period Select / Calendar Toggle */}
                         <div className="relative">
@@ -258,66 +248,8 @@ export function WorkType() {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        {/* Compare Dropdown */}
-                        <div className="relative" ref={compareRef}>
-                            <button
-                                onClick={() => setCompareOpen(!compareOpen)}
-                                className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-800 dark:hover:bg-slate-800 transition-all"
-                            >
-                                <span>{selectedCompare}</span>
-                                <ChevronDown size={14} className={`text-slate-400 transition-transform ${compareOpen ? 'rotate-180' : ''}`} />
-                            </button>
-                            {compareOpen && (
-                                <div className="absolute left-0 mt-2 w-48 origin-top-left rounded-xl border border-slate-200 bg-white py-1 shadow-xl ring-1 ring-black ring-opacity-5 focus:outline-none dark:border-slate-800 dark:bg-slate-900 z-50 animate-in fade-in slide-in-from-top-2">
-                                    {['Previous Period', 'Previous Year', 'Custom Range'].map((opt) => (
-                                        <button
-                                            key={opt}
-                                            onClick={() => handleCompareChange(opt)}
-                                            className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800"
-                                        >
-                                            {opt}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
 
-                        {/* Add Filter Dropdown */}
-                        <div className="relative" ref={filterRef}>
-                            <button
-                                onClick={() => setFilterOpen(!filterOpen)}
-                                className="flex items-center gap-2 rounded-xl bg-primary-50 px-4 py-2 text-sm font-bold text-primary-600 shadow-sm ring-1 ring-primary-100 dark:bg-primary-900/20 dark:text-primary-400 dark:ring-primary-900/40 hover:brightness-95 transition-all"
-                            >
-                                <X size={14} className={`transition-transform ${filterOpen ? 'rotate-45' : 'rotate-0'}`} />
-                                <span>Add Filter</span>
-                            </button>
-                            {filterOpen && (
-                                <div className="absolute left-0 mt-2 w-56 origin-top-left rounded-xl border border-slate-200 bg-white shadow-2xl ring-1 ring-black ring-opacity-5 dark:border-slate-800 dark:bg-slate-900 z-50 animate-in fade-in slide-in-from-top-2">
-                                    <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Filter By</p>
-                                    </div>
-                                    <div className="p-1">
-                                        {[
-                                            { name: 'Employees', icon: User },
-                                            { name: 'Teams', icon: Users2 },
-                                            { name: activeTab === 'category' ? 'Category' : 'Tags', icon: BarChart2 }
-                                        ].map((filter) => (
-                                            <button
-                                                key={filter.name}
-                                                onClick={() => handleFilterSelect(filter.name)}
-                                                className="flex w-full items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
-                                            >
-                                                <filter.icon size={16} className="text-slate-400" />
-                                                <span>{filter.name}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
+                    <FilterDropdown />
                     <button className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-400 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:ring-slate-800 dark:hover:bg-slate-800 transition-all">
                         <Download size={18} />
                     </button>

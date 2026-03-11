@@ -16,6 +16,7 @@ import { useRealTime } from '../hooks/RealTimeContext';
 import { useAuthStore } from '../store/authStore';
 import { useProjectStore } from '../store/projectStore';
 import { useIntegrationStore, INTEGRATION_META } from '../store/integrationStore';
+import { cn } from '../utils/cn';
 
 export function Projects() {
     const navigate = useNavigate();
@@ -70,7 +71,7 @@ export function Projects() {
                     <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Projects</h1>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                    {activeTab !== 'Integrated' && (
+                    {(role === 'ADMIN' || role === 'MANAGER') && activeTab !== 'Integrated' && (
                         <button
                             onClick={() => setIsModalOpen(true)}
                             className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-xl text-xs font-black transition-all shadow-xl shadow-primary-200 dark:shadow-none uppercase tracking-wider hover:scale-[1.02] active:scale-95"
@@ -157,8 +158,8 @@ export function Projects() {
                                 return (
                                     <div
                                         key={idx}
-                                        onClick={() => navigate(`${rolePath}/settings/integrations/overview/project-management`)}
-                                        className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl p-6 flex items-center shadow-sm hover:shadow-md transition-all group cursor-pointer"
+                                        onClick={() => role === 'ADMIN' && navigate(`${rolePath}/settings/integrations/overview/project-management`)}
+                                        className={cn("w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl p-6 flex items-center shadow-sm hover:shadow-md transition-all group", role === 'ADMIN' ? 'cursor-pointer' : 'cursor-default')}
                                     >
                                         <div className="flex items-center gap-4 flex-1">
                                             <div className="h-10 w-10 flex items-center justify-center bg-slate-50 dark:bg-slate-800 rounded-lg p-2 border border-slate-100 dark:border-slate-700 transition-transform group-hover:scale-110">
@@ -200,18 +201,20 @@ export function Projects() {
                     </div>
 
                     {/* Start Integrating Call to Action */}
-                    <div className="flex flex-col items-center text-center space-y-4">
-                        <h2 className="text-xl font-black text-slate-900 dark:text-white">Start integrating projects to Insightful</h2>
-                        <p className="text-sm font-bold text-slate-400 dark:text-slate-500 max-w-sm">
-                            Start by integrating with a project management tool. Afterward, you can view all the projects here.
-                        </p>
-                        <button
-                            onClick={() => navigate(`${rolePath}/settings/integrations/overview/project-management`)}
-                            className="bg-primary-600 hover:bg-primary-700 text-white px-8 py-3 rounded-lg text-xs font-black transition-all shadow-xl shadow-primary-100 dark:shadow-primary-900/20 uppercase tracking-widest mt-4"
-                        >
-                            Go To Project Management Integrations
-                        </button>
-                    </div>
+                    {role === 'ADMIN' && (
+                        <div className="flex flex-col items-center text-center space-y-4">
+                            <h2 className="text-xl font-black text-slate-900 dark:text-white">Start integrating projects to Insightful</h2>
+                            <p className="text-sm font-bold text-slate-400 dark:text-slate-500 max-w-sm">
+                                Start by integrating with a project management tool. Afterward, you can view all the projects here.
+                            </p>
+                            <button
+                                onClick={() => navigate(`${rolePath}/settings/integrations/overview/project-management`)}
+                                className="bg-primary-600 hover:bg-primary-700 text-white px-8 py-3 rounded-lg text-xs font-black transition-all shadow-xl shadow-primary-100 dark:shadow-primary-900/20 uppercase tracking-widest mt-4"
+                            >
+                                Go To Project Management Integrations
+                            </button>
+                        </div>
+                    )}
                 </div>
             ) : (
                 <div className="space-y-6">

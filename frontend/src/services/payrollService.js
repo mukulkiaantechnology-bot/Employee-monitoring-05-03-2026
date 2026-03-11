@@ -1,14 +1,11 @@
 import api from './apiClient';
 
 const payrollService = {
-    getSummary: async () => {
-        const response = await api.get('/payroll/summary');
+    getSummary: async (params) => {
+        const response = await api.get('/payroll/summary', { params });
         return response.data;
     },
-    getRecords: async (startDate, endDate) => {
-        const params = {};
-        if (startDate) params.startDate = startDate;
-        if (endDate) params.endDate = endDate;
+    getRecords: async (params) => {
         const response = await api.get('/payroll/records', { params });
         return response.data;
     },

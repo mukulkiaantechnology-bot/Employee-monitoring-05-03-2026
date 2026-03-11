@@ -829,7 +829,7 @@ export function RealTimeProvider({ children }) {
     const filteredData = useMemo(() => {
         const currentEmployees = stats.empMetrics; // Use enriched employees
 
-        if (!isAuthenticated || role === 'Admin') {
+        if (!isAuthenticated || role === 'ADMIN' || role === 'MANAGER') {
             return {
                 employees: currentEmployees,
                 tasks: state.tasks,
@@ -839,19 +839,7 @@ export function RealTimeProvider({ children }) {
             };
         }
 
-        if (role === 'MANAGER') {
-            const managerTeamId = user?.teamId || currentEmployees.find(e => e.id === user?.employeeId)?.teamId;
-            const filteredEmployees = currentEmployees.filter(e => e.teamId === managerTeamId);
-            return {
-                employees: filteredEmployees,
-                tasks: state.tasks, // Managers now see all tasks, same as Admin
-                projects: state.projects,
-                teams: state.teams.filter(t => t.id === managerTeamId),
-                activityLogs: state.activityLogs.filter(l => filteredEmployees.find(e => e.id === l.employeeId)),
-            };
-        }
-
-        if (role === 'Employee') {
+        if (role === 'EMPLOYEE') {
             const targetEmail = user?.email;
             const filteredEmployees = currentEmployees.filter(e => e.email === targetEmail);
             return {

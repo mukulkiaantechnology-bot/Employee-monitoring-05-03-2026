@@ -29,6 +29,7 @@ import { useState, useMemo, useEffect } from 'react';
 import usePayrollStore from '../store/payrollStore';
 import { FilterDropdown } from '../components/FilterDropdown';
 import { GlobalCalendar } from '../components/GlobalCalendar';
+import { useFilterStore } from '../store/filterStore';
 import { useRealTime } from '../hooks/RealTimeContext';
 import {
     AreaChart,
@@ -176,6 +177,8 @@ export function Payroll() {
         loading 
     } = usePayrollStore();
 
+    const { dateRange, selectedEmployee, selectedTeam } = useFilterStore();
+
     const [selectedPayslip, setSelectedPayslip] = useState(null);
     const [activeTab, setActiveTab] = useState('payroll'); // payroll, invoices
     const [searchQuery, setSearchQuery] = useState('');
@@ -191,10 +194,19 @@ export function Payroll() {
     const [connectionStep, setConnectionStep] = useState('idle');
 
     useEffect(() => {
-        fetchSummary();
-        fetchRecords();
+        const params = {
+            startDate: dateRange.start,
+            endDate: dateRange.end,
+            userId: selectedEmployee?.id,
+            teamId: selectedTeam?.id
+        };
+        fetchSummary(params);
+        fetchRecords(params);
+    }, [fetchSummary, fetchRecords, dateRange, selectedEmployee, selectedTeam]);
+
+    useEffect(() => {
         fetchInvoices();
-    }, [fetchSummary, fetchRecords, fetchInvoices]);
+    }, [fetchInvoices]);
 
     const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
     const [newInvoice, setNewInvoice] = useState({
@@ -347,7 +359,7 @@ export function Payroll() {
     return (
         <div className="space-y-6 pb-20 max-w-full overflow-x-hidden box-border px-4 md:px-0">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fade-in mb-6 md:mb-0">
+            <div className="relative z-30 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fade-in mb-6 md:mb-0">
                 <div>
                     <div className="flex items-center gap-2 mb-1">
                         <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Financials</h1>

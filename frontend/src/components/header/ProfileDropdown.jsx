@@ -84,7 +84,7 @@ export function ProfileDropdown() {
                             Personal Settings
                         </button>
 
-                        {(currentUser?.role?.toUpperCase() === 'ADMIN' || currentUser?.role?.toUpperCase() === 'MANAGER') && (
+                        {currentUser?.role?.toUpperCase() === 'ADMIN' && (
                             <button
                                 onClick={() => {
                                     const rolePath = currentUser?.role?.toLowerCase();

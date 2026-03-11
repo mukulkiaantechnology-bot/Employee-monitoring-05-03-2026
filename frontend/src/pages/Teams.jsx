@@ -99,7 +99,7 @@ export function Teams() {
                         {employees.length} employees · {contextTeams.length} teams
                     </div>
                 </div>
-                {user?.role === 'ADMIN' && (
+                {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
                     <button onClick={() => { setEditingTeam(null); setIsModalOpen(true); }}
                         className="w-full md:w-auto bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-xl text-xs font-black transition-all shadow-xl uppercase tracking-wider flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95">
                         <Plus size={16} strokeWidth={3} /> Create New Team
@@ -225,7 +225,7 @@ export function Teams() {
                                     {team.productivity || 0}%
                                 </div>
                                 
-                                {user?.role === 'ADMIN' && (
+                                {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
                                     <div className="relative">
                                         <button onClick={() => setOpenMenu(openMenu === idx ? null : idx)}
                                             className="h-10 w-10 flex items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all">

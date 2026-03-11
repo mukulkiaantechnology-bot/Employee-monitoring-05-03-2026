@@ -763,10 +763,11 @@ const AdvancedCalendar = ({ isOpen, onClose, selectedPreset, onSelectPreset, tri
     return createPortal(calendarContent, document.body);
 };
 
-const EmployeeRow = ({ employee, onSelect, onTransparencyClick, onEdit, onDelete, visibleColumns }) => {
+const EmployeeRow = ({ employee, onEdit, onDelete, onTransparencyClick, visibleColumns }) => {
     const navigate = useNavigate();
-    const [showOptions, setShowOptions] = useState(false);
     const { role } = useAuthStore();
+    const rolePath = role ? `/${role.toLowerCase()}` : '';
+    const [showOptions, setShowOptions] = useState(false);
     const optionsRef = useRef(null);
 
     const statusColor =
@@ -844,7 +845,7 @@ const EmployeeRow = ({ employee, onSelect, onTransparencyClick, onEdit, onDelete
                         {/* Actions */}
                         <div className="flex flex-wrap gap-2.5 pt-1">
                             <button
-                                onClick={(e) => { e.stopPropagation(); navigate(`/admin/employees/${employee.id}`); }}
+                                onClick={(e) => { e.stopPropagation(); navigate(`${rolePath}/employees/${employee.id}`); }}
                                 className="flex-1 h-11 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 transition-all flex items-center justify-center gap-2"
                             >
                                 <Eye size={16} /> Profile
@@ -855,7 +856,7 @@ const EmployeeRow = ({ employee, onSelect, onTransparencyClick, onEdit, onDelete
                             >
                                 <ShieldCheck size={16} /> Privacy
                             </button>
-                            {role === 'ADMIN' && (
+                            {(role === 'ADMIN' || role === 'MANAGER') && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onEdit(employee); }}
                                     className="h-11 w-11 shrink-0 rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-amber-500 transition-all flex items-center justify-center border border-slate-100 dark:border-slate-700 shadow-sm"
@@ -863,7 +864,7 @@ const EmployeeRow = ({ employee, onSelect, onTransparencyClick, onEdit, onDelete
                                     <Edit size={16} />
                                 </button>
                             )}
-                            {role === 'ADMIN' && (
+                            {(role === 'ADMIN' || role === 'MANAGER') && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onDelete(employee); }}
                                     className="h-11 w-11 shrink-0 rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-rose-500 transition-all flex items-center justify-center border border-slate-100 dark:border-slate-700 shadow-sm"
@@ -879,7 +880,7 @@ const EmployeeRow = ({ employee, onSelect, onTransparencyClick, onEdit, onDelete
             {/* ── DESKTOP TABLE ROW (hidden below md) ── */}
             <tr
                 className="hidden md:table-row group hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-all duration-200 border-b border-slate-50 dark:border-slate-800 last:border-0"
-                onClick={() => navigate(`/admin/employees/${employee.id}`)}
+                onClick={() => navigate(`${rolePath}/employees/${employee.id}`)}
             >
                 {visibleColumns.includes('User') && (
                     <td className="px-6 py-5">
@@ -938,7 +939,7 @@ const EmployeeRow = ({ employee, onSelect, onTransparencyClick, onEdit, onDelete
                         </button>
 
                         <button
-                            onClick={(e) => { e.stopPropagation(); navigate(`/admin/employees/${employee.id}`); }}
+                            onClick={(e) => { e.stopPropagation(); navigate(`${rolePath}/employees/${employee.id}`); }}
                             className="h-9 w-9 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-sm group/btn"
                             title="View Profile"
                         >
@@ -953,7 +954,7 @@ const EmployeeRow = ({ employee, onSelect, onTransparencyClick, onEdit, onDelete
                                 <MoreVertical size={18} />
                             </button>
 
-                            {role === 'ADMIN' && showOptions && (
+                            {(role === 'ADMIN' || role === 'MANAGER') && showOptions && (
                                 <div className="absolute right-0 bottom-full mb-2 z-[110] w-48 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 p-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); onEdit(employee); setShowOptions(false); }}
@@ -1094,7 +1095,7 @@ export function EmployeeManagement() {
                     <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Employees</h1>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                    {role === 'ADMIN' && (
+                    {(role === 'ADMIN' || role === 'MANAGER') && (
                         <>
                             <button
                                 onClick={() => setShowMergeModal(true)}

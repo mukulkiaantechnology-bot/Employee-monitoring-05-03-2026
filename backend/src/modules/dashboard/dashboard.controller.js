@@ -16,25 +16,13 @@ const getAdminDashboard = async (req, res) => {
 
 const getManagerDashboard = async (req, res) => {
   try {
-    const { organizationId, employeeId } = req.user;
+    const { organizationId } = req.user;
     const { startDate, endDate } = req.query;
     if (req.user.role !== 'MANAGER') {
       return res.status(403).json({ message: 'Forbidden: Manager access required' });
     }
 
-    // Need to get the manager's teamId
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
-    const employee = await prisma.employee.findUnique({
-      where: { id: employeeId },
-      select: { teamId: true }
-    });
-
-    if (!employee || !employee.teamId) {
-      return res.status(404).json({ message: 'Manager team not found' });
-    }
-
-    const data = await dashboardService.getManagerDashboard(organizationId, employee.teamId, startDate, endDate);
+    const data = await dashboardService.getAdminDashboard(organizationId, startDate, endDate);
     res.json(data);
   } catch (error) {
     res.status(500).json({ message: error.message });

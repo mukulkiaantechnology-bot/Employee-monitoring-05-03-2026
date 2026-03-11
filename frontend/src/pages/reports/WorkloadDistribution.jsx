@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useReportsStore } from '../../store/reportsStore';
+import { useFilterStore } from '../../store/filterStore';
+import { FilterDropdown } from '../../components/FilterDropdown';
 
 const presets = [
     "Today", "Yesterday", "This Week", "Last 7 Days",
@@ -56,20 +58,18 @@ function CalendarPopover({ buttonRef, isOpen, onClose, children }) {
 export function WorkloadDistribution() {
     const navigate = useNavigate();
     const { reportsSettings, reportData, fetchReportData, loading } = useReportsStore();
+    const { selectedEmployee, selectedTeam } = useFilterStore();
     const { optimalFrom, optimalTo } = reportsSettings.workloadDistribution;
 
     const rawData = reportData['workload'] || [];
 
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-    const [isFilterOpen, setIsFilterOpen] = useState(false);
 
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [viewDate, setViewDate] = useState(new Date());
     const [selectedPreset, setSelectedPreset] = useState("Last 7 Days");
-    const [selectedFilter, setSelectedFilter] = useState(null);
 
     const calendarBtnRef = useRef(null);
-    const filterRef = useRef(null);
     const closeCalendar = useCallback(() => setIsCalendarOpen(false), []);
 
     const getDatesFromPreset = (preset) => {
@@ -91,19 +91,20 @@ export function WorkloadDistribution() {
 
     useEffect(() => {
         const { start, end } = getDatesFromPreset(selectedPreset);
-        fetchReportData('workload', { startDate: start, endDate: end });
-    }, [selectedPreset, fetchReportData]);
+        fetchReportData('workload', { 
+            startDate: start, 
+            endDate: end,
+            userId: selectedEmployee,
+            teamId: selectedTeam
+        });
+    }, [selectedPreset, fetchReportData, selectedEmployee, selectedTeam]);
 
     const activeData = React.useMemo(() => {
         return rawData;
     }, [rawData]);
 
     useEffect(() => {
-        const handler = (e) => {
-            if (filterRef.current && !filterRef.current.contains(e.target)) setIsFilterOpen(false);
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
+        // No manual filter outside click needed
     }, []);
 
     const calendarDays = React.useMemo(() => {
@@ -124,13 +125,9 @@ export function WorkloadDistribution() {
         setIsCalendarOpen(false);
     };
 
-    const handleFilterSelect = (filter) => {
-        setSelectedFilter(filter);
-        setIsFilterOpen(false);
-    };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 relative z-30">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Workload Distribution</h1>
@@ -201,25 +198,7 @@ export function WorkloadDistribution() {
                     </div>
 
                     {/* Add Filter */}
-                    <div className="relative" ref={filterRef}>
-                        <button onClick={() => setIsFilterOpen(v => !v)} className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold shadow-sm ring-1 transition-all ${isFilterOpen ? 'bg-primary-50 text-primary-600 ring-primary-100' : 'bg-white text-primary-600 ring-primary-500/20 hover:bg-primary-50 dark:bg-slate-900 dark:ring-slate-800'}`}>
-                            <X size={14} className={`text-primary-600 transition-transform ${isFilterOpen ? 'rotate-45' : ''}`} />
-                            <span>Add Filter</span>
-                        </button>
-                        {isFilterOpen && (
-                            <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-100 dark:border-slate-800 p-1 z-50">
-                                <div className="px-4 py-2 border-b border-slate-50 dark:border-slate-800 mb-1">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Filter By</p>
-                                </div>
-                                {['Teams', 'Category'].map(f => (
-                                    <button key={f} onClick={() => handleFilterSelect(f)} className={`flex items-center gap-3 w-full px-4 py-3 text-sm font-medium rounded-lg transition-colors ${selectedFilter === f ? 'bg-primary-50 text-primary-600' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                                        {f === 'Teams' ? <Users2 size={16} className="text-slate-400" /> : <BarChart2 size={16} className="text-slate-400" />}
-                                        <span>{f}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    <FilterDropdown />
 
                     {/* <button className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-400 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50 dark:bg-slate-900 dark:ring-slate-800 transition-all">
                         <Download size={18} />

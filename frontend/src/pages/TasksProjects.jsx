@@ -37,6 +37,7 @@ import { twMerge } from 'tailwind-merge';
 import { performanceKPIs as mockKPIs, projectProductivity, workLogs as mockLogs } from '../data/mockData'; // Fallbacks if needed
 import { useRealTime } from '../hooks/RealTimeContext';
 import { useFilterStore } from '../store/filterStore';
+import { useAuthStore } from '../store/authStore';
 import {
     BarChart,
     Bar,
@@ -61,6 +62,7 @@ const cn = (...inputs) => twMerge(clsx(inputs));
 
 // --- Modals (Tasks & Objectives) ---
 const CreateTaskModal = ({ isOpen, onClose, onSave, defaultStatus = 'To Do', employees = [], projects = [] }) => {
+    const { role } = useAuthStore();
     const [title, setTitle] = useState('');
     const [assignee, setAssignee] = useState('');
     const [priority, setPriority] = useState('Medium');
@@ -104,7 +106,7 @@ const CreateTaskModal = ({ isOpen, onClose, onSave, defaultStatus = 'To Do', emp
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-md animate-in fade-in duration-200 p-4">
             <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-6 w-full max-w-sm shadow-2xl border border-slate-100 dark:border-slate-800 animate-in zoom-in-95 duration-200">
                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-black text-slate-900 dark:text-white">New Task</h3>
+                    <h3 className="text-lg font-black text-slate-900 dark:text-white">{role === 'ADMIN' || role === 'MANAGER' ? 'New Task' : 'Request Task'}</h3>
                     <button onClick={onClose} className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
                         <X size={18} className="text-slate-500" />
                     </button>
@@ -623,6 +625,7 @@ const KanbanColumn = ({ title, tasks, status, color, onAdd, updateTaskStatus, on
 // --- Content Page Implementation ---
 
 export function TasksProjects() {
+    const { role } = useAuthStore();
     const {
         tasks,
         projects,
@@ -918,10 +921,12 @@ export function TasksProjects() {
                             </div>
                             <GlobalCalendar />
                             <FilterDropdown />
-                            <button onClick={() => openTaskModal('To Do')} className="h-14 md:h-16 px-6 md:px-10 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[1.25rem] md:rounded-[1.75rem] font-black text-[10px] md:text-xs uppercase tracking-widest shadow-xl hover:scale-102 active:scale-95 transition-all flex items-center justify-center gap-3">
-                                <Plus size={18} strokeWidth={3} />
-                                <span>Assign Task</span>
-                            </button>
+                            {(role === 'ADMIN' || role === 'MANAGER') && (
+                                <button onClick={() => openTaskModal('To Do')} className="h-14 md:h-16 px-6 md:px-10 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[1.25rem] md:rounded-[1.75rem] font-black text-[10px] md:text-xs uppercase tracking-widest shadow-xl hover:scale-102 active:scale-95 transition-all flex items-center justify-center gap-3">
+                                    <Plus size={18} strokeWidth={3} />
+                                    <span>Assign Task</span>
+                                </button>
+                            )}
 
                         </div>
 

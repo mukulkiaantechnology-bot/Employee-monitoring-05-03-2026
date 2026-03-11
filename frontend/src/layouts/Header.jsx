@@ -28,7 +28,7 @@ export function Header({ onMenuClick }) {
     const unreadCount = liveNotifications.filter(n => n.unread).length;
 
     return (
-        <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white/80 px-3 md:px-6 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/80">
+        <header className="sticky top-0 z-[100] flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white/80 px-3 md:px-6 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/80">
             <div className="flex items-center gap-4">
                 <button
                     onClick={onMenuClick}
