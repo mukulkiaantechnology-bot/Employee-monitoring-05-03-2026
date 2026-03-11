@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTrackingStore } from '../../store/trackingStore';
+import { useAuthStore } from '../../store/authStore';
 import { AdvancedForm } from '../../components/tracking/AdvancedForm';
 
 function Toast({ show, message }) {
@@ -14,24 +15,42 @@ function Toast({ show, message }) {
 
 export function AdvancedTrackingSettings() {
     const navigate = useNavigate();
-    const { advancedSettings, updateAdvancedSettings } = useTrackingStore();
-    const [localSettings, setLocalSettings] = useState({ ...advancedSettings });
+    const { advancedSettings, fetchTrackingData, updateAdvancedSettings, isLoading } = useTrackingStore();
+    const { role } = useAuthStore();
+    const [localSettings, setLocalSettings] = useState(null);
     const [toast, setToast] = useState(false);
 
-    const isDirty = JSON.stringify(localSettings) !== JSON.stringify(advancedSettings);
+    const rolePath = role?.toLowerCase() === 'admin' ? '/admin' : '/manager';
+
+    React.useEffect(() => {
+        fetchTrackingData();
+    }, [fetchTrackingData]);
+
+    React.useEffect(() => {
+        if (advancedSettings && !localSettings) {
+            setLocalSettings({ ...advancedSettings });
+        }
+    }, [advancedSettings, localSettings]);
+
+    const isDirty = localSettings && JSON.stringify(localSettings) !== JSON.stringify(advancedSettings);
 
     const handleChange = (updates) => {
         setLocalSettings((s) => ({ ...s, ...updates }));
     };
 
-    const handleSave = () => {
-        updateAdvancedSettings(localSettings);
-        setToast(true);
-        setTimeout(() => setToast(false), 3000);
+    const handleSave = async () => {
+        if (!localSettings) return;
+        try {
+            await updateAdvancedSettings(localSettings);
+            setToast(true);
+            setTimeout(() => setToast(false), 3000);
+        } catch (error) {
+            // Handle error
+        }
     };
 
     const handleCancel = () => {
-        navigate('/settings/tracking');
+        navigate(`${rolePath}/settings/tracking`);
     };
 
     return (
@@ -54,8 +73,14 @@ export function AdvancedTrackingSettings() {
                 </div>
 
                 {/* Scrollable body */}
-                <div className="flex-1 overflow-y-auto px-8">
-                    <AdvancedForm settings={localSettings} onChange={handleChange} />
+                <div className="flex-1 overflow-y-auto px-8 py-6">
+                    {localSettings ? (
+                        <AdvancedForm settings={localSettings} onChange={handleChange} />
+                    ) : (
+                        <div className="flex items-center justify-center h-40">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
+                        </div>
+                    )}
                 </div>
             </div>
 

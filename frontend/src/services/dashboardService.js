@@ -1,16 +1,16 @@
 import api from "./apiClient";
 
 const dashboardService = {
-    getAdminDashboard: async () => {
-        const response = await api.get("/dashboard/admin");
+    getAdminDashboard: async (startDate, endDate) => {
+        const response = await api.get("/dashboard/admin", { params: { startDate, endDate } });
         return response.data;
     },
-    getManagerDashboard: async () => {
-        const response = await api.get("/dashboard/manager");
+    getManagerDashboard: async (startDate, endDate) => {
+        const response = await api.get("/dashboard/manager", { params: { startDate, endDate } });
         return response.data;
     },
-    getEmployeeDashboard: async () => {
-        const response = await api.get("/dashboard/me");
+    getEmployeeDashboard: async (startDate, endDate) => {
+        const response = await api.get("/dashboard/me", { params: { startDate, endDate } });
         return response.data;
     }
 };

@@ -148,6 +148,13 @@ export const INTEGRATION_TABS = [
         subtitle: 'Synchronize your organizational hierarchy by integrating your app with Insightful.',
         keys: ['csvImport', 'alexisHR', 'bambooHR', 'chartHop', 'googleWorkspace', 'hibob'],
     },
+    {
+        id: 'project-management',
+        label: 'Project Management',
+        route: '/settings/integrations/overview/project-management',
+        subtitle: 'Import the project management items you want to track time on.',
+        keys: ['asana', 'azureDevops', 'clickup', 'height', 'jira', 'teamwork'],
+    },
 ];
 
 // ── Default state ──────────────────────────────────────────────────────────

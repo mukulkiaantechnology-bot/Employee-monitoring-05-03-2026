@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import complianceService from '../services/complianceService';
 
 const INITIAL = {
     showUrlsInActivityLogs: false,
@@ -9,32 +9,63 @@ const INITIAL = {
     gdprApplicable: false,
 };
 
-export const usePrivacyStore = create(
-    persist(
-        (set, get) => ({
-            privacy: { ...INITIAL },
-            originalPrivacy: { ...INITIAL },
+export const usePrivacyStore = create((set, get) => ({
+    privacy: { ...INITIAL },
+    originalPrivacy: { ...INITIAL },
+    loading: false,
+    error: null,
 
-            updateField: (field, value) =>
-                set((state) => ({
-                    privacy: { ...state.privacy, [field]: value },
-                })),
+    updateField: (field, value) =>
+        set((state) => ({
+            privacy: { ...state.privacy, [field]: value },
+        })),
 
-            savePrivacySettings: () =>
-                set((state) => ({
-                    originalPrivacy: { ...state.privacy },
-                })),
+    fetchPrivacySettings: async () => {
+        set({ loading: true, error: null });
+        try {
+            const data = await complianceService.getSettings();
+            // Map backend gdprEnabled to frontend gdprApplicable
+            const settings = {
+                ...INITIAL,
+                ...data,
+                gdprApplicable: data.gdprEnabled,
+            };
+            set({
+                privacy: settings,
+                originalPrivacy: settings,
+                loading: false
+            });
+        } catch (error) {
+            set({ error: error.message, loading: false });
+        }
+    },
 
-            resetChanges: () =>
-                set((state) => ({
-                    privacy: { ...state.originalPrivacy },
-                })),
+    savePrivacySettings: async () => {
+        set({ loading: true });
+        try {
+            const { privacy } = get();
+            const data = {
+                ...privacy,
+                gdprEnabled: privacy.gdprApplicable,
+            };
+            await complianceService.updateSettings(data);
+            set({
+                originalPrivacy: { ...privacy },
+                loading: false
+            });
+        } catch (error) {
+            set({ error: error.message, loading: false });
+            throw error;
+        }
+    },
 
-            hasChanges: () => {
-                const { privacy, originalPrivacy } = get();
-                return JSON.stringify(privacy) !== JSON.stringify(originalPrivacy);
-            },
-        }),
-        { name: 'privacy-storage' }
-    )
-);
+    resetChanges: () =>
+        set((state) => ({
+            privacy: { ...state.originalPrivacy },
+        })),
+
+    hasChanges: () => {
+        const { privacy, originalPrivacy } = get();
+        return JSON.stringify(privacy) !== JSON.stringify(originalPrivacy);
+    },
+}));

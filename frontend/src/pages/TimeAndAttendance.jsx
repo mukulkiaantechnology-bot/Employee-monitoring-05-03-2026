@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     Bell,
     Calendar,
@@ -14,19 +14,22 @@ import {
     Zap,
     History,
     AlertTriangle,
-    ShieldAlert
+    ShieldAlert,
+    X,
+    Loader
 } from 'lucide-react';
-import { FilterDropdown } from '../components/FilterDropdown';
 import { GlobalCalendar } from '../components/GlobalCalendar';
 import { AddManualTimeModal } from '../components/AddManualTimeModal';
 import { AddTimeOffModal } from '../components/AddTimeOffModal';
 import { ImportTimeOffModal } from '../components/ImportTimeOffModal';
-import { Upload } from 'lucide-react'; // Added Upload for import menu
+import { Upload } from 'lucide-react';
 import { useRealTime } from '../hooks/RealTimeContext';
 import { useShiftLogic, sampleShiftData } from '../hooks/useShiftLogic';
 import { cn } from '../utils/cn';
 import useAttendanceStore from '../store/attendanceStore';
-import { format } from 'date-fns';
+import { useFilterStore } from '../store/filterStore';
+import { format, addDays, startOfWeek, parseISO, isWithinInterval, isSameDay } from 'date-fns';
+import { createPortal } from 'react-dom';
 
 export function TimeAndAttendance() {
     const { employees } = useRealTime();
@@ -37,29 +40,87 @@ export function TimeAndAttendance() {
     const [isAddTimeOffModalOpen, setIsAddTimeOffModalOpen] = useState(false);
     const [isImportTimeOffModalOpen, setIsImportTimeOffModalOpen] = useState(false);
     const [isAddShiftsOpen, setIsAddShiftsOpen] = useState(false);
+    const [isAddShiftModalOpen, setIsAddShiftModalOpen] = useState(false);
     const [generalSearch, setGeneralSearch] = useState('');
     const [scheduleSearch, setScheduleSearch] = useState('');
     const [showShifts, setShowShifts] = useState(true);
     const [showTimeOff, setShowTimeOff] = useState(true);
     const { checkShiftStatus } = useShiftLogic();
 
+    const { dateRange, selectedTeam, selectedEmployee } = useFilterStore();
+
     const {
         timesheets,
         manualTimes,
         shifts,
+        timeOffs,
         loading,
         fetchTimesheets,
         fetchManualTimes,
         fetchShifts,
+        fetchTimeOffs,
+        addShift,
         clockIn,
         clockOut
     } = useAttendanceStore();
 
+    // Re-fetch all data when date range or filters change
     useEffect(() => {
-        fetchTimesheets();
-        fetchManualTimes();
-        fetchShifts();
-    }, [fetchTimesheets, fetchManualTimes, fetchShifts]);
+        const params = {
+            startDate: dateRange?.start,
+            endDate: dateRange?.end,
+            teamId: selectedTeam,
+            employeeId: selectedEmployee
+        };
+        fetchTimesheets(params);
+        fetchManualTimes(params);
+        fetchShifts(params);
+        fetchTimeOffs(params);
+    }, [dateRange, selectedTeam, selectedEmployee, fetchTimesheets, fetchManualTimes, fetchShifts, fetchTimeOffs]);
+
+    // Build the 7-day grid starting from the start of the filter week (or today's week)
+    const gridDays = useMemo(() => {
+        const base = dateRange?.start ? parseISO(dateRange.start) : new Date();
+        const weekStart = startOfWeek(base, { weekStartsOn: 1 }); // Monday
+        return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+    }, [dateRange]);
+
+    // Unique employees who have shifts in current view
+    const scheduleEmployees = useMemo(() => {
+        const empMap = new Map();
+        shifts.forEach(s => {
+            if (!empMap.has(s.employeeId)) empMap.set(s.employeeId, s.employee?.fullName || 'Unknown');
+        });
+        timeOffs.forEach(t => {
+            if (!empMap.has(t.employeeId)) empMap.set(t.employeeId, t.employee?.fullName || 'Unknown');
+        });
+        // Also include all org employees
+        employees.forEach(e => {
+            if (!empMap.has(e.id)) empMap.set(e.id, e.fullName || e.name || 'Unknown');
+        });
+        return Array.from(empMap, ([id, name]) => ({ id, name }));
+    }, [shifts, timeOffs, employees]);
+
+    // Filtered lists for various tabs
+    const filteredEmployees = useMemo(() => {
+        return employees.filter(emp => {
+            const matchesSearch = (emp.fullName || emp.name || '').toLowerCase().includes(generalSearch.toLowerCase());
+            const matchesTeam = !selectedTeam || emp.teamId === selectedTeam;
+            const matchesEmp = !selectedEmployee || emp.id === selectedEmployee;
+            return matchesSearch && matchesTeam && matchesEmp;
+        });
+    }, [employees, generalSearch, selectedTeam, selectedEmployee]);
+
+    const filteredScheduleEmps = useMemo(() => {
+        return scheduleEmployees.filter(emp => {
+            const matchesSearch = emp.name.toLowerCase().includes(scheduleSearch.toLowerCase());
+            const orgEmp = employees.find(e => e.id === emp.id);
+            const matchesTeam = !selectedTeam || orgEmp?.teamId === selectedTeam;
+            const matchesEmp = !selectedEmployee || emp.id === selectedEmployee;
+            return matchesSearch && matchesTeam && matchesEmp;
+        });
+    }, [scheduleEmployees, scheduleSearch, selectedTeam, selectedEmployee, employees]);
+
 
     const handleDownload = () => {
         if (!timesheets.length) return alert('No data to download');
@@ -156,7 +217,9 @@ export function TimeAndAttendance() {
                                 Add Shifts <ChevronDown size={14} className={`transition-transform duration-200 ${isAddShiftsOpen ? 'rotate-180' : ''}`} />
                                 {isAddShiftsOpen && (
                                     <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-100 dark:border-slate-800 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200 text-left">
-                                        <button className="w-full px-4 py-3 flex items-center gap-3 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                        <button className="w-full px-4 py-3 flex items-center gap-3 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                                            onClick={() => { setIsAddShiftModalOpen(true); setIsAddShiftsOpen(false); }}
+                                        >
                                             <Plus size={16} className="text-primary-600" />
                                             <span className="text-xs font-bold normal-case tracking-normal">Add Shift</span>
                                         </button>
@@ -192,7 +255,6 @@ export function TimeAndAttendance() {
             {/* Filter Hub */}
             <div className="flex flex-wrap items-center gap-4 mb-8">
                 <GlobalCalendar />
-                <FilterDropdown />
 
                 <div className="ml-auto flex items-center gap-3">
                     {activeTab !== 'Schedules' && (
@@ -266,17 +328,20 @@ export function TimeAndAttendance() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                            {timesheets.filter(row =>
-                                (row.employee?.fullName?.toLowerCase() ?? '').includes(generalSearch.toLowerCase()) ||
-                                (row.employee?.team?.name?.toLowerCase() ?? '').includes(generalSearch.toLowerCase())
-                            ).map((row, idx) => (
+                            {timesheets.filter(row => {
+                                const matchesSearch = (row.employee?.fullName?.toLowerCase() ?? '').includes(generalSearch.toLowerCase()) ||
+                                    (row.employee?.team?.name?.toLowerCase() ?? '').includes(generalSearch.toLowerCase());
+                                const matchesTeam = !selectedTeam || row.employee?.teamId === selectedTeam;
+                                const matchesEmp = !selectedEmployee || row.employeeId === selectedEmployee;
+                                return matchesSearch && matchesTeam && matchesEmp;
+                            }).map((row, idx) => (
                                 <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
                                     <td className="px-6 py-6">
                                         <div className="flex items-center gap-4">
                                             <div className="h-10 w-10 rounded-full bg-rose-100 flex items-center justify-center text-xs font-black text-rose-600 border border-rose-200">
-                                                {row.employee?.fullName?.split(' ').map(n => n[0]).join('').toUpperCase() || '??'}
+                                                {(row.employee?.fullName || row.employee?.name || '??').split(' ').map(n => n[0]).join('').toUpperCase()}
                                             </div>
-                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{row.employee?.fullName}</span>
+                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{row.employee?.fullName || row.employee?.name || 'Unknown'}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-6 text-xs font-bold text-slate-600 dark:text-slate-400 border-l border-slate-50 dark:border-slate-800">{row.employee?.location || 'Remote'}</td>
@@ -347,34 +412,28 @@ export function TimeAndAttendance() {
                             <thead className="bg-slate-50/50 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800">
                                 <tr>
                                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 w-48">Employee Name</th>
-                                    {Array.from({ length: 7 }).map((_, i) => {
-                                        const date = new Date();
-                                        date.setDate(date.getDate() - (6 - i));
-                                        return (
-                                            <th key={i} className="px-3 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">
-                                                {format(date, 'MMM dd')}
-                                            </th>
-                                        );
-                                    })}
+                                    {gridDays.map((date, i) => (
+                                        <th key={i} className="px-3 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">
+                                            {format(date, 'MMM dd')}
+                                        </th>
+                                    ))}
                                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Total</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                                {employees.map((emp, idx) => {
+                                {filteredEmployees.map((emp, idx) => {
                                     const empTimesheets = timesheets.filter(t => t.employeeId === emp.id);
                                     return (
                                         <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                                             <td className="px-6 py-5">
                                                 <div className="flex items-center gap-3">
                                                     <div className={`h-9 w-9 rounded-full flex items-center justify-center text-xs font-black border border-white bg-blue-100 text-blue-600`}>
-                                                        {emp.fullName?.split(' ').map(n => n[0]).join('').toUpperCase() || '??'}
+                                                        {(emp.fullName || emp.name || '??').split(' ').map(n => n[0]).join('').toUpperCase()}
                                                     </div>
-                                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{emp.fullName}</span>
+                                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{emp.fullName || emp.name || 'Unknown'}</span>
                                                 </div>
                                             </td>
-                                            {Array.from({ length: 7 }).map((_, i) => {
-                                                const date = new Date();
-                                                date.setDate(date.getDate() - (6 - i));
+                                            {gridDays.map((date, i) => {
                                                 const dayStr = format(date, 'yyyy-MM-dd');
                                                 const hasAttended = empTimesheets.some(t => format(new Date(t.date), 'yyyy-MM-dd') === dayStr);
                                                 return (
@@ -386,10 +445,8 @@ export function TimeAndAttendance() {
                                             <td className="px-6 py-5 text-center">
                                                 <span className="text-xs font-black text-slate-700 dark:text-slate-200">
                                                     {empTimesheets.filter(t => {
-                                                        const d = new Date(t.date);
-                                                        const weekAgo = new Date();
-                                                        weekAgo.setDate(weekAgo.getDate() - 7);
-                                                        return d >= weekAgo;
+                                                        const d = format(new Date(t.date), 'yyyy-MM-dd');
+                                                        return gridDays.some(gd => format(gd, 'yyyy-MM-dd') === d);
                                                     }).length}/7
                                                 </span>
                                             </td>
@@ -398,10 +455,24 @@ export function TimeAndAttendance() {
                                 })}
                                 <tr className="bg-slate-50/30 dark:bg-slate-800/20 border-t border-slate-100 dark:border-slate-800">
                                     <td className="px-6 py-4"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Count</span></td>
-                                    {[4, 4, 5, 5, 4, 3, 5].map((n, i) => (
-                                        <td key={i} className="px-3 py-4 text-center text-xs font-black text-slate-700 dark:text-slate-300">{n}</td>
-                                    ))}
-                                    <td className="px-6 py-4 text-center text-xs font-black text-primary-600">30/35</td>
+                                    {gridDays.map((date, i) => {
+                                        const dayStr = format(date, 'yyyy-MM-dd');
+                                        const count = filteredEmployees.filter(emp =>
+                                            timesheets.some(t => t.employeeId === emp.id && format(new Date(t.date), 'yyyy-MM-dd') === dayStr)
+                                        ).length;
+                                        return (
+                                            <td key={i} className="px-3 py-4 text-center text-xs font-black text-slate-700 dark:text-slate-300">{count}</td>
+                                        );
+                                    })}
+                                    <td className="px-6 py-4 text-center text-xs font-black text-primary-600">
+                                        {filteredEmployees.reduce((acc, emp) => {
+                                            const empTimesheets = timesheets.filter(t => t.employeeId === emp.id);
+                                            return acc + empTimesheets.filter(t => {
+                                                const d = format(new Date(t.date), 'yyyy-MM-dd');
+                                                return gridDays.some(gd => format(gd, 'yyyy-MM-dd') === d);
+                                            }).length;
+                                        }, 0)}/{filteredEmployees.length * 7}
+                                    </td>
                                 </tr>
                             </tbody>
                         </table>
@@ -515,14 +586,19 @@ export function TimeAndAttendance() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                            {manualTimes.filter(t => t.employee?.fullName?.toLowerCase().includes(generalSearch.toLowerCase())).map((row, idx) => (
+                            {manualTimes.filter(t => {
+                                const matchesSearch = (t.employee?.fullName || '').toLowerCase().includes(generalSearch.toLowerCase());
+                                const matchesTeam = !selectedTeam || t.employee?.teamId === selectedTeam;
+                                const matchesEmp = !selectedEmployee || t.employeeId === selectedEmployee;
+                                return matchesSearch && matchesTeam && matchesEmp;
+                            }).map((row, idx) => (
                                 <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
                                     <td className="px-6 py-6">
                                         <div className="flex items-center gap-4">
                                             <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-black text-indigo-600 border border-indigo-200">
-                                                {row.employee?.fullName?.split(' ').map(n => n[0]).join('').toUpperCase() || '??'}
+                                                {(row.employee?.fullName || row.employee?.name || '??').split(' ').map(n => n[0]).join('').toUpperCase()}
                                             </div>
-                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{row.employee?.fullName}</span>
+                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{row.employee?.fullName || row.employee?.name || 'Unknown'}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-6 text-xs font-bold text-slate-600 dark:text-slate-400">{row.type || 'Regular'}</td>
@@ -577,54 +653,96 @@ export function TimeAndAttendance() {
                         {scheduleSearch && (
                             <span className="text-[10px] font-bold text-slate-400">Filtering: "{scheduleSearch}"</span>
                         )}
+                        {loading && <span className="text-[10px] text-slate-400 flex items-center gap-1"><Loader size={10} className="animate-spin" /> Loading...</span>}
                     </div>
 
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex min-h-[500px]">
-                        <div className="w-[180px] shrink-0 border-r border-slate-50 dark:border-slate-800 overflow-y-auto">
-                            <div className="p-5 border-b border-slate-50 dark:border-slate-800 font-bold text-slate-400 text-[10px] uppercase tracking-wider">Employee</div>
-                            {shifts.map((s, i) => (
-                                <div key={i} className="p-4 border-b border-slate-50 dark:border-slate-800 flex items-center gap-2.5">
-                                    <div className={`h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-xs font-black bg-primary-100 text-primary-600`}>
-                                        {s.employee?.fullName?.split(' ').map(n => n[0]).join('').toUpperCase() || '??'}
+                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden flex min-h-[400px]">
+                        {/* Employee Column */}
+                        <div className="w-[180px] shrink-0 border-r border-slate-100 dark:border-slate-800">
+                            <div className="p-4 border-b border-slate-50 dark:border-slate-800 font-bold text-slate-400 text-[10px] uppercase tracking-wider bg-slate-50/50 dark:bg-slate-800/30">
+                                Employee
+                            </div>
+                            {filteredScheduleEmps.length === 0 ? (
+                                <div className="p-6 text-center text-slate-400 text-xs font-bold">No employees</div>
+                            ) : filteredScheduleEmps.map((emp) => (
+                                <div key={emp.id} className="p-4 border-b border-slate-50 dark:border-slate-800 flex items-center gap-2.5 min-h-[80px]">
+                                    <div className="h-8 w-8 shrink-0 rounded-full flex items-center justify-center text-[11px] font-black bg-primary-100 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400">
+                                        {emp.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                                     </div>
-                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-300 leading-none truncate">{s.employee?.fullName}</span>
+                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-300 leading-tight truncate">{emp.name}</span>
                                 </div>
                             ))}
                         </div>
+
+                        {/* Day Columns */}
                         <div className="flex-1 overflow-x-auto">
-                            <div className="flex border-b border-slate-50 dark:border-slate-800 min-w-[700px]">
-                                <div className="p-5 border-r border-slate-50 dark:border-slate-800 min-w-[130px] relative">
-                                    <div className="absolute top-0 left-0 w-full h-[2px] bg-primary-500"></div>
-                                    <p className="text-[10px] font-black text-primary-500 uppercase">Thu</p>
-                                    <p className="text-[10px] font-black text-primary-500 uppercase">Feb 26</p>
-                                </div>
-                                {['Fri Feb 27', 'Sat Feb 28', 'Sun Mar 1', 'Mon Mar 2', 'Tue Mar 3', 'Wed Mar 4'].map(d => (
-                                    <div key={d} className="p-5 border-r border-slate-50 dark:border-slate-800 min-w-[130px]">
-                                        <p className="text-[10px] font-bold text-slate-400 uppercase">{d}</p>
-                                    </div>
-                                ))}
-                            </div>
-                            {[
-                                ['08:00–16:00', null, null, '08:00–16:00', '08:00–16:00', null, '08:00–16:00'],
-                                [null, '09:00–17:00', '09:00–17:00', null, '09:00–17:00', '09:00–17:00', null],
-                                ['10:00–18:00', '10:00–18:00', null, '10:00–18:00', null, '10:00–18:00', '10:00–18:00'],
-                            ].map((row, ri) => (
-                                <div key={ri} className="flex border-b border-slate-50 dark:border-slate-800 min-w-[700px]">
-                                    {row.map((shift, ci) => (
-                                        <div key={ci} className="min-w-[130px] min-h-[80px] border-r border-slate-50 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors p-2 flex items-center justify-center">
-                                            {shift && (
-                                                <div className="w-full bg-primary-100 dark:bg-primary-900/30 rounded-lg px-2 py-1.5 text-center">
-                                                    <span className="text-[10px] font-black text-primary-600 dark:text-primary-400">{shift}</span>
-                                                </div>
-                                            )}
+                            {/* Header row */}
+                            <div className="flex border-b border-slate-50 dark:border-slate-800" style={{ minWidth: gridDays.length * 140 }}>
+                                {gridDays.map((day, i) => {
+                                    const isToday = isSameDay(day, new Date());
+                                    return (
+                                        <div key={i} className={`p-4 border-r border-slate-50 dark:border-slate-800 flex-1 min-w-[140px] relative ${isToday ? '' : ''}`}>
+                                            {isToday && <div className="absolute top-0 left-0 w-full h-[2px] bg-primary-500" />}
+                                            <p className={`text-[10px] font-black uppercase ${isToday ? 'text-primary-500' : 'text-slate-400'}`}>
+                                                {format(day, 'EEE')}
+                                            </p>
+                                            <p className={`text-[10px] font-black uppercase ${isToday ? 'text-primary-500' : 'text-slate-400'}`}>
+                                                {format(day, 'MMM d')}
+                                            </p>
                                         </div>
-                                    ))}
+                                    );
+                                })}
+                            </div>
+
+                            {/* Employee rows */}
+                            {filteredScheduleEmps.map((emp) => (
+                                <div key={emp.id} className="flex border-b border-slate-50 dark:border-slate-800 last:border-0" style={{ minWidth: gridDays.length * 140 }}>
+                                    {gridDays.map((day, di) => {
+                                        const dayStr = format(day, 'yyyy-MM-dd');
+                                        // Find shift for this employee on this day
+                                        const shift = showShifts ? shifts.find(s =>
+                                            s.employeeId === emp.id &&
+                                            format(new Date(s.date), 'yyyy-MM-dd') === dayStr
+                                        ) : null;
+                                        // Find time-off spanning this day
+                                        const timeOff = showTimeOff ? timeOffs.find(t =>
+                                            t.employeeId === emp.id &&
+                                            dayStr >= format(new Date(t.startDate), 'yyyy-MM-dd') &&
+                                            dayStr <= format(new Date(t.endDate), 'yyyy-MM-dd')
+                                        ) : null;
+
+                                        return (
+                                            <div key={di} className="flex-1 min-w-[140px] min-h-[80px] border-r border-slate-50 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors p-2 flex flex-col items-center justify-center gap-1">
+                                                {shift && (
+                                                    <div className="w-full bg-primary-100 dark:bg-primary-900/30 rounded-lg px-2 py-1.5 text-center">
+                                                        <span className="text-[10px] font-black text-primary-600 dark:text-primary-400">
+                                                            {shift.startTime}–{shift.endTime}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                                {timeOff && (
+                                                    <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-lg px-2 py-1.5 text-center">
+                                                        <span className="text-[10px] font-black text-slate-500 dark:text-slate-400">
+                                                            {timeOff.timeOffType || 'Time Off'}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             ))}
+
+                            {filteredScheduleEmps.length === 0 && (
+                                <div className="flex items-center justify-center h-48 text-slate-400 font-bold text-sm">
+                                    No schedule data for this date range
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
             )}
+
             {/* Modals */}
             <AddManualTimeModal
                 isOpen={isManualTimeModalOpen}
@@ -642,11 +760,104 @@ export function TimeAndAttendance() {
             <AddTimeOffModal
                 isOpen={isAddTimeOffModalOpen}
                 onClose={() => setIsAddTimeOffModalOpen(false)}
+                onSave={() => {
+                    // Refresh time-offs after saving
+                    if (dateRange?.start && dateRange?.end) {
+                        fetchTimeOffs({ startDate: dateRange.start, endDate: dateRange.end });
+                    } else {
+                        fetchTimeOffs();
+                    }
+                }}
             />
             <ImportTimeOffModal
                 isOpen={isImportTimeOffModalOpen}
                 onClose={() => setIsImportTimeOffModalOpen(false)}
             />
+
+            {/* Add Shift Modal */}
+            {isAddShiftModalOpen && <AddShiftModal
+                employees={employees}
+                onClose={() => setIsAddShiftModalOpen(false)}
+                onSave={async (data) => {
+                    try {
+                        await addShift(data);
+                        setIsAddShiftModalOpen(false);
+                        // Refresh
+                        if (dateRange?.start && dateRange?.end) {
+                            fetchShifts({ startDate: dateRange.start, endDate: dateRange.end });
+                        } else {
+                            fetchShifts();
+                        }
+                    } catch (err) {
+                        alert('Failed to add shift: ' + err.message);
+                    }
+                }}
+            />}
         </div>
     );
 }
+
+// ─── Add Shift Modal ──────────────────────────────────────────────────────────
+function AddShiftModal({ employees, onClose, onSave }) {
+    const [form, setForm] = useState({
+        employeeId: '',
+        date: new Date().toISOString().split('T')[0],
+        startTime: '09:00',
+        endTime: '17:00',
+    });
+    const [saving, setSaving] = useState(false);
+
+    const handleSave = async () => {
+        if (!form.employeeId) { alert('Please select an employee'); return; }
+        setSaving(true);
+        try { await onSave(form); }
+        finally { setSaving(false); }
+    };
+
+    return createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+            <div className="bg-white rounded-2xl w-full max-w-[420px] shadow-2xl border border-slate-200">
+                <div className="flex items-center justify-between p-6 border-b border-slate-100">
+                    <h3 className="text-lg font-black text-slate-700">Add Shift</h3>
+                    <button onClick={onClose}><X size={22} className="text-slate-400 hover:text-slate-600" /></button>
+                </div>
+                <div className="p-6 space-y-4">
+                    <div>
+                        <label className="text-sm font-bold text-slate-700 block mb-1.5">Employee</label>
+                        <select value={form.employeeId} onChange={e => setForm(f => ({ ...f, employeeId: e.target.value }))}
+                            className="w-full h-11 pl-4 pr-10 rounded-lg border-2 border-slate-100 bg-white text-slate-600 font-medium appearance-none focus:border-primary-500 outline-none text-sm">
+                            <option value="">Select employee...</option>
+                            {employees.map(e => <option key={e.id} value={e.id}>{e.fullName || e.name}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-sm font-bold text-slate-700 block mb-1.5">Date</label>
+                        <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                            className="w-full h-11 px-4 rounded-lg border-2 border-slate-100 bg-white text-slate-700 font-medium focus:border-primary-500 outline-none text-sm" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="text-sm font-bold text-slate-700 block mb-1.5">Start Time</label>
+                            <input type="time" value={form.startTime} onChange={e => setForm(f => ({ ...f, startTime: e.target.value }))}
+                                className="w-full h-11 px-4 rounded-lg border-2 border-slate-100 bg-white text-slate-700 font-medium focus:border-primary-500 outline-none text-sm" />
+                        </div>
+                        <div>
+                            <label className="text-sm font-bold text-slate-700 block mb-1.5">End Time</label>
+                            <input type="time" value={form.endTime} onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))}
+                                className="w-full h-11 px-4 rounded-lg border-2 border-slate-100 bg-white text-slate-700 font-medium focus:border-primary-500 outline-none text-sm" />
+                        </div>
+                    </div>
+                </div>
+                <div className="p-5 border-t border-slate-100 flex justify-end gap-3">
+                    <button onClick={onClose} className="px-5 py-2.5 rounded-lg border border-primary-200 text-primary-600 font-black text-xs uppercase tracking-wider hover:bg-primary-50 transition-all">Cancel</button>
+                    <button onClick={handleSave} disabled={saving}
+                        className="px-5 py-2.5 rounded-lg bg-primary-600 text-white font-black text-xs uppercase tracking-wider hover:bg-primary-700 transition-all shadow-lg shadow-primary-200 disabled:opacity-50 flex items-center gap-2">
+                        {saving && <Loader size={13} className="animate-spin" />} Save Shift
+                    </button>
+                </div>
+            </div>
+        </div>,
+        document.body
+    );
+}
+

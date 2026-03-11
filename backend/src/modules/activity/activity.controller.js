@@ -111,7 +111,7 @@ const activityController = {
     getOrganizationSummary: async (req, res) => {
         try {
             const organizationId = req.user.organizationId;
-            const { startDate, endDate } = req.query;
+            const { startDate, endDate, teamId, employeeId } = req.query;
 
             if (!organizationId) {
                 console.warn('[ActivityController] Missing organizationId in request user');
@@ -119,7 +119,7 @@ const activityController = {
                 return successResponse(res, [], 'No organization activity found');
             }
 
-            const summary = await activityService.getOrganizationSummary(organizationId, startDate, endDate);
+            const summary = await activityService.getOrganizationSummary(organizationId, startDate, endDate, { teamId, employeeId });
             return successResponse(res, summary, 'Organization summary fetched successfully');
         } catch (error) {
             console.error('[ActivityController] Summary Error:', error);

@@ -67,7 +67,7 @@ const attendanceController = {
             const organizationId = await getOrganizationId(req);
             const { role, employeeId } = req.user;
             
-            let filters = { organizationId };
+            let filters = { ...req.query, organizationId };
             if (role === 'EMPLOYEE') {
                 filters.employeeId = employeeId;
             }
@@ -83,14 +83,13 @@ const attendanceController = {
         try {
             const organizationId = await getOrganizationId(req);
             const { role, employeeId: currentEmployeeId } = req.user;
-            
-            // If employee, they can only see their own shifts
-            let employeeId = req.query.employeeId;
+
+            const filters = { ...req.query };
             if (role === 'EMPLOYEE') {
-                employeeId = currentEmployeeId;
+                filters.employeeId = currentEmployeeId;
             }
 
-            const shifts = await attendanceService.getShifts(organizationId, employeeId);
+            const shifts = await attendanceService.getShifts(organizationId, filters);
             return successResponse(res, shifts, 'Shifts fetched successfully');
         } catch (error) {
             return errorResponse(res, error.message);
@@ -103,6 +102,34 @@ const attendanceController = {
             const data = { ...req.body, organizationId };
             const shift = await attendanceService.createShift(data);
             return successResponse(res, shift, 'Shift scheduled successfully');
+        } catch (error) {
+            return errorResponse(res, error.message);
+        }
+    },
+
+    createTimeOff: async (req, res) => {
+        try {
+            const organizationId = await getOrganizationId(req);
+            const data = { ...req.body, organizationId };
+            const timeOff = await attendanceService.createTimeOff(data);
+            return successResponse(res, timeOff, 'Time off added successfully');
+        } catch (error) {
+            return errorResponse(res, error.message);
+        }
+    },
+
+    getTimeOffs: async (req, res) => {
+        try {
+            const organizationId = await getOrganizationId(req);
+            const { role, employeeId: currentEmployeeId } = req.user;
+
+            const filters = { ...req.query };
+            if (role === 'EMPLOYEE') {
+                filters.employeeId = currentEmployeeId;
+            }
+
+            const timeOffs = await attendanceService.getTimeOffs(organizationId, filters);
+            return successResponse(res, timeOffs, 'Time offs fetched successfully');
         } catch (error) {
             return errorResponse(res, error.message);
         }

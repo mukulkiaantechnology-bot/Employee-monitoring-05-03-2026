@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { NavLink, useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { ChevronLeft, ShieldCheck } from 'lucide-react';
 import { usePrivacyStore } from '../../store/privacyStore';
+import { useAuthStore } from '../../store/authStore';
 import { cn } from '../../utils/cn';
 
 const TABS = [
-    // { id: 'overview', label: 'Overview', route: '/settings/privacy/overview' },
-    // { id: 'compliance', label: 'Compliance', route: '/settings/privacy/compliance' },
+    { id: 'overview', label: 'Overview', route: 'overview' },
+    { id: 'compliance', label: 'Compliance', route: 'compliance' },
 ];
 
 // Mini toast
@@ -23,16 +24,23 @@ function Toast({ show, message }) {
 export function Privacy() {
     const navigate = useNavigate();
     const location = useLocation();
-    const { privacy, savePrivacySettings, resetChanges, hasChanges } = usePrivacyStore();
-    const [toast, setToast] = useState({ show: false, message: '' });
+    const { privacy, fetchPrivacySettings, savePrivacySettings, resetChanges, hasChanges, loading } = usePrivacyStore();
+    const { role } = useAuthStore();
+    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
     const [errors, setErrors] = useState({});
+
+    const rolePath = role?.toLowerCase() === 'admin' ? '/admin' : '/manager';
+
+    React.useEffect(() => {
+        fetchPrivacySettings();
+    }, [fetchPrivacySettings]);
 
     const isDirty = hasChanges();
     const isComplianceTab = location.pathname.includes('compliance');
 
-    const showToast = (msg) => {
-        setToast({ show: true, message: msg });
-        setTimeout(() => setToast({ show: false, message: '' }), 3000);
+    const showToast = (msg, type = 'success') => {
+        setToast({ show: true, message: msg, type });
+        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
     };
 
     const validate = () => {
@@ -43,15 +51,19 @@ export function Privacy() {
         return errs;
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         const errs = validate();
         if (Object.keys(errs).length) {
             setErrors(errs);
             return;
         }
-        savePrivacySettings();
-        showToast('Privacy settings saved successfully!');
-        setErrors({});
+        try {
+            await savePrivacySettings();
+            showToast('Privacy settings saved successfully!');
+            setErrors({});
+        } catch (err) {
+            showToast('Failed to save privacy settings.', 'error');
+        }
     };
 
     return (
@@ -59,14 +71,14 @@ export function Privacy() {
             {/* Header */}
             <div className="flex items-center gap-4 pt-8 pb-4">
                 <button
-                    onClick={() => navigate('/settings')}
+                    onClick={() => navigate(`${rolePath}/settings`)}
                     className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:scale-105 shadow-sm"
                 >
                     <ChevronLeft size={20} />
                 </button>
                 <div>
                     <nav className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                        <span className="hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer transition-colors" onClick={() => navigate('/settings')}>
+                        <span className="hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer transition-colors" onClick={() => navigate(`${rolePath}/settings`)}>
                             Settings
                         </span>
                         <span>/</span>
@@ -131,7 +143,7 @@ export function Privacy() {
                 </button>
             </div>
 
-            <Toast show={toast.show} message={toast.message} />
+            <Toast show={toast.show} message={toast.message} type={toast.type} />
         </div>
     );
 }

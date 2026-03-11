@@ -135,13 +135,13 @@ export function Settings() {
         { icon: Puzzle, title: "Integrations", description: "View and configure your Insightful integrations.", path: "/settings/integrations" },
         // { icon: Clock, title: "Manual Time", description: "Manage manual time settings like notifications, types, etc.", path: "/settings/manual-time" },
         { icon: Building, title: "Organization", description: "View and update basic info about your company.", path: "/settings/organization" },
-        { icon: Shield, title: "Privacy", description: "View and change privacy-related settings on an organizational level.", path: "/settings/privacy" },
+        // { icon: Shield, title: "Privacy", description: "View and change privacy-related settings on an organizational level.", path: "/settings/privacy" },
         { icon: LineChart, title: "Productivity", description: "Manage your productivity labels on an organization, team and individual level.", path: "/settings/productivity/apps" },
         { icon: PieChart, title: "Reports", description: "View and manage office locations and workload in your organization.", path: "/settings/reports/workload-distribution" },
-        { icon: Shield, title: "Security and Identity", description: "View and configure security-related settings like authentication and SSO.", path: "/settings/security" },
+        // { icon: Shield, title: "Security and Identity", description: "View and configure security-related settings like authentication and SSO.", path: "/settings/security" },
         { icon: Laptop, title: "Tracking Settings", description: "View and configure Insightful Agent settings.", path: "/settings/tracking" },
         // { icon: Users, title: "User Management", description: "View and manage user roles in your organization.", path: "/settings/user-management/users" },
-        { icon: Calculator, title: "Utilization", description: "View and manage utilization calculation on organizational level.", path: "/settings/utilization" },
+        // { icon: Calculator, title: "Utilization", description: "View and manage utilization calculation on organizational level.", path: "/settings/utilization" },
     ];
 
     const settingItems = settingItemsData.map(item => ({

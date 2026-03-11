@@ -68,7 +68,7 @@ export function TrackingTable({ profiles, search, onEdit, onDelete, onSetDefault
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <span className="text-sm font-black text-slate-900 dark:text-white">{p.title}</span>
-                                        {p.default && (
+                                        {p.isDefault && (
                                             <span className="flex items-center gap-1 text-[10px] font-black text-violet-600 dark:text-violet-400">
                                                 <span className="h-1.5 w-1.5 rounded-full bg-violet-600" />Default
                                             </span>
@@ -118,7 +118,7 @@ export function TrackingTable({ profiles, search, onEdit, onDelete, onSetDefault
                             <td className="px-6 py-5 text-right">
                                 <ActionMenu
                                     profileId={p.id}
-                                    isDefault={p.default}
+                                    isDefault={p.isDefault}
                                     onEdit={onEdit}
                                     onDelete={onDelete}
                                     onSetDefault={onSetDefault}

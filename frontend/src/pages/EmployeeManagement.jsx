@@ -34,7 +34,6 @@ import { useTeamStore } from '../store/teamStore';
 import { useAuthStore } from '../store/authStore';
 import { useRealTime } from '../hooks/RealTimeContext';
 import { AddEmployeeModal } from '../components/AddEmployeeModal';
-import { GlobalCalendar } from '../components/GlobalCalendar';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -1149,10 +1148,6 @@ export function EmployeeManagement() {
                 {/* Filter Bar */}
                 <div className="p-4 md:p-6 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-950">
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                        <div className="flex-none">
-                            <GlobalCalendar />
-                        </div>
-
                         <div className="relative flex-1 group">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" size={16} />
                             <input

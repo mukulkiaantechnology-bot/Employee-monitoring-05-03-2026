@@ -1,21 +1,28 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Settings2, Search, Plus, SlidersHorizontal, Zap, Lightbulb, X } from 'lucide-react';
+import { ChevronLeft, Settings2, Search, Plus, Zap, Lightbulb, X, Loader2 } from 'lucide-react';
 import { useProductivityStore } from '../../store/productivityStore';
 import { AppsTable } from '../../components/productivity/AppsTable';
 import { TagsDrawer } from '../../components/productivity/TagsDrawer';
 import { ToggleSwitch } from '../../components/ui/ToggleSwitch';
 import { cn } from '../../utils/cn';
+import { useAuthStore } from '../../store/authStore';
 
 const ORGS = ['Organization', 'Team A', 'Team B'];
 const VIEW_OPTIONS = ['All apps & websites', 'Productive only', 'Unproductive only', 'Unassigned'];
 
 // ── Mini Toast ────────────────────────────────────────────────────────────────
-function Toast({ show, message }) {
+function Toast({ show, message, type = 'success' }) {
     if (!show) return null;
     return (
-        <div className="fixed bottom-8 right-8 z-[300] px-6 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl shadow-2xl font-bold text-sm animate-in slide-in-from-bottom-4 fade-in duration-300 flex items-center gap-3">
-            <span className="text-emerald-400 dark:text-emerald-600">✓</span>{message}
+        <div className={cn(
+            "fixed bottom-8 right-8 z-[300] px-6 py-4 rounded-2xl shadow-2xl font-bold text-sm animate-in slide-in-from-bottom-4 fade-in duration-300 flex items-center gap-3",
+            type === 'success' ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900" : "bg-rose-600 text-white"
+        )}>
+            <span className={type === 'success' ? "text-emerald-400 dark:text-emerald-600" : "text-white"}>
+                {type === 'success' ? '✓' : '✕'}
+            </span>
+            {message}
         </div>
     );
 }
@@ -60,13 +67,13 @@ function TagChangePopover({ app, tags, onSelect, onClose }) {
     return (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-sm" onClick={onClose}>
             <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 p-4 w-64 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Assign Label to <strong className="text-slate-700 dark:text-slate-200">{app?.name}</strong></p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Assign Label to <strong className="text-slate-700 dark:text-slate-200">{app?.appName || app?.name}</strong></p>
                 <div className="space-y-1.5">
-                    <button onClick={() => { onSelect(app.id, null); onClose(); }} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-semibold text-slate-500 dark:text-slate-400 transition-all">
+                    <button onClick={() => { onSelect(app.id || app.appName, null); onClose(); }} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-semibold text-slate-500 dark:text-slate-400 transition-all">
                         <span className="h-3 w-3 rounded-full bg-slate-200 dark:bg-slate-700" /> Unassigned
                     </button>
                     {tags.map((t) => (
-                        <button key={t.id} onClick={() => { onSelect(app.id, t.id); onClose(); }}
+                        <button key={t.id} onClick={() => { onSelect(app.id || app.appName, t.id); onClose(); }}
                             className="w-full flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-bold transition-all"
                             style={{ color: t.color }}
                         >
@@ -84,24 +91,31 @@ function TagChangePopover({ app, tags, onSelect, onClose }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export function ProductivityApps() {
     const navigate = useNavigate();
+    const { user } = useAuthStore();
+    const rolePath = user?.role === 'ADMIN' ? '/admin' : '/manager';
+
     const {
-        apps, filters, tags,
-        updateFilter, toggleThreshold, toggleSelectApp, toggleSelectAll, setAppTag, autoLabel,
+        apps, filters, tags, loading, error,
+        fetchProductivityData, updateFilter, toggleThreshold, toggleSelectApp, toggleSelectAll, setAppTag, autoLabel,
     } = useProductivityStore();
 
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [recommendOpen, setRecommendOpen] = useState(false);
     const [activeSubTab, setActiveSubTab] = useState('apps');
-    const [tagChangeFor, setTagChangeFor] = useState(null); // app object
-    const [toast, setToast] = useState({ show: false, message: '' });
+    const [tagChangeFor, setTagChangeFor] = useState(null); // id or appName
+    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
-    const showToast = (msg) => {
-        setToast({ show: true, message: msg });
-        setTimeout(() => setToast({ show: false, message: '' }), 3000);
+    useEffect(() => {
+        fetchProductivityData();
+    }, []);
+
+    const showToast = (msg, type = 'success') => {
+        setToast({ show: true, message: msg, type });
+        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
     };
 
-    const handleAutoLabel = () => {
-        autoLabel();
+    const handleAutoLabel = async () => {
+        await autoLabel();
         showToast('Auto-labeling applied based on app keywords!');
     };
 
@@ -110,7 +124,7 @@ export function ProductivityApps() {
         let result = [...apps];
         // Search
         if (filters.search.trim()) {
-            result = result.filter((a) => a.name.toLowerCase().includes(filters.search.toLowerCase()));
+            result = result.filter((a) => (a.appName || a.name || '').toLowerCase().includes(filters.search.toLowerCase()));
         }
         // View
         if (filters.view === 'Productive only') result = result.filter((a) => a.tagId !== null);
@@ -122,19 +136,27 @@ export function ProductivityApps() {
         return result;
     }, [apps, filters, tags]);
 
-    const tagChangeApp = tagChangeFor ? apps.find((a) => a.id === tagChangeFor) : null;
+    const tagChangeApp = tagChangeFor ? apps.find((a) => (a.id || a.appName) === tagChangeFor) : null;
+
+    if (loading && apps.length === 0) {
+        return (
+            <div className="flex h-[400px] items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-[1300px] mx-auto px-4 sm:px-6 lg:px-8 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Header */}
             <div className="flex items-center justify-between pt-8 pb-5">
                 <div className="flex items-center gap-4">
-                    <button onClick={() => navigate('/settings')} className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:scale-105 shadow-sm">
+                    <button onClick={() => navigate(`${rolePath}/settings`)} className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:scale-105 shadow-sm">
                         <ChevronLeft size={20} />
                     </button>
                     <div>
                         <nav className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                            <span className="hover:text-slate-600 cursor-pointer transition-colors dark:hover:text-slate-300" onClick={() => navigate('/settings')}>Settings</span>
+                            <span className="hover:text-slate-600 cursor-pointer transition-colors dark:hover:text-slate-300" onClick={() => navigate(`${rolePath}/settings`)}>Settings</span>
                             <span>/</span>
                             <span className="text-violet-600">Productivity</span>
                         </nav>
@@ -152,10 +174,10 @@ export function ProductivityApps() {
 
                 {/* Top right ghost buttons */}
                 <div className="flex items-center gap-2">
-                    <button onClick={handleAutoLabel} className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-xs font-black text-slate-600 dark:text-slate-300 hover:border-violet-400 hover:text-violet-600 transition-all">
+                    <button onClick={handleAutoLabel} className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-xs font-black text-slate-600 dark:text-slate-300 hover:border-violet-400 hover:text-violet-600 transition-all shadow-sm active:scale-95">
                         <Zap size={14} /> Auto-Labeling
                     </button>
-                    <button onClick={() => setRecommendOpen(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-xs font-black text-slate-600 dark:text-slate-300 hover:border-violet-400 hover:text-violet-600 transition-all">
+                    <button onClick={() => setRecommendOpen(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-xs font-black text-slate-600 dark:text-slate-300 hover:border-violet-400 hover:text-violet-600 transition-all shadow-sm active:scale-95">
                         <Lightbulb size={14} /> Recommendations
                     </button>
                 </div>
@@ -188,13 +210,13 @@ export function ProductivityApps() {
                 <>
                     {/* Controls row 1 */}
                     <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
-                        <p className="text-xs font-semibold text-violet-600 dark:text-violet-400 underline cursor-pointer">
+                        <p className="text-xs font-semibold text-violet-600 dark:text-violet-400 underline cursor-pointer hover:opacity-80 transition-opacity">
                             Edit privacy settings on team level
                         </p>
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={() => setDrawerOpen(true)}
-                                className="flex items-center gap-2 h-9 px-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-xs font-black text-slate-600 dark:text-slate-300 hover:border-violet-400 hover:text-violet-600 transition-all whitespace-nowrap"
+                                className="flex items-center gap-2 h-9 px-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 text-xs font-black text-slate-600 dark:text-slate-300 hover:border-violet-400 hover:text-violet-600 transition-all whitespace-nowrap shadow-sm"
                             >
                                 <Settings2 size={14} /> Tags Settings
                             </button>
@@ -218,7 +240,7 @@ export function ProductivityApps() {
                             <select
                                 value={filters.organization}
                                 onChange={(e) => updateFilter('organization', e.target.value)}
-                                className="h-9 pl-4 pr-8 rounded-xl border-2 border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-900/10 text-xs font-black text-violet-700 dark:text-violet-400 outline-none appearance-none cursor-pointer transition-all"
+                                className="h-9 pl-4 pr-8 rounded-xl border-2 border-violet-200 dark:border-violet-800 bg-violet-50 dark:bg-violet-900/10 text-xs font-black text-violet-700 dark:text-violet-400 outline-none appearance-none cursor-pointer transition-all hover:bg-violet-100/50"
                             >
                                 {ORGS.map((o) => <option key={o}>{o}</option>)}
                             </select>
@@ -232,13 +254,17 @@ export function ProductivityApps() {
                                 onChange={(e) => updateFilter('view', e.target.value)}
                                 className="h-9 pl-4 pr-8 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-600 dark:text-slate-300 outline-none appearance-none cursor-pointer transition-all hover:border-violet-300"
                             >
-                                {VIEW_OPTIONS.map((o) => <option key={o}>{o} ({o === 'All apps & websites' ? apps.length : filteredApps.length})</option>)}
+                                {VIEW_OPTIONS.map((o) => (
+                                    <option key={o}>
+                                        {o} ({o === 'All apps & websites' ? apps.length : filteredApps.length})
+                                    </option>
+                                ))}
                             </select>
                             <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9" /></svg>
                         </div>
 
                         {/* Threshold toggle */}
-                        <div className="flex items-center gap-2 px-3 h-9 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                        <div className="flex items-center gap-2 px-3 h-9 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
                             <ToggleSwitch
                                 checked={filters.thresholdEnabled}
                                 onChange={toggleThreshold}
@@ -269,15 +295,21 @@ export function ProductivityApps() {
 
                     {/* Table card */}
                     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden ring-1 ring-slate-200/50 dark:ring-slate-800/50">
-                        <AppsTable
-                            apps={filteredApps}
-                            tags={tags}
-                            onSelectAll={toggleSelectAll}
-                            onSelectApp={toggleSelectApp}
-                            onChangeTag={(id) => setTagChangeFor(id)}
-                            thresholdEnabled={filters.thresholdEnabled}
-                            thresholdHours={filters.thresholdHours}
-                        />
+                        {apps.length === 0 ? (
+                            <div className="p-20 text-center">
+                                <p className="text-slate-400 font-bold">No app usage data found for this period.</p>
+                            </div>
+                        ) : (
+                            <AppsTable
+                                apps={filteredApps}
+                                tags={tags}
+                                onSelectAll={toggleSelectAll}
+                                onSelectApp={toggleSelectApp}
+                                onChangeTag={(id) => setTagChangeFor(id)}
+                                thresholdEnabled={filters.thresholdEnabled}
+                                thresholdHours={filters.thresholdHours}
+                            />
+                        )}
                     </div>
                 </>
             ) : (
@@ -294,7 +326,7 @@ export function ProductivityApps() {
                                 { name: 'Neutral', desc: 'Tools that are neither strictly work nor distraction.', color: 'text-slate-600 bg-slate-50 dark:bg-slate-800/50' },
                                 { name: 'Unproductive', desc: 'Social media, entertainment, and non-work sites.', color: 'text-rose-600 bg-rose-50 dark:bg-rose-900/20' }
                             ].map(label => (
-                                <div key={label.name} className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-violet-200 dark:hover:border-violet-800 transition-all group">
+                                <div key={label.name} className="flex items-center justify-between p-5 rounded-2xl border border-slate-100 dark:border-slate-800 hover:border-violet-200 dark:hover:border-violet-800 transition-all group shadow-sm active:scale-[0.99]">
                                     <div className="flex items-center gap-4">
                                         <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center font-black text-xs", label.color)}>
                                             {label.name[0]}
@@ -337,7 +369,7 @@ export function ProductivityApps() {
                 />
             )}
 
-            <Toast show={toast.show} message={toast.message} />
+            <Toast show={toast.show} message={toast.message} type={toast.type} />
         </div>
     );
 }

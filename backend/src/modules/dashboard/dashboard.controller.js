@@ -3,10 +3,11 @@ const dashboardService = require('./dashboard.service');
 const getAdminDashboard = async (req, res) => {
   try {
     const { organizationId } = req.user;
+    const { startDate, endDate } = req.query;
     if (req.user.role !== 'ADMIN') {
       return res.status(403).json({ message: 'Forbidden: Admin access required' });
     }
-    const data = await dashboardService.getAdminDashboard(organizationId);
+    const data = await dashboardService.getAdminDashboard(organizationId, startDate, endDate);
     res.json(data);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -16,6 +17,7 @@ const getAdminDashboard = async (req, res) => {
 const getManagerDashboard = async (req, res) => {
   try {
     const { organizationId, employeeId } = req.user;
+    const { startDate, endDate } = req.query;
     if (req.user.role !== 'MANAGER') {
       return res.status(403).json({ message: 'Forbidden: Manager access required' });
     }
@@ -32,7 +34,7 @@ const getManagerDashboard = async (req, res) => {
       return res.status(404).json({ message: 'Manager team not found' });
     }
 
-    const data = await dashboardService.getManagerDashboard(organizationId, employee.teamId);
+    const data = await dashboardService.getManagerDashboard(organizationId, employee.teamId, startDate, endDate);
     res.json(data);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -42,7 +44,8 @@ const getManagerDashboard = async (req, res) => {
 const getEmployeeDashboard = async (req, res) => {
   try {
     const { organizationId, employeeId } = req.user;
-    const data = await dashboardService.getEmployeeDashboard(organizationId, employeeId);
+    const { startDate, endDate } = req.query;
+    const data = await dashboardService.getEmployeeDashboard(organizationId, employeeId, startDate, endDate);
     res.json(data);
   } catch (error) {
     res.status(500).json({ message: error.message });

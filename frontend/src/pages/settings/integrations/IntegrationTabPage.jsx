@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { useIntegrationStore, INTEGRATION_META } from '../../../store/integrationStore';
 import { IntegrationCardFull } from '../../../components/integrations/IntegrationCard';
@@ -28,8 +29,11 @@ function Toast({ show, message, type = 'success' }) {
  *   searchQuery   – from parent IntegrationsLayout
  *   disabled      – feature-gated
  */
-export function IntegrationTabPage({ integrationKeys, searchQuery, disabled = false }) {
+export function IntegrationTabPage({ integrationKeys, searchQuery: propSearchQuery, disabled = false }) {
     const { integrations, connectIntegration, disconnectIntegration } = useIntegrationStore();
+    const outletContext = useOutletContext();
+    const searchQuery = propSearchQuery || outletContext?.searchQuery || '';
+
     const [configuringId, setConfiguringId] = useState(null);
     const [disconnectingId, setDisconnectingId] = useState(null);
     const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -41,7 +45,9 @@ export function IntegrationTabPage({ integrationKeys, searchQuery, disabled = fa
 
     const filtered = integrationKeys.filter((id) => {
         const meta = INTEGRATION_META[id];
-        return meta?.name.toLowerCase().includes(searchQuery.toLowerCase());
+        if (!meta) return false;
+        const name = meta.name || '';
+        return name.toLowerCase().includes(searchQuery.toLowerCase());
     });
 
     const regular = filtered.filter((id) => !INTEGRATION_META[id]?.beta);

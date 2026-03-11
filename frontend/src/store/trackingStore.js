@@ -1,67 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-
-const makeId = () => Math.random().toString(36).slice(2, 9);
-
-const DEFAULT_PROFILE = {
-    id: makeId(),
-    title: 'Company Computers',
-    computerType: 'company', // company | personal
-    default: true,
-    visibility: 'stealth', // visible | stealth
-    screenshotsPerHour: 0,
-    allowAccessScreenshots: false,
-    allowRemoveScreenshots: false,
-    breakTime: 0, // minutes
-    allowOverBreak: false,
-    allowNewBreaks: false,
-    idleTime: 2, // minutes
-    trackingScenario: 'unlimited', // unlimited | fixed | network | vpn | manual | project
-    workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-    trackTasks: false,
-    allowAddTasks: false,
-    permissions: {
-        canAnalyze: false,
-        canSeeApps: false,
-        canAddManual: false,
-    },
-};
-
-const PERSONAL_PROFILE = {
-    id: makeId(),
-    title: 'Personal Computers',
-    computerType: 'personal',
-    default: false,
-    visibility: 'visible',
-    screenshotsPerHour: 0,
-    allowAccessScreenshots: false,
-    allowRemoveScreenshots: false,
-    breakTime: 0,
-    allowOverBreak: false,
-    allowNewBreaks: false,
-    idleTime: 2,
-    trackingScenario: 'manual',
-    workingDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'],
-    trackTasks: true,
-    allowAddTasks: false,
-    permissions: {
-        canAnalyze: false,
-        canSeeApps: false,
-        canAddManual: false,
-    },
-};
-
-const INITIAL_ADVANCED = {
-    shiftThreshold: 4,
-    strictTime: false,
-    inactivityPopups: true,
-    identificationMode: 'hwid', // hwid | computer-user | computer
-    showEngagement: false,
-    useActiveDirectory: true,
-    adEmail: true,
-    adTeam: true,
-    adTrackingSettings: false,
-};
+import trackingService from '../services/trackingService';
 
 export const TRACKING_SCENARIOS = [
     { id: 'unlimited', label: 'Unlimited', desc: 'Track activities constantly' },
@@ -100,42 +38,83 @@ export const SHIFT_THRESHOLD_OPTIONS = Array.from({ length: 12 }, (_, i) => ({
     label: `${i + 1} hour${i + 1 !== 1 ? 's' : ''}`,
 }));
 
-export const useTrackingStore = create(
-    persist(
-        (set, get) => ({
-            trackingProfiles: [DEFAULT_PROFILE, PERSONAL_PROFILE],
-            advancedSettings: INITIAL_ADVANCED,
+export const useTrackingStore = create((set, get) => ({
+    trackingProfiles: [],
+    advancedSettings: null,
+    isLoading: false,
+    error: null,
 
-            createProfile: (profile) =>
-                set((s) => ({
-                    trackingProfiles: [...s.trackingProfiles, { ...profile, id: makeId(), default: false }],
-                })),
+    fetchTrackingData: async () => {
+        set({ isLoading: true, error: null });
+        try {
+            const [profiles, advanced] = await Promise.all([
+                trackingService.getProfiles(),
+                trackingService.getAdvancedSettings()
+            ]);
+            set({ trackingProfiles: profiles, advancedSettings: advanced, isLoading: false });
+        } catch (error) {
+            set({ error: error.message, isLoading: false });
+        }
+    },
 
-            updateProfile: (id, updates) =>
-                set((s) => ({
-                    trackingProfiles: s.trackingProfiles.map((p) =>
-                        p.id === id ? { ...p, ...updates } : p
-                    ),
-                })),
+    createProfile: async (profile) => {
+        try {
+            const newProfile = await trackingService.createProfile(profile);
+            set((s) => ({
+                trackingProfiles: [...s.trackingProfiles, newProfile],
+            }));
+            return newProfile;
+        } catch (error) {
+            throw error;
+        }
+    },
 
-            deleteProfile: (id) =>
-                set((s) => ({
-                    trackingProfiles: s.trackingProfiles.filter((p) => p.id !== id),
-                })),
+    updateProfile: async (id, updates) => {
+        try {
+            const updatedProfile = await trackingService.updateProfile(id, updates);
+            set((s) => ({
+                trackingProfiles: s.trackingProfiles.map((p) =>
+                    p.id === id ? updatedProfile : (updates.isDefault ? { ...p, isDefault: false } : p)
+                ),
+            }));
+            return updatedProfile;
+        } catch (error) {
+            throw error;
+        }
+    },
 
-            setDefaultProfile: (id) =>
-                set((s) => ({
-                    trackingProfiles: s.trackingProfiles.map((p) => ({
-                        ...p,
-                        default: p.id === id,
-                    })),
-                })),
+    deleteProfile: async (id) => {
+        try {
+            await trackingService.deleteProfile(id);
+            set((s) => ({
+                trackingProfiles: s.trackingProfiles.filter((p) => p.id !== id),
+            }));
+        } catch (error) {
+            throw error;
+        }
+    },
 
-            updateAdvancedSettings: (updates) =>
-                set((s) => ({
-                    advancedSettings: { ...s.advancedSettings, ...updates },
+    setDefaultProfile: async (id) => {
+        try {
+            await trackingService.updateProfile(id, { isDefault: true });
+            set((s) => ({
+                trackingProfiles: s.trackingProfiles.map((p) => ({
+                    ...p,
+                    isDefault: p.id === id,
                 })),
-        }),
-        { name: 'tracking-storage' }
-    )
-);
+            }));
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    updateAdvancedSettings: async (updates) => {
+        try {
+            const updatedSettings = await trackingService.updateAdvancedSettings(updates);
+            set({ advancedSettings: updatedSettings });
+            return updatedSettings;
+        } catch (error) {
+            throw error;
+        }
+    },
+}));

@@ -18,6 +18,7 @@ import {
 import { FilterDropdown } from '../components/FilterDropdown';
 import { GlobalCalendar } from '../components/GlobalCalendar';
 import { useRealTime } from '../hooks/RealTimeContext';
+import { useFilterStore } from '../store/filterStore';
 import { cn } from '../utils/cn';
 
 const LegendItem = ({ color, label, isStriped, isHashed, isOutline }) => (
@@ -30,14 +31,15 @@ const LegendItem = ({ color, label, isStriped, isHashed, isOutline }) => (
 
 export function ActivityMonitoring() {
     const { activityLogs, employees, stats } = useRealTime();
+    const { searchQuery, setSearch } = useFilterStore();
     const [activeTab, setActiveTab] = useState('Timeline');
-    const [activitySearch, setActivitySearch] = useState('');
     const [zoomLevel, setZoomLevel] = useState(1);   // 0.75 | 1 | 1.5
     const [viewMode, setViewMode] = useState('normal'); // 'normal' | 'compact'
+    const [showInfo, setShowInfo] = useState(true);
 
     const handleZoomIn = () => setZoomLevel(z => Math.min(2, +(z + 0.25).toFixed(2)));
     const handleZoomOut = () => setZoomLevel(z => Math.max(0.5, +(z - 0.25).toFixed(2)));
-    const handleReset = () => { setZoomLevel(1); setActivitySearch(''); };
+    const handleReset = () => { setZoomLevel(1); setSearch(''); };
 
     const timelineHours = [
         '12:00 AM', '02:00 AM', '04:00 AM', '06:00 AM', '08:00 AM',
@@ -62,23 +64,21 @@ export function ActivityMonitoring() {
     });
 
     return (
-        <div className="min-h-screen bg-[#fcfdfe] dark:bg-slate-950 pb-12 px-2 sm:px-4 lg:px-8 transition-colors duration-200">
+        <div className="min-h-screen bg-[#fcfdfe] dark:bg-slate-950 pb-12 px-2 sm:px-4 lg:px-8 transition-colors duration-200 overflow-x-hidden">
             {/* Top Bar */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-8 mb-4">
                 <div>
                     <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Activities</h1>
                 </div>
-                <div className="flex items-center gap-4">
-                </div>
             </div>
 
             {/* Tabs */}
-            <div className="flex items-center gap-10 mb-8 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-10 mb-8 border-b border-slate-100 dark:border-slate-800 overflow-x-auto no-scrollbar">
                 {['Timeline', 'Logs'].map(tab => (
                     <button
                         key={tab}
                         onClick={() => setActiveTab(tab)}
-                        className={`pb-4 text-sm font-black transition-all relative ${activeTab === tab ? 'text-primary-600 dark:text-primary-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                        className={`pb-4 text-sm font-black transition-all relative whitespace-nowrap ${activeTab === tab ? 'text-primary-600 dark:text-primary-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
                             }`}
                     >
                         {tab}
@@ -92,20 +92,20 @@ export function ActivityMonitoring() {
                 <GlobalCalendar />
                 <FilterDropdown />
 
-                <div className="ml-auto flex items-center gap-3">
+                <div className="ml-auto flex items-center gap-3 w-full md:w-auto">
                     <div className="relative group w-full md:w-64">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
                         <input
                             type="text"
                             placeholder="Search employee or team"
-                            value={activitySearch}
-                            onChange={(e) => setActivitySearch(e.target.value)}
+                            value={searchQuery}
+                            onChange={(e) => setSearch(e.target.value)}
                             className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs font-medium dark:text-slate-200 focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all placeholder:text-slate-400"
                         />
                     </div>
                     {activeTab === 'Timeline' && (
                         <>
-                            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-1">
+                            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-1 shrink-0">
                                 <button onClick={handleZoomIn} title="Zoom In" className={`p-1.5 rounded-md transition-colors text-primary-600 dark:text-primary-400 ${zoomLevel >= 2 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}><ZoomIn size={16} /></button>
                                 <button onClick={handleReset} title="Reset" className="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-primary-600 dark:text-primary-400 rounded-md transition-colors"><RotateCcw size={16} /></button>
                                 <button onClick={handleZoomOut} title="Zoom Out" className={`p-1.5 rounded-md transition-colors text-primary-600 dark:text-primary-400 ${zoomLevel <= 0.5 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}><ZoomOut size={16} /></button>
@@ -113,7 +113,7 @@ export function ActivityMonitoring() {
                             <button
                                 onClick={() => setViewMode(v => v === 'normal' ? 'compact' : 'normal')}
                                 title={viewMode === 'normal' ? 'Compact View' : 'Normal View'}
-                                className={`p-2 border rounded-lg transition-colors shadow-sm ${viewMode === 'compact'
+                                className={`p-2 border rounded-lg transition-colors shadow-sm shrink-0 ${viewMode === 'compact'
                                     ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30 text-primary-600'
                                     : 'border-slate-200 dark:border-slate-800 text-primary-600 dark:text-primary-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
                                     }`}
@@ -121,11 +121,6 @@ export function ActivityMonitoring() {
                                 <LayoutGrid size={18} strokeWidth={2.5} />
                             </button>
                         </>
-                    )}
-                    {activeTab === 'Logs' && (
-                        <button className="p-2 border border-slate-200 dark:border-slate-800 text-primary-600 dark:text-primary-400 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors shadow-sm">
-                            <LayoutGrid size={18} strokeWidth={2.5} />
-                        </button>
                     )}
                 </div>
             </div>
@@ -149,10 +144,10 @@ export function ActivityMonitoring() {
                     </div>
 
                     {/* Timeline Grid */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden overflow-x-auto">
+                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden overflow-x-auto custom-scrollbar">
                         <div className="grid grid-cols-12 min-w-[1200px]" style={{ zoom: zoomLevel }}>
                             {/* Empty space + Time headers */}
-                            <div className="col-span-3 p-4 border-b border-r border-slate-50 dark:border-slate-800 font-bold text-slate-400 text-[10px] uppercase tracking-wider">Employee Name</div>
+                            <div className="col-span-3 p-4 border-b border-r border-slate-50 dark:border-slate-800 font-bold text-slate-400 text-[10px] uppercase tracking-wider sticky left-0 bg-white dark:bg-slate-900 z-30">Employee Name</div>
                             <div className="col-span-9 grid grid-cols-11 border-b border-slate-50 dark:border-slate-800">
                                 {timelineHours.map((hour, idx) => (
                                     <div key={idx} className="p-4 text-[10px] font-bold text-slate-400 dark:text-slate-500 border-r border-slate-50/50 dark:border-slate-800/50 flex items-center justify-center relative">
@@ -163,12 +158,15 @@ export function ActivityMonitoring() {
                             </div>
 
                             {(stats.empMetrics || [])
-                                .filter(emp => (emp.name?.toLowerCase() ?? '').includes(activitySearch.toLowerCase()))
+                                .filter(emp => 
+                                    (emp.name?.toLowerCase() ?? '').includes(searchQuery.toLowerCase()) ||
+                                    (emp.team?.toLowerCase() ?? '').includes(searchQuery.toLowerCase())
+                                )
                                 .map((emp, empIdx) => {
                                     const buckets = emp.logs?.intradayBuckets || [];
                                     return (
                                         <React.Fragment key={emp.id}>
-                                            <div className={`col-span-3 border-b border-r border-slate-50 dark:border-slate-800 flex items-center gap-4 ${viewMode === 'compact' ? 'p-3' : 'p-6'}`}>
+                                            <div className={`col-span-3 border-b border-r border-slate-50 dark:border-slate-800 flex items-center gap-4 sticky left-0 bg-white dark:bg-slate-900 z-20 ${viewMode === 'compact' ? 'p-3' : 'p-6'}`}>
                                                 <div className="h-10 w-10 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center border border-slate-200">
                                                     <img src={emp.avatar || `https://ui-avatars.com/api/?name=${emp.name}`} alt="" className="h-full w-full object-cover" />
                                                 </div>
@@ -209,11 +207,13 @@ export function ActivityMonitoring() {
             ) : (
                 <div className="space-y-6">
                     {/* Info Bar */}
-                    <div className="bg-[#eef8ff] dark:bg-primary-900/10 border border-primary-100 dark:border-primary-800/50 text-[#00609b] dark:text-primary-300 px-5 py-3.5 rounded-lg flex items-center gap-3 text-xs font-bold w-full shadow-sm">
-                        <Info size={18} className="text-[#0092e0] dark:text-primary-400" />
-                        <span className="flex-1">Visibility of URLs and titles can be changed in the privacy settings. <button className="hover:underline font-black text-primary-600 dark:text-primary-400">Click here to change this.</button></span>
-                        <button className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"><X size={16} /></button>
-                    </div>
+                    {showInfo && (
+                        <div className="bg-[#eef8ff] dark:bg-primary-900/10 border border-primary-100 dark:border-primary-800/50 text-[#00609b] dark:text-primary-300 px-5 py-3.5 rounded-lg flex items-center gap-3 text-xs font-bold w-full shadow-sm">
+                            <Info size={18} className="text-[#0092e0] dark:text-primary-400" />
+                            <span className="flex-1">Visibility of URLs and titles can be changed in the privacy settings. <button className="hover:underline font-black text-primary-600 dark:text-primary-400">Click here to change this.</button></span>
+                            <button onClick={() => setShowInfo(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"><X size={16} /></button>
+                        </div>
+                    )}
 
                     {/* Logs Table */}
                     <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden overflow-x-auto">

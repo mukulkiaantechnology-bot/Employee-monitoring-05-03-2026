@@ -11,6 +11,7 @@ import {
     teamProductivity,
 } from '../store/analyticsEngine';
 import { useAuthStore } from '../store/authStore';
+import { useFilterStore } from '../store/filterStore';
 import employeeService from '../services/employeeService';
 import activityService from '../services/activityService';
 import teamService from '../services/teamService';
@@ -195,12 +196,20 @@ export function RealTimeProvider({ children }) {
     }, [isLoading, isAuthenticated]);
 
     // Live backend activity sync
+    const { dateRange, selectedTeam, selectedEmployee } = useFilterStore();
+
     useEffect(() => {
         if (isLoading || !isAuthenticated) return;
 
         const syncLogs = async () => {
             try {
-                const res = await activityService.getOrganizationSummary();
+                const params = {
+                    startDate: dateRange.start,
+                    endDate: dateRange.end,
+                    teamId: selectedTeam,
+                    employeeId: selectedEmployee
+                };
+                const res = await activityService.getOrganizationSummary(params);
                 if (res.success && res.data) {
                     setState(prev => ({
                         ...prev,
@@ -216,7 +225,7 @@ export function RealTimeProvider({ children }) {
         syncLogs(); // Initial sync
 
         return () => clearInterval(interval);
-    }, [isLoading, isAuthenticated]);
+    }, [isLoading, isAuthenticated, dateRange, selectedTeam, selectedEmployee]);
 
     // WebSocket Integration
     useEffect(() => {

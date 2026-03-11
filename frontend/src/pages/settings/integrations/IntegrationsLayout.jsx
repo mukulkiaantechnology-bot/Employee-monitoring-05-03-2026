@@ -7,6 +7,7 @@ import { cn } from '../../../utils/cn';
 
 const TAB_SUBTITLES = {
     'org-chart': 'Synchronize your organizational hierarchy by integrating your app with Insightful.',
+    'project-management': 'Import the project management items you want to track time on.',
 };
 
 export function IntegrationsLayout() {

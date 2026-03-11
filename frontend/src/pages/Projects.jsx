@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Bell,
     Calendar,
@@ -14,19 +15,26 @@ import { GlobalCalendar } from '../components/GlobalCalendar';
 import { useRealTime } from '../hooks/RealTimeContext';
 import { useAuthStore } from '../store/authStore';
 import { useProjectStore } from '../store/projectStore';
+import { useIntegrationStore, INTEGRATION_META } from '../store/integrationStore';
 
 export function Projects() {
+    const navigate = useNavigate();
     const { employees, teams } = useRealTime();
     const { projects, fetchProjects, loading } = useProjectStore();
+    const { integrations, fetchIntegrations } = useIntegrationStore();
     const { role } = useAuthStore();
     const rolePath = role ? `/${role.toLowerCase()}` : '';
     const [activeTab, setActiveTab] = useState('Insightful');
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [projectSearch, setProjectSearch] = useState('');
+    const [insightfulSearch, setInsightfulSearch] = useState('');
+    const [integratedSearch, setIntegratedSearch] = useState('');
+    const projectSearch = activeTab === 'Insightful' ? insightfulSearch : integratedSearch;
+    const setProjectSearch = activeTab === 'Insightful' ? setInsightfulSearch : setIntegratedSearch;
     const [isGridView, setIsGridView] = useState(false);
 
     useEffect(() => {
         fetchProjects();
+        fetchIntegrations();
     }, []);
 
     const handleDownload = () => {
@@ -44,9 +52,9 @@ export function Projects() {
     };
 
     const integrationCards = [
-        { name: 'Trello', icon: 'https://cdn-icons-png.flaticon.com/512/2111/2111656.png', employees: 217, tickets: 231 },
-        { name: 'Jira', icon: 'https://cdn-icons-png.flaticon.com/512/5968/5968875.png', employees: 153, tickets: 245 },
-        { name: 'Asana', icon: 'https://cdn-icons-png.flaticon.com/512/5968/5968793.png', employees: 197, tickets: 233 }
+        { id: 'trello', name: 'Trello', icon: 'https://cdn-icons-png.flaticon.com/512/2111/2111656.png', employees: 217, tickets: 231 },
+        { id: 'jira', name: 'Jira', icon: 'https://cdn-icons-png.flaticon.com/512/5968/5968875.png', employees: 153, tickets: 245 },
+        { id: 'asana', name: 'Asana', icon: 'https://cdn-icons-png.flaticon.com/512/5968/5968793.png', employees: 197, tickets: 233 }
     ];
 
     const tableHeaders = [
@@ -93,33 +101,30 @@ export function Projects() {
                 </div>
             </div>
 
-            {/* Filter Bar */}
-            <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6 md:mb-8">
-                <div className="flex items-center gap-3 overflow-x-auto no-scrollbar pb-1 md:pb-0">
-                    <div className="shrink-0 flex items-center gap-3">
-                        <GlobalCalendar />
-                        <FilterDropdown />
+            {/* Search & Actions Bar */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="relative group w-full md:max-w-md">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <Search size={16} className="text-slate-400 group-focus-within:text-primary-500 transition-colors" strokeWidth={2.5} />
                     </div>
+                    <input
+                        type="text"
+                        placeholder="Search projects by name..."
+                        value={projectSearch}
+                        onChange={(e) => setProjectSearch(e.target.value)}
+                        className="w-full h-12 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 rounded-2xl pl-12 pr-4 text-[13px] font-bold text-slate-700 dark:text-slate-200 focus:ring-4 focus:ring-primary-500/5 focus:border-primary-500 outline-none transition-all placeholder:text-slate-400 shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700"
+                    />
                 </div>
 
-                <div className="flex items-center gap-3 w-full md:w-auto md:ml-auto">
-                    <div className="relative group flex-1 md:w-72">
-                        <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
-                        <input
-                            type="text"
-                            placeholder="Search projects by name..."
-                            value={projectSearch}
-                            onChange={(e) => setProjectSearch(e.target.value)}
-                            className="w-full h-11 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-4 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all placeholder:text-slate-400 shadow-sm"
-                        />
-                    </div>
+                <div className="flex items-center gap-3 self-end md:self-auto">
                     {activeTab !== 'Integrated' && (
                         <button
                             onClick={handleDownload}
                             title="Download CSV report"
-                            className="h-11 w-11 flex items-center justify-center shrink-0 border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-400 hover:text-primary-600 hover:border-primary-200 transition-all rounded-xl shadow-sm"
+                            className="h-12 px-5 flex items-center justify-center gap-2 bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 text-slate-500 hover:text-primary-600 hover:border-primary-200 hover:bg-primary-50/30 dark:hover:bg-primary-900/10 transition-all rounded-2xl shadow-sm group hover:scale-[1.02] active:scale-95"
                         >
-                            <Download size={18} strokeWidth={2.5} />
+                            <Download size={18} strokeWidth={2.5} className="group-hover:translate-y-0.5 transition-transform" />
+                            <span className="text-[11px] font-black uppercase tracking-wider">Export Report</span>
                         </button>
                     )}
                 </div>
@@ -129,21 +134,69 @@ export function Projects() {
             {activeTab === 'Integrated' ? (
                 <div className="space-y-12 py-8">
                     {/* Integration Cards */}
-                    <div className="flex flex-col items-center gap-4 max-w-2xl mx-auto">
-                        {integrationCards.map((card, idx) => (
-                            <div key={idx} className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl p-6 flex items-center shadow-sm hover:shadow-md transition-all group">
-                                <div className="flex items-center gap-4 flex-1">
-                                    <div className="h-10 w-10 flex items-center justify-center bg-slate-50 dark:bg-slate-800 rounded-lg p-2 border border-slate-100 dark:border-slate-700 transition-transform group-hover:scale-110">
-                                        <img src={card.icon} alt={card.name} className="w-full h-full object-contain" />
+                    <div className="flex flex-col items-center gap-4 max-w-2xl mx-auto w-full">
+                        {(() => {
+                            const filteredIntegrations = integrationCards.filter(card =>
+                                card.name.toLowerCase().includes(projectSearch.toLowerCase())
+                            );
+
+                            if (filteredIntegrations.length === 0) {
+                                return (
+                                    <div className="flex flex-col items-center justify-center py-20 text-center w-full">
+                                        <div className="h-20 w-20 rounded-full bg-slate-50 dark:bg-slate-900 flex items-center justify-center mb-4">
+                                            <Search size={32} className="text-slate-200 dark:text-slate-800" />
+                                        </div>
+                                        <h3 className="text-xl font-black text-slate-300 dark:text-slate-800 select-none">No Integrations Found</h3>
+                                        <p className="text-xs font-bold text-slate-400 mt-2">Try searching for a different platform</p>
                                     </div>
-                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{card.name}</span>
-                                </div>
-                                <div className="flex items-center gap-12 text-slate-400 dark:text-slate-500 text-xs font-bold border-l border-slate-100 dark:border-slate-800 pl-12 h-8">
-                                    <span><span className="text-slate-900 dark:text-slate-300">{card.employees}</span> Employees</span>
-                                    <span><span className="text-slate-900 dark:text-slate-300">{card.tickets}</span> Tickets</span>
-                                </div>
-                            </div>
-                        ))}
+                                );
+                            }
+
+                            return filteredIntegrations.map((card, idx) => {
+                                const isConnected = integrations[card.id]?.connected;
+                                return (
+                                    <div
+                                        key={idx}
+                                        onClick={() => navigate(`${rolePath}/settings/integrations/overview/project-management`)}
+                                        className="w-full bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl p-6 flex items-center shadow-sm hover:shadow-md transition-all group cursor-pointer"
+                                    >
+                                        <div className="flex items-center gap-4 flex-1">
+                                            <div className="h-10 w-10 flex items-center justify-center bg-slate-50 dark:bg-slate-800 rounded-lg p-2 border border-slate-100 dark:border-slate-700 transition-transform group-hover:scale-110">
+                                                <img src={card.icon} alt={card.name} className="w-full h-full object-contain" />
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{card.name}</span>
+                                                {isConnected ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-wider">Connected</span>
+                                                        <div className="h-1 w-1 rounded-full bg-emerald-500 animate-pulse" />
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Not Integrated</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center justify-end gap-3 md:gap-12 flex-1 md:flex-none">
+                                            <div className="hidden sm:flex items-center gap-8 text-slate-400 dark:text-slate-500 text-xs font-bold border-l border-slate-100 dark:border-slate-800 pl-8 h-8">
+                                                <span><span className="text-slate-900 dark:text-slate-300">{card.employees}</span> Employees</span>
+                                                <span><span className="text-slate-900 dark:text-slate-300">{card.tickets}</span> Tickets</span>
+                                            </div>
+                                            {isConnected && (
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        alert('Syncing ' + card.name + ' projects...');
+                                                    }}
+                                                    className="px-4 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all"
+                                                >
+                                                    Sync
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            });
+                        })()}
                     </div>
 
                     {/* Start Integrating Call to Action */}
@@ -153,7 +206,7 @@ export function Projects() {
                             Start by integrating with a project management tool. Afterward, you can view all the projects here.
                         </p>
                         <button
-                            onClick={() => window.location.href = `${rolePath}/settings/integrations/overview/project-management`}
+                            onClick={() => navigate(`${rolePath}/settings/integrations/overview/project-management`)}
                             className="bg-primary-600 hover:bg-primary-700 text-white px-8 py-3 rounded-lg text-xs font-black transition-all shadow-xl shadow-primary-100 dark:shadow-primary-900/20 uppercase tracking-widest mt-4"
                         >
                             Go To Project Management Integrations
@@ -162,16 +215,6 @@ export function Projects() {
                 </div>
             ) : (
                 <div className="space-y-6">
-                    <div className="space-y-6">
-                        {/* Info Bar */}
-                        {/* Info Bar */}
-                        <div className="bg-[#eef8ff] dark:bg-primary-900/10 border border-primary-100 dark:border-primary-800/50 text-[#00609b] dark:text-primary-300 px-5 py-4 rounded-[1.25rem] flex items-start md:items-center gap-4 text-xs font-bold w-full shadow-sm animate-in fade-in slide-in-from-top-2 duration-300">
-                            <Info size={18} className="text-[#0092e0] dark:text-primary-400 shrink-0" />
-                            <p className="leading-relaxed">
-                                Choose task statuses visible to employees. <button className="underline font-black hover:text-primary-700 transition-colors">Learn More.</button>
-                            </p>
-                        </div>
-
                         {/* Table Layout (Hidden on Mobile) */}
                         <div className="hidden lg:block">
                             <div className="grid grid-cols-9 px-6 py-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center border-b border-slate-100 dark:border-slate-800">
@@ -252,7 +295,7 @@ export function Projects() {
                             })()}
                         </div>
                     </div>
-                </div>
+                
             )}
 
             <NewProjectModal

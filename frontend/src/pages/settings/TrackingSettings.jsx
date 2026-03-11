@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, Search, Settings2, Plus } from 'lucide-react';
 import { useTrackingStore } from '../../store/trackingStore';
+import { useAuthStore } from '../../store/authStore';
 import { TrackingTable } from '../../components/tracking/TrackingTable';
 import { TrackingForm } from '../../components/tracking/TrackingForm';
 import { cn } from '../../utils/cn';
@@ -35,12 +36,19 @@ const BLANK_PROFILE = {
 
 export function TrackingSettings() {
     const navigate = useNavigate();
-    const { trackingProfiles, createProfile, updateProfile, deleteProfile, setDefaultProfile } = useTrackingStore();
+    const { trackingProfiles, fetchTrackingData, createProfile, updateProfile, deleteProfile, setDefaultProfile } = useTrackingStore();
+    const { role } = useAuthStore();
     const [search, setSearch] = useState('');
     const [panelOpen, setPanelOpen] = useState(false);
     const [editId, setEditId] = useState(null); // null = create
     const [form, setForm] = useState({ ...BLANK_PROFILE });
     const [toast, setToast] = useState({ show: false, message: '' });
+
+    const rolePath = role?.toLowerCase() === 'admin' ? '/admin' : '/manager';
+
+    React.useEffect(() => {
+        fetchTrackingData();
+    }, [fetchTrackingData]);
 
     const showToast = (msg) => {
         setToast({ show: true, message: msg });
@@ -66,16 +74,20 @@ export function TrackingSettings() {
         setEditId(null);
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!form.title.trim()) return;
-        if (editId) {
-            updateProfile(editId, form);
-            showToast('Profile updated successfully!');
-        } else {
-            createProfile(form);
-            showToast('Profile created successfully!');
+        try {
+            if (editId) {
+                await updateProfile(editId, form);
+                showToast('Profile updated successfully!');
+            } else {
+                await createProfile(form);
+                showToast('Profile created successfully!');
+            }
+            closePanel();
+        } catch (error) {
+            showToast('Failed to save profile.');
         }
-        closePanel();
     };
 
     const canSave = form.title.trim().length > 0;
@@ -86,12 +98,12 @@ export function TrackingSettings() {
                 {/* Header */}
                 <div className="flex items-center justify-between pt-8 pb-8">
                     <div className="flex items-center gap-4">
-                        <button onClick={() => navigate('/settings')} className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:scale-105 shadow-sm">
+                        <button onClick={() => navigate(`${rolePath}/settings`)} className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-all hover:scale-105 shadow-sm">
                             <ChevronLeft size={20} />
                         </button>
                         <div>
                             <nav className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                                <span className="cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors" onClick={() => navigate('/settings')}>Settings</span>
+                                <span className="cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors" onClick={() => navigate(`${rolePath}/settings`)}>Settings</span>
                                 <span>/</span>
                                 <span className="text-violet-600">Tracking Settings</span>
                             </nav>
@@ -99,7 +111,7 @@ export function TrackingSettings() {
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
-                        <button onClick={() => navigate('/settings/tracking/advanced')} className="flex items-center gap-2 h-10 px-5 rounded-2xl border-2 border-slate-200 dark:border-slate-700 text-xs font-black text-slate-600 dark:text-slate-300 hover:border-violet-400 hover:text-violet-600 transition-all">
+                        <button onClick={() => navigate(`${rolePath}/settings/tracking/advanced`)} className="flex items-center gap-2 h-10 px-5 rounded-2xl border-2 border-slate-200 dark:border-slate-700 text-xs font-black text-slate-600 dark:text-slate-300 hover:border-violet-400 hover:text-violet-600 transition-all">
                             <Settings2 size={14} /> Advanced Settings
                         </button>
                         <button onClick={openCreate} className="flex items-center gap-2 h-10 px-5 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-xs font-black shadow-lg shadow-violet-200 dark:shadow-none hover:scale-[1.02] active:scale-95 transition-all">

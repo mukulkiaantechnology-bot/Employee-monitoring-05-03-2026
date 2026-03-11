@@ -28,8 +28,8 @@ import {
     Legend,
     Bar
 } from 'recharts';
+import { useFilterStore } from '../store/filterStore';
 import { AddEmployeeModal } from '../components/AddEmployeeModal';
-import { FilterDropdown } from '../components/FilterDropdown';
 import { GlobalCalendar } from '../components/GlobalCalendar';
 import { useRealTime } from '../hooks/RealTimeContext';
 import { useAuthStore } from '../store/authStore';
@@ -160,6 +160,8 @@ const categories = [
 export function Dashboard() {
     const { employees: contextEmployees, teams: contextTeams, stats: realTimeStats, isLoading: isRealTimeLoading } = useRealTime();
     const { role } = useAuthStore();
+    const { dateRange } = useFilterStore();
+    const { start: startDate, end: endDate } = dateRange || {};
     const [activeChartTab, setActiveChartTab] = useState('Activities');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [dashboardData, setDashboardData] = useState(null);
@@ -173,11 +175,11 @@ export function Dashboard() {
             try {
                 let data;
                 if (role === 'ADMIN') {
-                    data = await dashboardService.getAdminDashboard();
+                    data = await dashboardService.getAdminDashboard(startDate, endDate);
                 } else if (role === 'MANAGER') {
-                    data = await dashboardService.getManagerDashboard();
+                    data = await dashboardService.getManagerDashboard(startDate, endDate);
                 } else {
-                    data = await dashboardService.getEmployeeDashboard();
+                    data = await dashboardService.getEmployeeDashboard(startDate, endDate);
                 }
                 setDashboardData(data);
             } catch (error) {
@@ -188,7 +190,7 @@ export function Dashboard() {
         };
 
         fetchDashboardData();
-    }, [role]);
+    }, [role, startDate, endDate]);
 
     const handleDownload = () => {
         const empMetricsData = realTimeStats.empMetrics || [];
@@ -256,7 +258,6 @@ export function Dashboard() {
             {/* Filter Hub */}
             <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-wrap items-center gap-3 mb-8">
                 <GlobalCalendar />
-                <FilterDropdown />
                 <div className="ml-auto">
                     <button
                         onClick={handleDownload}

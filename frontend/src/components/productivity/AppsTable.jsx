@@ -88,7 +88,7 @@ export function AppsTable({ apps, tags, onSelectAll, onSelectApp, onChangeTag, t
                                             <Monitor size={14} />
                                         </div>
                                         <div>
-                                            <p className="text-sm font-black text-slate-900 dark:text-white">{app.name}</p>
+                                            <p className="text-sm font-black text-slate-900 dark:text-white">{app.appName || app.name}</p>
                                             <p className="text-[11px] font-medium text-slate-400">{app.domain}</p>
                                         </div>
                                         {isLow && (

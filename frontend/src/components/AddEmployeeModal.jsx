@@ -10,10 +10,12 @@ import { logAction } from '../utils/logAction';
 export function AddEmployeeModal({ isOpen, onClose }) {
     const { inviteEmployee, fetchEmployees } = useEmployeeStore();
     const { teams } = useTeamStore();
-    const { user } = useAuthStore();
+    const { user, role } = useAuthStore();
     const { organization } = useOrganizationStore();
     const [step, setStep] = useState('choice'); // choice, company, personal
     const [copied, setCopied] = useState(false);
+
+    const rolePath = role?.toLowerCase() === 'admin' ? '/admin' : '/manager';
     const [personalEmployees, setPersonalEmployees] = useState([
         { id: 1, email: '', name: '', team: 'Default team', location: 'Remote' },
         { id: 2, email: '', name: '', team: 'Default team', location: 'Remote' },

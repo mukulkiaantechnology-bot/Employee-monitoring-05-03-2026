@@ -34,6 +34,16 @@ const attendanceService = {
     createShift: async (data) => {
         const res = await apiClient.post('/attendance/shifts', data);
         return res.data;
+    },
+
+    getTimeOffs: async (params = {}) => {
+        const res = await apiClient.get('/attendance/time-off', { params });
+        return res.data;
+    },
+
+    createTimeOff: async (data) => {
+        const res = await apiClient.post('/attendance/time-off', data);
+        return res.data;
     }
 };
 

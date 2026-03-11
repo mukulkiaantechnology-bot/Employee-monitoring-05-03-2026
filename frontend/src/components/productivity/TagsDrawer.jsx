@@ -149,7 +149,7 @@ function DeleteTagConfirm({ isOpen, tag, usageCount, onConfirm, onClose }) {
 
 // ── Main TagsDrawer ───────────────────────────────────────────────────────────
 export function TagsDrawer({ isOpen, onClose }) {
-    const { tags, addTag, updateTagColor, deleteTag, mergeTag, getTagUsageCount } = useProductivityStore();
+    const { tags, addTag, updateTag, deleteTag, mergeTag, getTagUsageCount } = useProductivityStore();
     const [newTagName, setNewTagName] = useState('');
     const [newTagError, setNewTagError] = useState('');
     const [colorPickerFor, setColorPickerFor] = useState(null);
@@ -217,7 +217,7 @@ export function TagsDrawer({ isOpen, onClose }) {
                                     <div className="relative">
                                         <ColorPickerPopover
                                             currentColor={tag.color}
-                                            onSelect={(c) => updateTagColor(tag.id, c)}
+                                            onSelect={(c) => updateTag(tag.id, { color: c })}
                                             onClose={() => setColorPickerFor(null)}
                                         />
                                     </div>

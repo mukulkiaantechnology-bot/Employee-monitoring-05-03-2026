@@ -20,6 +20,7 @@ const dashboardRoutes = require('../modules/dashboard/dashboard.routes');
 const alertsRoutes = require('../modules/alerts/alerts.routes');
 const emailReportsRoutes = require('../modules/email-reports/email-reports.routes');
 const integrationsRoutes = require('../modules/integrations/integrations.routes');
+const trackingRoutes = require('../modules/tracking/tracking.routes');
 const { successResponse } = require('../utils/response');
 
 // Routes
@@ -43,6 +44,7 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/alerts', alertsRoutes);
 router.use('/email-reports', emailReportsRoutes);
 router.use('/integrations', integrationsRoutes);
+router.use('/tracking', trackingRoutes);
 router.get('/health', (req, res) => {
     return successResponse(res, null, 'Backend Running', 200);
 });
