@@ -39,7 +39,9 @@ import {
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useRealTime } from '../hooks/RealTimeContext';
+import { useAuthStore } from '../store/authStore';
 import screenshotService from '../services/screenshotService';
+import API_BASE_URL from '../config/api';
 
 const cn = (...inputs) => twMerge(clsx(inputs));
 
@@ -469,6 +471,7 @@ const GenericSelectionModal = memo(({
 GenericSelectionModal.displayName = 'GenericSelectionModal';
 
 export function ScreenshotMonitoring() {
+  const { user, role } = useAuthStore();
   const { employees: contextEmployees, teams: contextTeams, projects: contextProjects, screenshots: contextScreenshots, deleteScreenshot, addNotification } = useRealTime();
 
   // Real backend screenshots state
@@ -485,6 +488,9 @@ export function ScreenshotMonitoring() {
     }
   }, [contextScreenshots]);
   const [loadingScreenshots, setLoadingScreenshots] = useState(true);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const limit = 20;
 
   // Derived employee list from real backend data
   const employeesList = useMemo(() =>
@@ -511,6 +517,47 @@ export function ScreenshotMonitoring() {
   const [captureRule, setCaptureRule] = useState('All Apps');
   const [excludeSensitive, setExcludeSensitive] = useState(true);
   const [selectedEmployee, setSelectedEmployee] = useState('All');
+  const [isLoadingSettings, setIsLoadingSettings] = useState(false);
+
+  // Fetch Screenshot Settings
+  const fetchSettings = useCallback(async () => {
+    try {
+      const res = await screenshotService.getSettings();
+      if (res.success && res.data) {
+        setRandomScreenshots(res.data.randomShifts);
+        setExcludeSensitive(res.data.excludeAdmin);
+        setGlobalBlur(res.data.globalBlur);
+        setFrequency(`${res.data.frequency}m`);
+      }
+    } catch (err) {
+      console.error('Failed to fetch settings:', err);
+    }
+  }, []);
+
+  const updateSetting = async (key, value) => {
+    try {
+      // Map local state keys to backend schema keys
+      const backendKeyMap = {
+        randomScreenshots: 'randomShifts',
+        excludeSensitive: 'excludeAdmin',
+        globalBlur: 'globalBlur',
+        frequency: 'frequency'
+      };
+
+      const backendKey = backendKeyMap[key] || key;
+      let finalValue = value;
+      
+      // Handle frequency conversion (e.g., '10m' -> 10)
+      if (key === 'frequency') {
+        finalValue = parseInt(value) || 5;
+      }
+
+      await screenshotService.updateSettings({ [backendKey]: finalValue });
+      if (addNotification) addNotification('Success', 'Setting updated', 'success');
+    } catch (err) {
+      console.error('Failed to update setting:', err);
+    }
+  };
 
   // View & Filter State
   const [viewMode, setViewMode] = useState('grid');
@@ -571,17 +618,25 @@ export function ScreenshotMonitoring() {
   const [selectedFilterValue, setSelectedFilterValue] = useState('');
 
   // Use backend screenshots as the primary source
-  const localScreenshots = useMemo(() => backendScreenshots.map(s => ({
-    ...s,
-    id: s.id,
-    employee: s.employee?.fullName || s.employee || 'Unknown',
-    team: s.employee?.team?.name || 'General',
-    image: s.imageUrl,
-    timestamp: s.capturedAt || s.createdAt,
-    productivity: (s.productivity || 'NEUTRAL').toLowerCase(),
-    isBlurred: s.blurred || false,
-    type: 'automatic',
-  })), [backendScreenshots]);
+  const localScreenshots = useMemo(() => {
+    let filtered = backendScreenshots;
+    
+    // We only want to show REAL screenshots (ignore simulator dummy Picsum data)
+    // Filter out screenshots that don't start with /uploads or aren't blob URLs
+    filtered = filtered.filter(s => s.imageUrl?.startsWith('/uploads') || s.imageUrl?.startsWith('blob:'));
+
+    return filtered.map(s => ({
+      ...s,
+      id: s.id,
+      employee: s.employee?.fullName || s.employee || 'Unknown',
+      team: s.employee?.team?.name || 'General',
+      image: s.imageUrl?.startsWith('/') ? `${API_BASE_URL.replace(/\/api\/?$/, '')}${s.imageUrl}` : s.imageUrl,
+      timestamp: s.capturedAt || s.createdAt,
+      productivity: (s.productivity || 'NEUTRAL').toLowerCase(),
+      isBlurred: s.blurred || false,
+      type: 'automatic',
+    }));
+  }, [backendScreenshots, role]);
 
   const setLocalScreenshots = () => { }; // No-op — we'll reload from backend
 
@@ -787,28 +842,93 @@ export function ScreenshotMonitoring() {
     setIsPlaying(false);
   }, []);
 
+  const handleCaptureRealScreen = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const video = document.createElement('video');
+      video.srcObject = stream;
+      video.play();
+      
+      await new Promise(resolve => { video.onplaying = resolve; });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      stream.getTracks().forEach(track => track.stop());
+
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+         const formData = new FormData();
+         formData.append('image', blob, 'real-screenshot.png');
+         
+         const validEmployeeId = employeesList.length > 0 ? employeesList[0].id : 
+                                 (contextEmployees.length > 0 ? contextEmployees[0].id : null);
+         
+         if (!validEmployeeId) {
+             alert('No employees found in the system to attach this screenshot to!');
+             return;
+         }
+
+         formData.append('employeeId', validEmployeeId);
+         formData.append('productivity', 'PRODUCTIVE');
+         
+         const res = await screenshotService.uploadRealScreenshot(formData);
+         if (res && res.success) {
+             if (addNotification) addNotification('Success', 'Real screenshot uploaded as WebP!', 'success');
+             fetchScreenshots(0);
+         } else {
+             alert(res.message || 'Error saving screenshot.');
+         }
+      }, 'image/png');
+    } catch (err) {
+      console.error('Failed to capture screen:', err);
+    }
+  };
+
   const isToday = timelineDate.toDateString() === new Date().toDateString();
 
   // Fetch real screenshots from backend
-  useEffect(() => {
-    const fetchScreenshots = async () => {
-      setLoadingScreenshots(true);
-      try {
-        const res = await screenshotService.getScreenshots();
-        if (res.success && res.data) {
-          setBackendScreenshots(res.data);
+  const fetchScreenshots = useCallback(async (pageNum = 0, isPolling = false) => {
+    if (!isPolling) setLoadingScreenshots(true);
+    try {
+      const res = await screenshotService.getScreenshots({ limit, offset: pageNum * limit });
+      if (res.success && res.data) {
+        if (res.data.length < limit) {
+          setHasMore(false);
+        } else {
+          setHasMore(true);
         }
-      } catch (err) {
-        console.error('Failed to fetch screenshots:', err);
-      } finally {
-        setLoadingScreenshots(false);
+        setBackendScreenshots(prev => {
+          if (pageNum === 0) {
+             const newOnes = res.data.filter(rd => !prev.some(p => p.id === rd.id));
+             return [...newOnes, ...prev];
+          }
+          return [...prev, ...res.data];
+        });
       }
-    };
-    fetchScreenshots();
+    } catch (err) {
+      console.error('Failed to fetch screenshots:', err);
+    } finally {
+      setLoadingScreenshots(false);
+    }
+  }, [limit]);
+
+  useEffect(() => {
+    fetchScreenshots(0);
+    fetchSettings();
     // Refresh every minute to pick up simulator-generated screenshots
-    const interval = setInterval(fetchScreenshots, 60000);
+    const interval = setInterval(() => fetchScreenshots(0, true), 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchScreenshots, fetchSettings]);
+
+  const handleLoadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchScreenshots(nextPage);
+  };
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -924,6 +1044,16 @@ export function ScreenshotMonitoring() {
 
           {/* Top Controls */}
           <div className="flex flex-wrap items-center gap-3">
+            {role !== 'EMPLOYEE' && (
+              <button
+                onClick={handleCaptureRealScreen}
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-emerald-500/20 active:scale-95 transition-all flex items-center gap-2"
+                title="Capture and upload your actual screen as a demo"
+              >
+                <Camera size={16} />
+                <span>Capture Real Screen</span>
+              </button>
+            )}
 
             {/* Active Filter Tags */}
             {Object.entries(selectedFilters).map(([key, value]) => {
@@ -939,42 +1069,44 @@ export function ScreenshotMonitoring() {
             })}
 
             {/* Add Filter Dropdown */}
-            <div className="relative" ref={filterRef}>
-              <button
-                onClick={() => setShowAddFilterDropdown(!showAddFilterDropdown)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-primary-600 dark:text-primary-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-primary-50 dark:hover:bg-primary-500/10 transition-all shadow-sm"
-              >
-                <Plus size={16} />
-                <span>Add Filter</span>
-              </button>
+            {role !== 'EMPLOYEE' && (
+              <div className="relative" ref={filterRef}>
+                <button
+                  onClick={() => setShowAddFilterDropdown(!showAddFilterDropdown)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-primary-600 dark:text-primary-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:bg-primary-50 dark:hover:bg-primary-500/10 transition-all shadow-sm"
+                >
+                  <Plus size={16} />
+                  <span>Add Filter</span>
+                </button>
 
-              {showAddFilterDropdown && (
-                <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in duration-200 origin-top-left">
-                  <div className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 mb-1">Filter By</div>
-                  {[
-                    { id: 'employees', label: 'Employees' },
-                    { id: 'teams', label: 'Teams' },
-                    { id: 'apps', label: 'Apps & Websites' },
-                    { id: 'projects', label: 'Projects' },
-                    { id: 'tasks', label: 'Tasks' },
-                    { id: 'screenshotTypes', label: 'Screenshot types' },
-                    { id: 'productivityTypes', label: 'Productivity types' },
-                    { id: 'category', label: 'Category' },
-                  ].map(f => (
-                    <button
-                      key={f.id}
-                      onClick={() => {
-                        setActiveFilterModal(f.id);
-                        setShowAddFilterDropdown(false);
-                      }}
-                      className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-sm font-bold transition-colors"
-                    >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                {showAddFilterDropdown && (
+                  <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 overflow-hidden py-1 animate-in fade-in zoom-in duration-200 origin-top-left">
+                    <div className="px-3 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 mb-1">Filter By</div>
+                    {[
+                      { id: 'employees', label: 'Employees' },
+                      { id: 'teams', label: 'Teams' },
+                      { id: 'apps', label: 'Apps & Websites' },
+                      { id: 'projects', label: 'Projects' },
+                      { id: 'tasks', label: 'Tasks' },
+                      { id: 'screenshotTypes', label: 'Screenshot types' },
+                      { id: 'productivityTypes', label: 'Productivity types' },
+                      { id: 'category', label: 'Category' },
+                    ].map(f => (
+                      <button
+                        key={f.id}
+                        onClick={() => {
+                          setActiveFilterModal(f.id);
+                          setShowAddFilterDropdown(false);
+                        }}
+                        className="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-sm font-bold transition-colors"
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Sort Dropdown */}
             <div className="relative ml-auto">
@@ -1012,111 +1144,115 @@ export function ScreenshotMonitoring() {
         ) : (
           <>
             {/* 2. Advanced Control Panel */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 p-4 sm:p-6 bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm w-full max-w-full overflow-hidden box-border">
-              <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Capture Settings</label>
-                <ToggleSwitch label="Random Shifts" enabled={randomScreenshots} onChange={setRandomScreenshots} />
-                <ToggleSwitch label="Exclude Admin" enabled={excludeSensitive} onChange={setExcludeSensitive} />
-              </div>
-              <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Privacy & Security</label>
-                <ToggleSwitch label="Global Blur" enabled={globalBlur} onChange={setGlobalBlur} />
-                <button
-                  onClick={() => setShowRestrictedApps(true)}
-                  className="flex items-center justify-between w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all focus:ring-2 focus:ring-primary-500/10 min-h-[44px]"
-                >
-                  <span>Restricted Apps</span>
-                  <Settings size={14} className="text-slate-400" />
-                </button>
-              </div>
-              <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Frequency</label>
-                <div className="relative w-full">
-                  <select
-                    value={frequency}
-                    onChange={(e) => setFrequency(e.target.value)}
-                    className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 appearance-none focus:outline-none focus:ring-2 focus:ring-primary-500/10 cursor-pointer min-h-[44px]"
+            {role !== 'EMPLOYEE' && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 p-4 sm:p-6 bg-white dark:bg-slate-900 rounded-[1.5rem] sm:rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm w-full max-w-full overflow-hidden box-border">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Capture Settings</label>
+                  <ToggleSwitch label="Random Shifts" enabled={randomScreenshots} onChange={(val) => { setRandomScreenshots(val); updateSetting('randomScreenshots', val); }} />
+                  <ToggleSwitch label="Exclude Admin" enabled={excludeSensitive} onChange={(val) => { setExcludeSensitive(val); updateSetting('excludeSensitive', val); }} />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Privacy & Security</label>
+                  <ToggleSwitch label="Global Blur" enabled={globalBlur} onChange={(val) => { setGlobalBlur(val); updateSetting('globalBlur', val); }} />
+                  <button
+                    onClick={() => setShowRestrictedApps(true)}
+                    className="flex items-center justify-between w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all focus:ring-2 focus:ring-primary-500/10 min-h-[44px]"
                   >
-                    <option value="5m">Every 5 Mins</option>
-                    <option value="10m">Every 10 Mins</option>
-                    <option value="15m">Every 15 Mins</option>
-                    <option value="30m">Every 30 Mins</option>
-                  </select>
-                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <span>Restricted Apps</span>
+                    <Settings size={14} className="text-slate-400" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => setShowCaptureRules(true)}
-                  className="flex items-center justify-between w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all focus:ring-2 focus:ring-primary-500/10 min-h-[44px]"
-                >
-                  <span>Capture Rules</span>
-                  <Camera size={14} className="text-slate-400" />
-                </button>
-              </div>
-              <div className="space-y-3">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Quick Filters</label>
-                <div className="grid grid-cols-2 xs:grid-cols-3 sm:flex sm:flex-wrap gap-2">
-                  <div className="flex-1 sm:flex-none"><FilterButton label="All" active={activeFilter === 'All'} onClick={() => setActiveFilter('All')} className="w-full justify-center" /></div>
-                  <div className="flex-1 sm:flex-none"><FilterButton label="Flagged" active={activeFilter === 'Flagged'} onClick={() => setActiveFilter('Flagged')} icon={Shield} className="w-full justify-center" /></div>
-                  <div className="flex-1 sm:flex-none"><FilterButton label="Idle" active={activeFilter === 'Idle'} onClick={() => setActiveFilter('Idle')} icon={Clock} className="w-full justify-center" /></div>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Frequency</label>
+                  <div className="relative w-full">
+                    <select
+                      value={frequency}
+                      onChange={(e) => { setFrequency(e.target.value); updateSetting('frequency', e.target.value); }}
+                      className="w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 appearance-none focus:outline-none focus:ring-2 focus:ring-primary-500/10 cursor-pointer min-h-[44px]"
+                    >
+                      <option value="5m">Every 5 Mins</option>
+                      <option value="10m">Every 10 Mins</option>
+                      <option value="15m">Every 15 Mins</option>
+                      <option value="30m">Every 30 Mins</option>
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                  <button
+                    onClick={() => setShowCaptureRules(true)}
+                    className="flex items-center justify-between w-full px-4 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all focus:ring-2 focus:ring-primary-500/10 min-h-[44px]"
+                  >
+                    <span>Capture Rules</span>
+                    <Camera size={14} className="text-slate-400" />
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Quick Filters</label>
+                  <div className="grid grid-cols-2 xs:grid-cols-3 sm:flex sm:flex-wrap gap-2">
+                    <div className="flex-1 sm:flex-none"><FilterButton label="All" active={activeFilter === 'All'} onClick={() => setActiveFilter('All')} className="w-full justify-center" /></div>
+                    <div className="flex-1 sm:flex-none"><FilterButton label="Flagged" active={activeFilter === 'Flagged'} onClick={() => setActiveFilter('Flagged')} icon={Shield} className="w-full justify-center" /></div>
+                    <div className="flex-1 sm:flex-none"><FilterButton label="Idle" active={activeFilter === 'Idle'} onClick={() => setActiveFilter('Idle')} icon={Clock} className="w-full justify-center" /></div>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* 3. Timeline Playback */}
-            <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
-              <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
-                <button
-                  onClick={() => setIsPlaying(!isPlaying)}
-                  className={cn(
-                    "h-14 w-14 flex-shrink-0 flex items-center justify-center rounded-2xl text-white shadow-lg transition-all active:scale-95 group",
-                    isPlaying ? "bg-amber-500 hover:bg-amber-600 shadow-amber-500/20" : "bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 shadow-slate-900/20 dark:shadow-white/20"
-                  )}
-                >
-                  {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1 group-hover:scale-110 transition-transform" />}
-                </button>
-                <div className="flex-1 w-full space-y-2">
-                  <div className="flex justify-between items-end">
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex flex-wrap items-center gap-2">
-                        Playback Timeline
-                        {selectedEmployee !== 'All' && <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-600 dark:text-slate-400 truncate max-w-[150px]">{selectedEmployee}</span>}
-                      </span>
-                      <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white transition-all duration-300">
-                        {currentPlaybackTime}
-                      </span>
-                    </div>
-                    {isPlaying && (
-                      <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-full animate-pulse flex-shrink-0">
-                        <RefreshCw size={12} className="animate-spin" />
-                        <span className="text-[10px] font-black uppercase whitespace-nowrap">Live Replay</span>
-                      </div>
+            {role !== 'EMPLOYEE' && (
+              <div className="bg-white dark:bg-slate-900 p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
+                <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
+                  <button
+                    onClick={() => setIsPlaying(!isPlaying)}
+                    className={cn(
+                      "h-14 w-14 flex-shrink-0 flex items-center justify-center rounded-2xl text-white shadow-lg transition-all active:scale-95 group",
+                      isPlaying ? "bg-amber-500 hover:bg-amber-600 shadow-amber-500/20" : "bg-slate-900 dark:bg-white hover:bg-slate-800 dark:hover:bg-slate-100 shadow-slate-900/20 dark:shadow-white/20"
                     )}
-                  </div>
-                  <div
-                    className="relative h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden cursor-pointer w-full"
-                    title="Click to seek"
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const x = e.clientX - rect.left;
-                      const percentage = x / rect.width;
-                      const index = Math.floor(percentage * filteredScreenshots.length);
-                      setPlaybackIndex(Math.min(index, filteredScreenshots.length - 1));
-                      setIsPlaying(false);
-                    }}
                   >
+                    {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1 group-hover:scale-110 transition-transform" />}
+                  </button>
+                  <div className="flex-1 w-full space-y-2">
+                    <div className="flex justify-between items-end">
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 flex flex-wrap items-center gap-2">
+                          Playback Timeline
+                          {selectedEmployee !== 'All' && <span className="bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-600 dark:text-slate-400 truncate max-w-[150px]">{selectedEmployee}</span>}
+                        </span>
+                        <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white transition-all duration-300">
+                          {currentPlaybackTime}
+                        </span>
+                      </div>
+                      {isPlaying && (
+                        <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-full animate-pulse flex-shrink-0">
+                          <RefreshCw size={12} className="animate-spin" />
+                          <span className="text-[10px] font-black uppercase whitespace-nowrap">Live Replay</span>
+                        </div>
+                      )}
+                    </div>
                     <div
-                      className="absolute inset-y-0 left-0 bg-slate-900 dark:bg-white rounded-full transition-all duration-300 ease-out"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                    <span>Start</span>
-                    <span className="hidden xs:block">Lunch Break</span>
-                    <span>End Shift</span>
+                      className="relative h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden cursor-pointer w-full"
+                      title="Click to seek"
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = e.clientX - rect.left;
+                        const percentage = x / rect.width;
+                        const index = Math.floor(percentage * filteredScreenshots.length);
+                        setPlaybackIndex(Math.min(index, filteredScreenshots.length - 1));
+                        setIsPlaying(false);
+                      }}
+                    >
+                      <div
+                        className="absolute inset-y-0 left-0 bg-slate-900 dark:bg-white rounded-full transition-all duration-300 ease-out"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                      <span>Start</span>
+                      <span className="hidden xs:block">Lunch Break</span>
+                      <span>End Shift</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* 4. Screenshot Grid */}
             <div className={cn(
@@ -1138,22 +1274,37 @@ export function ScreenshotMonitoring() {
               ))}
             </div>
 
-            <div className="flex justify-center">
-              <button
-                onClick={handleLoadArchive}
-                disabled={isLoadingArchive}
-                className="px-8 py-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-bold rounded-xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-sm flex items-center gap-3 active:scale-95 disabled:opacity-50"
-              >
-                {isLoadingArchive ? (
-                  <>
-                    <RefreshCw size={16} className="animate-spin" />
-                    <span>Accessing Cloud Storage...</span>
-                  </>
-                ) : (
-                  <span>Load Archive</span>
-                )}
-              </button>
-            </div>
+            {hasMore && filteredScreenshots.length > 0 && (
+              <div className="flex justify-center mt-6">
+                <button
+                  onClick={handleLoadMore}
+                  disabled={loadingScreenshots}
+                  className="px-8 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-sm flex items-center gap-2 active:scale-95 disabled:opacity-50"
+                >
+                  {loadingScreenshots ? <RefreshCw size={16} className="animate-spin" /> : <ChevronDown size={16} />}
+                  <span>{loadingScreenshots ? 'Loading...' : 'Load More'}</span>
+                </button>
+              </div>
+            )}
+
+            {role !== 'EMPLOYEE' && (
+              <div className="flex justify-center mt-6">
+                <button
+                  onClick={handleLoadArchive}
+                  disabled={isLoadingArchive}
+                  className="px-8 py-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 font-bold rounded-xl shadow-sm hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-sm flex items-center gap-3 active:scale-95 disabled:opacity-50"
+                >
+                  {isLoadingArchive ? (
+                    <>
+                      <RefreshCw size={16} className="animate-spin" />
+                      <span>Accessing Cloud Storage...</span>
+                    </>
+                  ) : (
+                    <span>Load Archive</span>
+                  )}
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -1295,7 +1446,7 @@ export function ScreenshotMonitoring() {
               </div>
               <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                 <button
-                  onClick={() => handleDownload(selectedScreenshot.url)}
+                  onClick={() => handleDownload(selectedScreenshot.image || selectedScreenshot.url)}
                   className="flex-1 sm:flex-none h-10 sm:h-12 px-4 sm:px-6 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl sm:rounded-2xl flex items-center justify-center gap-2 transition-all backdrop-blur-md font-bold text-xs sm:text-sm"
                 >
                   <Download size={16} className="sm:w-[18px] sm:h-[18px]" />
@@ -1331,7 +1482,7 @@ export function ScreenshotMonitoring() {
 
             {/* Image */}
             <img
-              src={selectedScreenshot.url}
+              src={selectedScreenshot.image || selectedScreenshot.url || selectedScreenshot.imageUrl}
               alt="Full View"
               className={cn(
                 "w-full h-full object-contain transition-all duration-1000",

@@ -7,7 +7,9 @@ import {
     Info,
     Plus,
     LayoutGrid,
-    Download
+    Download,
+    Edit3,
+    Trash2
 } from 'lucide-react';
 import { NewProjectModal } from '../components/NewProjectModal';
 import { FilterDropdown } from '../components/FilterDropdown';
@@ -21,9 +23,10 @@ import { cn } from '../utils/cn';
 export function Projects() {
     const navigate = useNavigate();
     const { employees, teams } = useRealTime();
-    const { projects, fetchProjects, loading } = useProjectStore();
+    const { projects, fetchProjects, loading, deleteProject } = useProjectStore();
     const { integrations, fetchIntegrations } = useIntegrationStore();
     const { role } = useAuthStore();
+    const [editingProject, setEditingProject] = useState(null);
     const rolePath = role ? `/${role.toLowerCase()}` : '';
     const [activeTab, setActiveTab] = useState('Insightful');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -220,10 +223,16 @@ export function Projects() {
                 <div className="space-y-6">
                         {/* Table Layout (Hidden on Mobile) */}
                         <div className="hidden lg:block">
-                            <div className="grid grid-cols-9 px-6 py-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center border-b border-slate-100 dark:border-slate-800">
-                                {tableHeaders.map((header, idx) => (
-                                    <div key={idx} className={idx === 0 ? "text-left col-span-2" : idx === 1 ? "ml-12" : "col-span-1"}>{header}</div>
-                                ))}
+                            <div className="grid grid-cols-12 px-6 py-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center border-b border-slate-100 dark:border-slate-800">
+                                <div className="text-left col-span-3">Project Name</div>
+                                <div className="col-span-1">Assignees</div>
+                                <div className="col-span-1">Tasks</div>
+                                <div className="col-span-1">Total [H]</div>
+                                <div className="col-span-1">Clocked [H]</div>
+                                <div className="col-span-1">Manual [H]</div>
+                                <div className="col-span-1">Rate</div>
+                                <div className="col-span-1">Costs</div>
+                                <div className="col-span-2 text-right pr-4">Actions</div>
                             </div>
                         </div>
 
@@ -245,9 +254,9 @@ export function Projects() {
                                     );
                                 }
                                 return filtered.map((project, idx) => (
-                                    <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[1.5rem] lg:rounded-2xl p-5 md:p-6 lg:p-4 hover:shadow-xl hover:border-primary-100 dark:hover:border-primary-900/30 transition-all group lg:grid lg:grid-cols-9 lg:items-center">
+                                    <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[1.5rem] lg:rounded-2xl p-5 md:p-6 lg:p-4 hover:shadow-xl hover:border-primary-100 dark:hover:border-primary-900/30 transition-all group lg:grid lg:grid-cols-12 lg:items-center">
                                         {/* Desktop-only hidden / Mobile visible labels */}
-                                        <div className="lg:col-span-2 flex items-center gap-4 mb-4 lg:mb-0">
+                                        <div className="lg:col-span-3 flex items-center gap-4 mb-4 lg:mb-0">
                                             <div className="h-12 w-12 lg:h-9 lg:lg:w-9 rounded-2xl lg:rounded-xl bg-primary-600 flex items-center justify-center text-xs lg:text-[10px] font-black text-white shadow-lg shadow-primary-200 dark:shadow-none transition-transform group-hover:scale-105">
                                                 {(project.projectName || project.name || 'PR').substring(0, 2).toUpperCase()}
                                             </div>
@@ -257,13 +266,13 @@ export function Projects() {
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 lg:gap-0 lg:col-span-7 items-center">
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-9 gap-4 lg:gap-0 lg:col-span-9 items-center">
                                             {/* Assignees */}
                                             <div className="flex flex-col lg:items-center gap-1 lg:col-span-1">
                                                 <span className="lg:hidden text-[9px] font-black text-slate-400 uppercase tracking-widest">Assignees</span>
                                                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{project.assignees}</span>
                                             </div>
-                                            {/* Tasks (Desktop only here, mobile has it in header) */}
+                                            {/* Tasks */}
                                             <div className="hidden lg:flex flex-col lg:items-center gap-1 lg:col-span-1">
                                                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{project.tasks}</span>
                                             </div>
@@ -284,7 +293,7 @@ export function Projects() {
                                             </div>
                                             {/* Bill Rate */}
                                             <div className="flex flex-col lg:items-center gap-1 lg:col-span-1">
-                                                <span className="lg:hidden text-[9px] font-black text-emerald-500/70 uppercase tracking-widest">Bill Rate</span>
+                                                <span className="lg:hidden text-[9px] font-black text-emerald-500/70 uppercase tracking-widest">Rate</span>
                                                 <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">${project.billRate}</span>
                                             </div>
                                             {/* Total Costs */}
@@ -292,10 +301,41 @@ export function Projects() {
                                                 <span className="lg:hidden text-[9px] font-black text-primary-500/70 uppercase tracking-widest">Costs</span>
                                                 <span className="text-sm lg:text-xs font-black text-primary-600 dark:text-primary-400">${project.totalCosts}</span>
                                             </div>
+
+                                            {/* Actions */}
+                                            {(role === 'ADMIN' || role === 'MANAGER') ? (
+                                                <div className="flex items-center justify-end gap-2 lg:col-span-2 text-right pr-2">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setEditingProject(project);
+                                                            setIsModalOpen(true);
+                                                        }}
+                                                        className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-primary-600 dark:hover:text-primary-400 transition-all"
+                                                        title="Edit Project"
+                                                    >
+                                                        <Edit3 size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (window.confirm('Are you sure you want to delete this project?')) {
+                                                                deleteProject(project.id);
+                                                            }
+                                                        }}
+                                                        className="p-2 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg text-slate-400 hover:text-rose-500 transition-all"
+                                                        title="Delete Project"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="lg:col-span-2" />
+                                            )}
                                         </div>
                                     </div>
                                 ));
-                            })()}
+                            })() }
                         </div>
                     </div>
                 
@@ -303,7 +343,11 @@ export function Projects() {
 
             <NewProjectModal
                 isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={() => {
+                    setIsModalOpen(false);
+                    setEditingProject(null);
+                }}
+                initialData={editingProject}
                 employees={employees}
                 teams={teams}
             />

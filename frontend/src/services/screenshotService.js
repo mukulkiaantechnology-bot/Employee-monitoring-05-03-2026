@@ -36,6 +36,34 @@ const screenshotService = {
     createScreenshot: async (data) => {
         const response = await apiClient.post('/screenshots', data);
         return response.data;
+    },
+
+    /**
+     * Upload real screenshot via multipart form-data
+     * @param {FormData} formData
+     */
+    uploadRealScreenshot: async (formData) => {
+        const response = await apiClient.post('/screenshots', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return response.data;
+    },
+
+    /**
+     * Get screenshot settings for the organization
+     */
+    getSettings: async () => {
+        const response = await apiClient.get('/screenshots/settings');
+        return response.data;
+    },
+
+    /**
+     * Update screenshot settings
+     * @param {Object} settings - { randomShifts, excludeAdmin, globalBlur, frequency }
+     */
+    updateSettings: async (settings) => {
+        const response = await apiClient.patch('/screenshots/settings', settings);
+        return response.data;
     }
 };
 

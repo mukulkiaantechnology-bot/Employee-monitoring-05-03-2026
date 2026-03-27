@@ -57,10 +57,18 @@ export function Sidebar({ collapsed, setCollapsed, onMobileClose }) {
     const rolePath = role ? `/${role.toLowerCase()}` : '';
 
     // Filter nav items based on RBAC and inject role path
-    const allowedNavItems = navItems.filter(item => hasAccess(item.key)).map(item => ({
-        ...item,
-        path: `${rolePath}${item.path === '/' ? '' : item.path}`
-    }));
+    const allowedNavItems = navItems
+        .filter(item => {
+            if (!hasAccess(item.key)) return false;
+            // Employees should not see 'Screenshot Monitoring' in sidebar to keep it clean,
+            // as they have 'Recent Captures' in their dashboard.
+            if (role === 'EMPLOYEE' && item.key === 'screenshots') return false;
+            return true;
+        })
+        .map(item => ({
+            ...item,
+            path: `${rolePath}${item.path === '/' ? '' : item.path}`
+        }));
 
     const allowedReportSubItems = reportSubItems.map(item => ({
         ...item,

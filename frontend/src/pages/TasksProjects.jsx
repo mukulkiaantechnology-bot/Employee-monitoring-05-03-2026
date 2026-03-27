@@ -204,10 +204,26 @@ const CreateTaskModal = ({ isOpen, onClose, onSave, defaultStatus = 'To Do', emp
     );
 };
 
-const CreateGoalModal = ({ isOpen, onClose, onSave }) => {
+const CreateGoalModal = ({ isOpen, onClose, onSave, employees = [], initialData = null }) => {
     const [title, setTitle] = useState('');
     const [sub, setSub] = useState('');
     const [date, setDate] = useState('');
+    const [selectedStakeholders, setSelectedStakeholders] = useState([]);
+    const [showStakeholderMenu, setShowStakeholderMenu] = useState(false);
+
+    useEffect(() => {
+        if (initialData) {
+            setTitle(initialData.title || '');
+            setSub(initialData.sub || '');
+            setDate(initialData.targetDate || '');
+            setSelectedStakeholders(initialData.stakeholders?.map(s => s.employeeId) || []);
+        } else {
+            setTitle('');
+            setSub('');
+            setDate('');
+            setSelectedStakeholders([]);
+        }
+    }, [initialData, isOpen]);
 
     useEffect(() => {
         if (isOpen) document.body.style.overflow = 'hidden';
@@ -219,10 +235,26 @@ const CreateGoalModal = ({ isOpen, onClose, onSave }) => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSave({ title, sub, date, progress: 0, icon: Target, color: "text-indigo-600 bg-indigo-50" });
+        onSave({ 
+            title, 
+            sub, 
+            targetDate: date, 
+            stakeholders: selectedStakeholders,
+            progress: 0, 
+            icon: Target, 
+            color: "text-indigo-600 bg-indigo-50" 
+        });
         onClose();
         setTitle('');
         setSub('');
+        setDate('');
+        setSelectedStakeholders([]);
+    };
+
+    const toggleStakeholder = (id) => {
+        setSelectedStakeholders(prev => 
+            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+        );
     };
 
     return createPortal(
@@ -246,6 +278,36 @@ const CreateGoalModal = ({ isOpen, onClose, onSave }) => {
                     <div>
                         <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Target Date</label>
                         <input type="text" value={date} onChange={e => setDate(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm" placeholder="e.g. End of Q4" required />
+                    </div>
+                    <div className="relative">
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Stakeholders</label>
+                        <button 
+                            type="button"
+                            onClick={() => setShowStakeholderMenu(!showStakeholderMenu)}
+                            className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-xs text-left text-slate-600 dark:text-slate-400 flex justify-between items-center"
+                        >
+                            {selectedStakeholders.length === 0 ? 'Select Team Members' : `${selectedStakeholders.length} Stakeholders`}
+                            <ChevronDown size={14} />
+                        </button>
+                        {showStakeholderMenu && (
+                            <div className="absolute bottom-full left-0 right-0 mb-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-2xl max-h-40 overflow-y-auto z-50 p-1">
+                                {employees.map(emp => (
+                                    <div 
+                                        key={emp.id} 
+                                        onClick={() => toggleStakeholder(emp.id)}
+                                        className={cn(
+                                            "flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors",
+                                            selectedStakeholders.includes(emp.id) ? "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600" : "hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                                        )}
+                                    >
+                                        <div className="h-4 w-4 rounded border flex items-center justify-center">
+                                            {selectedStakeholders.includes(emp.id) && <div className="h-2 w-2 rounded-sm bg-indigo-600" />}
+                                        </div>
+                                        <span className="text-[10px] font-bold">{emp.fullName || emp.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                     <div className="pt-2 flex gap-2">
                         <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">Cancel</button>
@@ -372,8 +434,7 @@ const EditTaskModal = ({ isOpen, onClose, onSave, task, employees = [], projects
 
 const GoalStreamModal = ({ goal, onClose }) => {
     if (!goal) return null;
-
-    const stream = [
+    const stream = (goal.activities && goal.activities.length > 0) ? goal.activities : [
         { id: 1, title: "Initial Roadmap Defined", date: "3 weeks ago", status: "Completed", type: "milestone" },
         { id: 2, title: "Resource Allocation Phase", date: "2 weeks ago", status: "Completed", type: "ops" },
         { id: 3, title: "Mid-Cycle Performance Review", date: "4 days ago", status: "In Progress", type: "review" },
@@ -387,8 +448,8 @@ const GoalStreamModal = ({ goal, onClose }) => {
 
                 <div className="flex justify-between items-start mb-10">
                     <div className="flex items-center gap-6">
-                        <div className={cn("h-16 w-16 rounded-3xl flex items-center justify-center shadow-xl", goal.color)}>
-                            <goal.icon size={32} />
+                        <div className={cn("h-16 w-16 rounded-3xl flex items-center justify-center shadow-xl", goal.color || "bg-indigo-600 text-white")}>
+                            <Target size={32} />
                         </div>
                         <div>
                             <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">{goal.title}</h3>
@@ -440,11 +501,14 @@ const GoalStreamModal = ({ goal, onClose }) => {
                         <div>
                             <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em] mb-4">Stakeholders</h4>
                             <div className="flex -space-x-3">
-                                {[1, 2, 3, 4].map(i => (
-                                    <div key={i} className="h-10 w-10 rounded-2xl border-2 border-white dark:border-slate-900 bg-slate-100 overflow-hidden shadow-lg hover:-translate-y-1 transition-transform">
-                                        <img src={`https://i.pravatar.cc/150?u=${goal.id + i}`} className="h-full w-full object-cover" />
+                                {goal.stakeholders?.map((s, i) => (
+                                    <div key={s.id} className="h-10 w-10 rounded-2xl border-2 border-white dark:border-slate-900 bg-slate-100 overflow-hidden shadow-lg hover:-translate-y-1 transition-transform">
+                                        <img src={s.employee?.avatar || `https://i.pravatar.cc/150?u=${s.id}`} className="h-full w-full object-cover" />
                                     </div>
                                 ))}
+                                {(!goal.stakeholders || goal.stakeholders.length === 0) && (
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">No stakeholders</span>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -629,6 +693,7 @@ export function TasksProjects() {
     const {
         tasks,
         projects,
+        goals: contextGoals,
         timeEntries,
         addProject,
         updateTaskStatus,
@@ -639,6 +704,9 @@ export function TasksProjects() {
         stats,
         deleteTask,
         updateTask,
+        addGoal,
+        deleteGoal,
+        updateGoal,
     } = useRealTime();
 
     const { quickFilter, dateRange, selectedEmployee, selectedTeam } = useFilterStore();
@@ -657,9 +725,28 @@ export function TasksProjects() {
     // Edit modal
     const [editingTask, setEditingTask] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editingGoal, setEditingGoal] = useState(null);
+    const [isEditGoalModalOpen, setIsEditGoalModalOpen] = useState(false);
 
     const openGoalStream = (goal) => {
         setSelectedGoalStream(goal);
+    };
+
+    const handleEditGoal = (goal) => {
+        setEditingGoal(goal);
+        setIsEditGoalModalOpen(true);
+    };
+
+    const handleDeleteGoal = async (goalId) => {
+        if (window.confirm('Delete this goal? All progress and activities will be lost.')) {
+            await deleteGoal(goalId);
+        }
+    };
+
+    const handleUpdateGoal = async (id, goalData) => {
+        await updateGoal(id, goalData);
+        setIsEditGoalModalOpen(false);
+        setEditingGoal(null);
     };
 
     const handleHistoryArchive = () => {
@@ -699,14 +786,8 @@ export function TasksProjects() {
         { id: 102, task: "Database Migration", duration: "6h 15m", date: "2023-10-14", employee: "John Wick" },
         { id: 103, task: "API Documentation", duration: "2h 30m", date: "2023-10-12", employee: "Ellen Ripley" },
     ];
-    // Goals State (Lifted from static)
-    const [goals, setGoals] = useState([
-        { id: 1, title: "Enterprise Scalability", sub: "Cloud Infrastructure", progress: 85, date: "Due Feb 24", icon: Shield, color: "text-indigo-600 bg-indigo-50" },
-        { id: 2, title: "Client Retention 90%+", sub: "Account Management", progress: 72, date: "Ongoing Q1", icon: Users, color: "text-emerald-600 bg-emerald-50" },
-        { id: 3, title: "AI Integration Engine", sub: "R&D Prototype", progress: 45, date: "Due Mar 12", icon: Zap, color: "text-amber-600 bg-amber-50" },
-        { id: 4, title: "Security Protocols Audit", sub: "Compliance", progress: 100, date: "Completed", icon: Shield, color: "text-blue-600 bg-blue-50" },
-        { id: 5, title: "Team Expansion Phase 2", sub: "Talent Acquisition", progress: 20, date: "Due Apr 01", icon: Users, color: "text-purple-600 bg-purple-50" },
-    ]);
+    // Goals State (Lifted from context)
+    const goals = contextGoals;
 
     const openTaskModal = (status = 'To Do') => {
         setTaskModalDefaultStatus(status);
@@ -718,9 +799,8 @@ export function TasksProjects() {
         // addNotification is already handled in Context for async success/fail
     };
 
-    const handleSaveGoal = (goalData) => {
-        setGoals(prev => [{ ...goalData, id: Date.now() }, ...prev]);
-        addNotification(`Goal "${goalData.title}" set`, 'success');
+    const handleSaveGoal = async (goalData) => {
+        await addGoal(goalData);
     };
 
     const handleFeatureGeneric = (feature) => {
@@ -1239,9 +1319,11 @@ export function TasksProjects() {
                                 <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Active Strategic Goals</h3>
                                 <p className="text-xs md:text-sm text-slate-400 font-bold tracking-tight">Requirement-based milestone tracking across the organization.</p>
                             </div>
-                            <button onClick={() => setIsGoalModalOpen(true)} className="w-full sm:w-auto h-14 px-8 bg-indigo-600 text-white rounded-[1.25rem] font-black text-[10px] md:text-xs uppercase tracking-widest shadow-xl hover:scale-105 transition-all flex items-center justify-center gap-2">
-                                <Plus size={18} /> <span>Define Objective</span>
-                            </button>
+                            {role !== 'EMPLOYEE' && (
+                                <button onClick={() => setIsGoalModalOpen(true)} className="w-full sm:w-auto h-14 px-8 bg-indigo-600 text-white rounded-[1.25rem] font-black text-[10px] md:text-xs uppercase tracking-widest shadow-xl hover:scale-105 transition-all flex items-center justify-center gap-2">
+                                    <Plus size={18} /> <span>Define Objective</span>
+                                </button>
+                            )}
                         </div>
 
                         {/* Milestones Cards Grid */}
@@ -1249,11 +1331,27 @@ export function TasksProjects() {
                             {goals.map(goal => (
                                 <div key={goal.id} className="bg-white dark:bg-slate-900 rounded-[2rem] md:rounded-[2.5rem] p-6 md:p-10 border border-slate-100 dark:border-slate-800 shadow-2xl relative overflow-hidden group">
                                     <div className="flex items-center justify-between mb-8">
-                                        <div className={cn("h-16 w-16 rounded-3xl flex items-center justify-center transition-transform group-hover:rotate-12", goal.color)}>
-                                            <goal.icon size={28} />
+                                        <div className={cn("h-16 w-16 rounded-3xl flex items-center justify-center transition-transform group-hover:rotate-12", goal.color || "text-indigo-600 bg-indigo-50")}>
+                                            <Target size={28} />
                                         </div>
+                                        {role !== 'EMPLOYEE' && (
+                                            <div className="absolute top-6 right-6 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleEditGoal(goal); }}
+                                                    className="p-1.5 bg-indigo-600 text-white rounded-lg shadow-lg hover:scale-110 active:scale-95 transition-all"
+                                                >
+                                                    <Edit2 size={13} strokeWidth={2.5} />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); handleDeleteGoal(goal.id); }}
+                                                    className="p-1.5 bg-rose-500 text-white rounded-lg shadow-lg hover:scale-110 active:scale-95 transition-all"
+                                                >
+                                                    <Trash2 size={13} strokeWidth={2.5} />
+                                                </button>
+                                            </div>
+                                        )}
                                         <div className="flex flex-col items-end">
-                                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">{goal.date}</span>
+                                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest leading-none mb-1">{goal.targetDate || "No Date"}</span>
                                             <span className="text-lg font-black text-slate-900 dark:text-white leading-none">{goal.progress}%</span>
                                         </div>
                                     </div>
@@ -1261,14 +1359,14 @@ export function TasksProjects() {
                                     <p className="text-[10px] font-black uppercase text-indigo-500 tracking-widest mb-8">{goal.sub}</p>
 
                                     <div className="h-2 w-full bg-slate-50 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner flex items-center px-0.5">
-                                        <div className={cn("h-1 rounded-full transition-all duration-2000 ease-out shadow-[0_0_10px_currentColor]", goal.color.split(' ')[0])} style={{ width: `${goal.progress}%` }} />
+                                        <div className={cn("h-1 rounded-full transition-all duration-2000 ease-out shadow-[0_0_10px_currentColor]", goal.color ? goal.color.split(' ')[0] : "bg-indigo-600")} style={{ width: `${goal.progress}%` }} />
                                     </div>
 
                                     <div className="mt-10 pt-8 border-t border-slate-50 dark:border-slate-800 flex items-center justify-between">
                                         <div className="flex -space-x-3">
-                                            {[1, 2, 3].map(i => (
-                                                <div key={i} className="h-8 w-8 rounded-xl border-2 border-white dark:border-slate-900 bg-slate-100 overflow-hidden shadow-sm">
-                                                    <img src={`https://i.pravatar.cc/150?u=${goal.id + i}`} className="h-full w-full object-cover" />
+                                            {goal.stakeholders?.map((s, i) => (
+                                                <div key={s.id} className="h-8 w-8 rounded-xl border-2 border-white dark:border-slate-900 bg-slate-100 overflow-hidden shadow-sm">
+                                                    <img src={s.employee?.avatar || `https://i.pravatar.cc/150?u=${s.employee?.fullName || 'user'}`} className="h-full w-full object-cover" />
                                                 </div>
                                             ))}
                                         </div>
@@ -1296,7 +1394,18 @@ export function TasksProjects() {
                 isOpen={isGoalModalOpen}
                 onClose={() => setIsGoalModalOpen(false)}
                 onSave={handleSaveGoal}
+                employees={employees}
             />
+
+            {editingGoal && (
+                <CreateGoalModal
+                    isOpen={isEditGoalModalOpen}
+                    onClose={() => { setIsEditGoalModalOpen(false); setEditingGoal(null); }}
+                    onSave={(data) => handleUpdateGoal(editingGoal.id, data)}
+                    employees={employees}
+                    initialData={editingGoal}
+                />
+            )}
 
             <GoalStreamModal
                 goal={selectedGoalStream}

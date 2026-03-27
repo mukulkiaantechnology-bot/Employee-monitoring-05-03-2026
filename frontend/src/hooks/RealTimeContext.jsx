@@ -17,6 +17,7 @@ import activityService from '../services/activityService';
 import teamService from '../services/teamService';
 import taskService from '../services/taskService';
 import projectService from '../services/projectService';
+import goalService from '../services/goalService';
 import { io } from 'socket.io-client';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
@@ -40,6 +41,7 @@ export function RealTimeProvider({ children }) {
         employees: seedData.employees,
         tasks: [],
         projects: [],
+        goals: [],
         teams: seedData.teams,
         // Logs
         activityLogs: seedData.activityLogs,
@@ -286,6 +288,21 @@ export function RealTimeProvider({ children }) {
             addNotification(`New screenshot from employee`, 'info');
         });
 
+        socket.on('goal:update', (data) => {
+            setState(prev => ({
+                ...prev,
+                goals: prev.goals.map(g => g.id === data.id ? data : g)
+            }));
+        });
+
+        socket.on('goal:new', (data) => {
+            setState(prev => ({
+                ...prev,
+                goals: [data, ...prev.goals]
+            }));
+            addNotification(`New goal "${data.title}" defined`, 'success');
+        });
+
         return () => socket.disconnect();
     }, [isLoading, isAuthenticated, user]);
 
@@ -356,6 +373,27 @@ export function RealTimeProvider({ children }) {
 
         const interval = setInterval(syncProjects, 30000);
         syncProjects();
+
+        return () => clearInterval(interval);
+    }, [isLoading, isAuthenticated]);
+
+    // Live backend goals sync
+    useEffect(() => {
+        if (isLoading || !isAuthenticated) return;
+
+        const syncGoals = async () => {
+            try {
+                const res = await goalService.getGoals();
+                if (res.success && res.data) {
+                    setState(prev => ({ ...prev, goals: res.data }));
+                }
+            } catch (err) {
+                console.error('Failed to sync goals:', err);
+            }
+        };
+
+        const interval = setInterval(syncGoals, 60000); // Sync every minute
+        syncGoals();
 
         return () => clearInterval(interval);
     }, [isLoading, isAuthenticated]);
@@ -820,6 +858,50 @@ export function RealTimeProvider({ children }) {
         setState(prev => ({ ...prev, notifications: prev.notifications.filter(n => n.id !== id) }));
     }, []);
 
+    // Goals Actions
+    const addGoal = useCallback(async (goalData) => {
+        try {
+            const res = await goalService.createGoal(goalData);
+            if (res.success) {
+                setState(prev => ({ ...prev, goals: [res.data, ...prev.goals] }));
+                addNotification(`Goal "${goalData.title}" set`, 'success');
+                return res.data;
+            }
+        } catch (error) {
+            console.error('Failed to add goal:', error);
+            addNotification('Failed to create goal', 'alert');
+        }
+    }, [addNotification]);
+
+    const deleteGoal = useCallback(async (id) => {
+        try {
+            const res = await goalService.deleteGoal(id);
+            if (res.success) {
+                setState(prev => ({ ...prev, goals: prev.goals.filter(g => g.id !== id) }));
+                addNotification('Goal deleted', 'info');
+            }
+        } catch (error) {
+            console.error('Failed to delete goal:', error);
+            addNotification('Failed to delete goal', 'alert');
+        }
+    }, [addNotification]);
+
+    const updateGoal = useCallback(async (id, goalData) => {
+        try {
+            const res = await goalService.updateGoal(id, goalData);
+            if (res.success) {
+                setState(prev => ({
+                    ...prev,
+                    goals: prev.goals.map(g => g.id === id ? res.data : g)
+                }));
+                addNotification(`Goal "${goalData.title}" updated`, 'success');
+            }
+        } catch (error) {
+            console.error('Failed to update goal:', error);
+            addNotification('Failed to update goal', 'alert');
+        }
+    }, [addNotification]);
+
     // CheckIns
     const addCheckIn = useCallback((checkIn) => {
         setState(prev => ({ ...prev, checkIns: [{ ...checkIn, id: Date.now() }, ...prev.checkIns] }));
@@ -827,13 +909,14 @@ export function RealTimeProvider({ children }) {
 
     // Filtered data based on role
     const filteredData = useMemo(() => {
-        const currentEmployees = stats.empMetrics; // Use enriched employees
+        const currentEmployees = stats.empMetrics; 
 
         if (!isAuthenticated || role === 'ADMIN' || role === 'MANAGER') {
             return {
                 employees: currentEmployees,
                 tasks: state.tasks,
                 projects: state.projects,
+                goals: state.goals,
                 teams: state.teams,
                 activityLogs: state.activityLogs,
             };
@@ -846,13 +929,14 @@ export function RealTimeProvider({ children }) {
                 employees: filteredEmployees,
                 tasks: state.tasks.filter(t => t.assigneeId === filteredEmployees[0]?.id),
                 projects: state.projects.filter(p => p.employees?.includes(filteredEmployees[0]?.id)),
+                goals: state.goals.filter(g => g.stakeholders?.some(s => s.employeeId === filteredEmployees[0]?.id)),
                 teams: [],
                 activityLogs: state.activityLogs.filter(l => l.employeeId === filteredEmployees[0]?.id),
             };
         }
 
         return { ...state, employees: currentEmployees };
-    }, [state, role, isAuthenticated, stats.empMetrics]);
+    }, [state, role, isAuthenticated, stats.empMetrics, user]);
 
     const contextValue = useMemo(() => ({
         // State
@@ -867,6 +951,7 @@ export function RealTimeProvider({ children }) {
         addTimeEntry, updateTimeEntry, deleteTimeEntry,
         addTask, updateTaskStatus, deleteTask, updateTask,
         addProject,
+        addGoal, deleteGoal, updateGoal,
         deleteScreenshot,
         addGeofence, toggleGeofence,
         addLeaveRequest, updateLeaveStatus, deleteLeaveRequest,
@@ -882,7 +967,7 @@ export function RealTimeProvider({ children }) {
         toggleTimer, startTimer, stopTimer, pauseTimer,
         addTimeEntry, updateTimeEntry, deleteTimeEntry,
         addTask, updateTaskStatus, deleteTask, updateTask,
-        addProject, deleteScreenshot, addGeofence, toggleGeofence,
+        addProject, addGoal, deleteGoal, updateGoal, deleteScreenshot, addGeofence, toggleGeofence,
         addLeaveRequest, updateLeaveStatus, deleteLeaveRequest,
         dismissAlert, dismissAllAlerts, updateComplianceSetting,
         setSelectedDate, addCheckIn,

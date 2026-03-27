@@ -1,9 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { X, Search, Check } from 'lucide-react';
 import { useProjectStore } from '../store/projectStore';
 
-export function NewProjectModal({ isOpen, onClose, employees = [], teams = [] }) {
-    const { createProject } = useProjectStore();
+export function NewProjectModal({ isOpen, onClose, employees = [], teams = [], initialData = null }) {
+    const { createProject, updateProject } = useProjectStore();
     const [billRateType, setBillRateType] = useState('Project');
     const [projectName, setProjectName] = useState('');
     const [projectBillRate, setProjectBillRate] = useState('0');
@@ -12,11 +12,27 @@ export function NewProjectModal({ isOpen, onClose, employees = [], teams = [] })
     const [showError, setShowError] = useState(false);
 
     const filteredEmployees = useMemo(() => {
-        return employees.filter(emp =>
+        return employees.map(emp => ({
+            id: emp.id,
+            name: emp.fullName || emp.name,
+            team: emp.team?.name || emp.team || 'Unassigned'
+        })).filter(emp =>
             emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             emp.team.toLowerCase().includes(searchQuery.toLowerCase())
         );
     }, [employees, searchQuery]);
+
+    useEffect(() => {
+        if (initialData) {
+            setProjectName(initialData.projectName || initialData.name || '');
+            setProjectBillRate(String(initialData.billRate || '0'));
+            setSelectedEmployees(initialData.employeeIds || initialData.assignments?.map(a => a.employeeId) || []);
+        } else {
+            setProjectName('');
+            setProjectBillRate('0');
+            setSelectedEmployees([]);
+        }
+    }, [initialData, isOpen]);
 
     if (!isOpen) return null;
 
@@ -39,16 +55,21 @@ export function NewProjectModal({ isOpen, onClose, employees = [], teams = [] })
         };
 
         try {
-            await createProject(projectData);
+            if (initialData) {
+                await updateProject(initialData.id, projectData);
+            } else {
+                await createProject(projectData);
+            }
             onClose();
-            // Reset state
-            setProjectName('');
-            setProjectBillRate('0');
-            setSelectedEmployees([]);
+            // Reset state if creating
+            if (!initialData) {
+                setProjectName('');
+                setProjectBillRate('0');
+                setSelectedEmployees([]);
+            }
             setShowError(false);
         } catch (error) {
-            console.error('Failed to create project:', error);
-            // Optionally show error in UI
+            console.error('Failed to save project:', error);
         }
     };
 
@@ -58,7 +79,7 @@ export function NewProjectModal({ isOpen, onClose, employees = [], teams = [] })
             <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl animate-scale-in overflow-hidden border border-slate-100 dark:border-slate-800">
                 {/* Header */}
                 <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                    <h2 className="text-xl font-bold text-slate-700 dark:text-slate-200">New project</h2>
+                    <h2 className="text-xl font-bold text-slate-700 dark:text-slate-200">{initialData ? 'Edit Project' : 'New project'}</h2>
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
                         <X size={20} />
                     </button>

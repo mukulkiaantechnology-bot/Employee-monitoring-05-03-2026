@@ -60,12 +60,12 @@ export const useAuthStore = create(
                         "tasks", "payroll", "compliance", "reports", "settings"
                     ],
                     MANAGER: [
-                        "dashboard", "realtime", "alerts", "employees",
+                        "dashboard", "realtime", "alerts", "employees", "teams", 
                         "screenshots", "timeAttendance", "activity", "projects",
                         "tasks", "reports"
                     ],
                     EMPLOYEE: [
-                        "dashboard", "timeAttendance", "tasks"
+                        "dashboard", "timeAttendance", "tasks", "screenshots"
                     ]
                 };
                 if (!role) return false;

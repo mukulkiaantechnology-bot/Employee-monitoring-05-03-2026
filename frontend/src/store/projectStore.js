@@ -67,5 +67,40 @@ export const useProjectStore = create((set, get) => ({
             set({ error: error.response?.data?.message || 'Failed to log time', loading: false });
             throw error;
         }
+    },
+
+    updateProject: async (projectId, projectData) => {
+        set({ loading: true, error: null });
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.put(`${API_URL}/projects/${projectId}`, projectData, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            set(state => ({
+                projects: state.projects.map(p => p.id === projectId ? response.data.data : p),
+                loading: false
+            }));
+            return response.data;
+        } catch (error) {
+            set({ error: error.response?.data?.message || 'Failed to update project', loading: false });
+            throw error;
+        }
+    },
+
+    deleteProject: async (projectId) => {
+        set({ loading: true, error: null });
+        try {
+            const token = localStorage.getItem('token');
+            await axios.delete(`${API_URL}/projects/${projectId}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            set(state => ({
+                projects: state.projects.filter(p => p.id !== projectId),
+                loading: false
+            }));
+        } catch (error) {
+            set({ error: error.response?.data?.message || 'Failed to delete project', loading: false });
+            throw error;
+        }
     }
 }));

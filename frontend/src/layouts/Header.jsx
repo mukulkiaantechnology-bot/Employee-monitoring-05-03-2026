@@ -6,6 +6,7 @@ import { useTheme } from '../hooks/useTheme';
 import { useAuthStore } from '../store/authStore';
 import { ProfileDropdown } from '../components/header/ProfileDropdown';
 import { useRealTime } from '../hooks/RealTimeContext';
+import { WebTrackerAgent } from '../components/agent/WebTrackerAgent';
 
 export function Header({ onMenuClick }) {
     const { theme, toggleTheme } = useTheme();
@@ -39,6 +40,8 @@ export function Header({ onMenuClick }) {
             </div>
 
             <div className="flex items-center gap-2 md:gap-3">
+                <WebTrackerAgent />
+
                 <button
                     onClick={toggleTheme}
                     className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-all active:scale-95"

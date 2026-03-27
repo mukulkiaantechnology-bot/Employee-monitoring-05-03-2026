@@ -33,6 +33,7 @@ import { AddEmployeeModal } from '../components/AddEmployeeModal';
 import { GlobalCalendar } from '../components/GlobalCalendar';
 import { useRealTime } from '../hooks/RealTimeContext';
 import { useAuthStore } from '../store/authStore';
+import API_BASE_URL from '../config/api';
 
 const SummaryCard = ({ title, value, trend, subValue, icon: Icon, color }) => (
     <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:shadow-md h-full">
@@ -74,11 +75,19 @@ const EmployeeTable = ({ title, data, type }) => (
                         <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                             <td className="px-4 py-3">
                                 <div className="flex items-center gap-3">
-                                    <div className="h-8 w-8 rounded-full bg-rose-100 dark:bg-rose-500/10 flex items-center justify-center text-[10px] font-black text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20">
-                                        {emp.initials}
+                                    <div className="relative">
+                                        <div className="h-8 w-8 rounded-full bg-rose-100 dark:bg-rose-500/10 flex items-center justify-center text-[10px] font-black text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20">
+                                            {emp.initials}
+                                        </div>
+                                        <div className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white dark:border-slate-900 ${emp.status === 'ACTIVE' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
                                     </div>
                                     <div>
-                                        <p className="font-bold text-slate-900 dark:text-white leading-tight">{emp.name}</p>
+                                        <p className="font-bold text-slate-900 dark:text-white leading-tight flex items-center gap-2">
+                                            {emp.name}
+                                            <span className={`text-[8px] px-1 rounded-sm uppercase tracking-tighter ${emp.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                {emp.status === 'ACTIVE' ? 'Active' : 'Offline'}
+                                            </span>
+                                        </p>
                                         <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{emp.team}</p>
                                     </div>
                                 </div>
@@ -273,12 +282,35 @@ export function Dashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6 mb-8">
                 <SummaryCard title="Work Time" value={stats.summary?.workTime || '00:00'} trend="" subValue={(role === 'ADMIN' || role === 'MANAGER') ? `${stats.employees?.length || 0} employees tracked` : 'Personal activity'} icon={Clock} />
                 <SummaryCard title="Active Time" value={stats.summary?.activeTime || '00:00'} trend="" subValue="Computer activity" icon={Activity} />
-                <SummaryCard title="Idle Time" value={stats.summary?.idleTime || '00:00'} trend="" subValue="Keyboard/mouse inactive" icon={Clock} />
-                <SummaryCard title="Manual Time" value={stats.summary?.manualTime || '00:00'} subValue="User-entered time" icon={Plus} />
+                
+                {role !== 'EMPLOYEE' && (
+                    <>
+                        <SummaryCard title="Idle Time" value={stats.summary?.idleTime || '00:00'} trend="" subValue="Keyboard/mouse inactive" icon={Clock} />
+                        <SummaryCard title="Manual Time" value={stats.summary?.manualTime || '00:00'} subValue="User-entered time" icon={Plus} />
+                    </>
+                )}
+
                 <SummaryCard title="Productive Time" value={stats.summary?.productiveTime || '00:00'} trend="" subValue="High-value work" icon={TrendingUp} />
-                <SummaryCard title="Unproductive Time" value={stats.summary?.unproductiveTime || '00:00'} trend="" subValue="Low-value activity" icon={TrendingDown} />
-                <SummaryCard title="Neutral Time" value={stats.summary?.neutralTime || '00:00'} trend="" subValue="Mixed activity" icon={ArrowRightLeft} />
+
+                {role !== 'EMPLOYEE' && (
+                    <>
+                        <SummaryCard title="Unproductive Time" value={stats.summary?.unproductiveTime || '00:00'} trend="" subValue="Low-value activity" icon={TrendingDown} />
+                        <SummaryCard title="Neutral Time" value={stats.summary?.neutralTime || '00:00'} trend="" subValue="Mixed activity" icon={ArrowRightLeft} />
+                    </>
+                )}
+
                 <SummaryCard title="Productivity Score" value={`${stats.summary?.utilization ?? 0}%`} subValue={`Work / Productive`} icon={TrendingUp} />
+                
+                {role === 'MANAGER' && (
+                    <div className="sm:col-span-2 lg:col-span-1 bg-gradient-to-br from-indigo-600 to-indigo-700 p-4 rounded-lg border border-indigo-500 shadow-lg transition-all hover:scale-[1.02] cursor-pointer" onClick={() => navigate('/manager/tasks')}>
+                        <div className="flex justify-between items-start mb-2 text-white/80">
+                            <span className="text-[11px] font-black uppercase tracking-wider">Active Strategic Goals</span>
+                            <Zap size={14} fill="currentColor" />
+                        </div>
+                        <h3 className="text-xl font-black text-white mb-1">OKR Oversight</h3>
+                        <p className="text-[10px] text-indigo-100 font-medium">Manage milestones & progress</p>
+                    </div>
+                )}
             </div>
 
             {/* Main Visualizations */}
@@ -343,6 +375,62 @@ export function Dashboard() {
             </div>
 
             {/* Removed unused mock widgets: Analytical Insights & Asset Monitoring */}
+
+            {stats.screenshots?.length > 0 && (
+                <div className="mt-8 mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                            <div className="h-5 w-1 bg-primary-600 rounded-full"></div>
+                            <h3 className="text-[11px] font-bold text-slate-800 dark:text-slate-100 uppercase tracking-widest">
+                                {role === 'EMPLOYEE' ? 'My Recent Work Captures' : 'Recent Team Activity'}
+                            </h3>
+                        </div>
+                        <button
+                            onClick={() => navigate(role === 'EMPLOYEE' ? '/employee/screenshots' : '/screenshots')}
+                            className="text-[10px] font-black text-primary-600/60 dark:text-primary-400/60 hover:text-primary-600 dark:hover:text-primary-400 uppercase tracking-widest transition-colors flex items-center gap-1"
+                        >
+                            View All <ArrowRightLeft size={10} />
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        {stats.screenshots
+                            .filter(shot => role === 'EMPLOYEE' ? shot.imageUrl?.startsWith('/uploads') : true) // Employees only see REAL data
+                            .slice(0, 5)
+                            .map((shot) => (
+                                <div key={shot.id} className="group relative aspect-video rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 shadow-sm transition-all hover:shadow-xl hover:-translate-y-1">
+                                    <img
+                                        src={shot.imageUrl.startsWith('http') ? shot.imageUrl : `${API_BASE_URL}${shot.imageUrl}`}
+                                        alt="Capture"
+                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                        onError={(e) => {
+                                            e.target.src = 'https://placehold.co/600x400?text=Processing...';
+                                        }}
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-end p-3">
+                                        <div className="flex flex-col transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <div className="h-4 w-4 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-[7px] font-bold text-white uppercase">
+                                                    {shot.employee?.fullName?.charAt(0) || 'E'}
+                                                </div>
+                                                <span className="text-[9px] font-bold text-white truncate max-w-[80px]">
+                                                    {role === 'EMPLOYEE' ? 'Me' : (shot.employee?.fullName || 'Employee')}
+                                                </span>
+                                            </div>
+                                            <span className="text-[8px] font-bold text-white/70 uppercase flex items-center gap-1 tracking-wider">
+                                                <Clock size={8} />
+                                                {new Date(shot.capturedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {/* Status Badge */}
+                                    <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-emerald-500/90 backdrop-blur-md rounded text-[8px] font-black text-white uppercase tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity">
+                                        {shot.imageUrl.startsWith('/uploads') ? 'Live' : 'Simulator'}
+                                    </div>
+                                </div>
+                            ))}
+                    </div>
+                </div>
+            )}
 
             <AddEmployeeModal
                 isOpen={isModalOpen}
