@@ -496,8 +496,8 @@ export function Payroll() {
                                             <td className="px-0 py-2 md:px-6 md:py-4 block md:table-cell">
                                                 <div className="flex items-center gap-3">
                                                     <div className="h-10 w-10 md:h-8 md:w-8 rounded-full bg-slate-100 overflow-hidden ring-2 ring-white dark:ring-slate-800">
-                                                        <img src={`https://i.pravatar.cc/150?u=${row.id}`} alt={row.employee} className="w-full h-full object-cover" />
-                                                    </div>
+                                        <img src={row.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(row.employee)}&background=random`} alt={row.employee} className="w-full h-full object-cover" />
+                                    </div>
                                                     <div>
                                                         <p className="text-sm md:text-sm font-black md:font-bold text-slate-900 dark:text-white leading-tight">{row.employee}</p>
                                                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">{row.role}</p>
@@ -517,7 +517,7 @@ export function Payroll() {
                                             </td>
                                              <td className="px-0 py-1.5 md:px-6 md:py-4 text-sm font-black md:font-bold text-slate-900 dark:text-slate-300 block md:table-cell">
                                                 <span className="md:hidden opacity-50 uppercase mr-2 text-[9px] font-bold">Gross:</span>
-                                                {typeof row.grossPay === 'string' ? row.grossPay : `$${Math.round(row.grossPay || 0).toLocaleString()}`}
+                                                ${(row.grossPay || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                             </td>
                                             <td className="px-0 py-2 md:px-6 md:py-4 block md:table-cell">
                                                 <span className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 md:px-2.5 md:py-1 rounded-lg text-[9px] md:text-[10px] font-black uppercase tracking-widest md:tracking-wide", row.status === 'Ready'
@@ -750,14 +750,15 @@ export function Payroll() {
             {selectedPayslip && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
                     <div className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-[2rem] p-6 md:p-8 shadow-2xl border border-slate-200 dark:border-slate-800 animate-in zoom-in slide-in-from-bottom-4 duration-300 max-h-[95vh] overflow-y-auto custom-scrollbar">
+                        {/* Header */}
                         <div className="flex items-center justify-between mb-6 md:mb-8 pb-4 md:pb-6 border-b border-slate-100 dark:border-slate-800">
                             <div className="flex items-center gap-3 md:gap-4">
-                                <div className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-slate-100 overflow-hidden shrink-0">
-                                    <img src={`https://i.pravatar.cc/150?u=${selectedPayslip.id}`} alt={selectedPayslip.employee} className="w-full h-full object-cover" />
+                                <div className="h-12 w-12 md:h-14 md:w-14 rounded-full bg-slate-100 overflow-hidden shrink-0 ring-2 ring-slate-200 dark:ring-slate-700">
+                                    <img src={selectedPayslip.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedPayslip.employee)}&background=random`} alt={selectedPayslip.employee} className="w-full h-full object-cover" />
                                 </div>
                                 <div>
                                     <h3 className="text-base md:text-xl font-black text-slate-900 dark:text-white leading-tight">{selectedPayslip.employee}</h3>
-                                    <p className="text-[10px] md:text-sm text-slate-500 font-bold uppercase tracking-tight">{selectedPayslip.role}</p>
+                                    <p className="text-[10px] md:text-sm text-slate-500 font-bold uppercase tracking-tight">{selectedPayslip.role} {selectedPayslip.team ? `• ${selectedPayslip.team}` : ''}</p>
                                 </div>
                             </div>
                             <button onClick={() => setSelectedPayslip(null)} className="h-10 w-10 flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors shrink-0">
@@ -766,36 +767,50 @@ export function Payroll() {
                         </div>
 
                         <div className="space-y-6">
-                            <div className="grid grid-cols-1 xs:grid-cols-2 gap-3 md:gap-4">
+                            {/* Period Info */}
+                            <div className="grid grid-cols-2 gap-3 md:gap-4">
                                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50">
                                     <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Pay Period</p>
-                                    <p className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">{selectedPayslip.period || 'Current'}</p>
+                                    <p className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">{selectedPayslip.period || 'Current Month'}</p>
                                 </div>
                                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                                    <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Payment Date</p>
-                                    <p className="text-sm font-bold text-slate-900 dark:text-white">{new Date().toLocaleDateString()}</p>
+                                    <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Hourly Rate</p>
+                                    <p className="text-sm font-bold text-slate-900 dark:text-white">${(selectedPayslip.hourlyRate || 0).toLocaleString()}/hr</p>
+                                </div>
+                                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                                    <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Total Hours</p>
+                                    <p className="text-sm font-bold text-slate-900 dark:text-white">{selectedPayslip.totalHours}h</p>
+                                </div>
+                                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50">
+                                    <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Overtime</p>
+                                    <p className="text-sm font-bold text-amber-600 dark:text-amber-400">{selectedPayslip.overTime || 0}h</p>
                                 </div>
                             </div>
 
+                            {/* Earnings Breakdown */}
                             <div className="space-y-1">
-                                <div className="flex justify-between items-center py-2.5 border-b border-slate-50 dark:border-slate-800/50">
-                                    <span className="text-xs md:text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">Regular Pay ({selectedPayslip.totalHours}h)</span>
-                                    <span className="text-sm font-black text-slate-900 dark:text-white">{typeof selectedPayslip.grossPay === 'string' ? selectedPayslip.grossPay : `$${selectedPayslip.grossPay?.toLocaleString()}`}</span>
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 mb-3">Earnings Breakdown</p>
+                                <div className="flex justify-between items-center py-3 border-b border-slate-100 dark:border-slate-800">
+                                    <span className="text-xs md:text-sm font-bold text-slate-600 dark:text-slate-400">Regular Pay ({selectedPayslip.totalHours}h × ${selectedPayslip.hourlyRate || 0}/hr)</span>
+                                    <span className="text-sm font-black text-slate-900 dark:text-white">${(selectedPayslip.grossPay || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
-                                <div className="flex justify-between items-center py-2.5 border-b border-slate-50 dark:border-slate-800/50">
-                                    <span className="text-xs md:text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">Overtime</span>
-                                    <span className="text-sm font-black text-slate-900 dark:text-white">$0.00</span>
-                                </div>
-                                <div className="flex justify-between items-center py-2.5 border-b border-slate-50 dark:border-slate-800/50 text-red-500">
+                                {selectedPayslip.overTime > 0 && (
+                                    <div className="flex justify-between items-center py-3 border-b border-slate-100 dark:border-slate-800">
+                                        <span className="text-xs md:text-sm font-bold text-amber-600">Overtime ({selectedPayslip.overTime}h)</span>
+                                        <span className="text-sm font-black text-amber-600">${((selectedPayslip.overTime || 0) * (selectedPayslip.hourlyRate || 0) * 1.5).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between items-center py-3 border-b border-slate-100 dark:border-slate-800 text-red-500">
                                     <span className="text-xs md:text-sm font-black uppercase tracking-tight">Tax Deductions (20%)</span>
-                                    <span className="text-sm font-black">-${selectedPayslip.deductions?.toLocaleString() || '0'}</span>
+                                    <span className="text-sm font-black">-${(selectedPayslip.deductions || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
                             </div>
 
+                            {/* Net Pay Banner */}
                             <div className="p-5 md:p-6 rounded-2xl bg-slate-900 text-white flex flex-row justify-between items-center shadow-xl">
                                 <div>
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Net Payable</p>
-                                    <p className="text-2xl md:text-3xl font-black">{selectedPayslip.netPay ? `$${selectedPayslip.netPay.toLocaleString()}` : (typeof selectedPayslip.grossPay === 'string' ? selectedPayslip.grossPay : `$${selectedPayslip.grossPay?.toLocaleString()}`)}</p>
+                                    <p className="text-2xl md:text-3xl font-black">${(selectedPayslip.netPay || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                 </div>
                                 <button
                                     onClick={() => handleDownloadIndividualPayslip(selectedPayslip)}
@@ -805,15 +820,16 @@ export function Payroll() {
                                 </button>
                             </div>
 
+                            {/* Actions */}
                             <div className="grid grid-cols-2 gap-3">
                                 <button
-                                    onClick={() => addNotification("Sent successfully", "success")}
+                                    onClick={() => addNotification("Payslip email sent successfully", "success")}
                                     className="py-3.5 rounded-xl border-2 border-slate-100 dark:border-slate-800 font-black text-slate-500 uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2 text-[9px] md:text-[10px] active:scale-95"
                                 >
                                     <Send size={14} className="text-indigo-500" /> Email Slip
                                 </button>
                                 <button
-                                    onClick={() => addNotification("Sent successfully", "success")}
+                                    onClick={() => addNotification("Sent via WhatsApp", "success")}
                                     className="py-3.5 rounded-xl border-2 border-slate-100 dark:border-slate-800 font-black text-slate-500 uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2 text-[9px] md:text-[10px] active:scale-95"
                                 >
                                     <MessageCircle size={14} className="text-emerald-500" /> WhatsApp
