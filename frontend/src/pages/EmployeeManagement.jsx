@@ -597,7 +597,7 @@ const EmployeeActionsDrawer = ({ isOpen, onClose, employee, onUpdateStatus }) =>
                         <div className="space-y-3">
                             <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Team</span>
-                                <span className="text-xs font-bold text-slate-900 dark:text-white">{employee.team}</span>
+                                <span className="text-xs font-bold text-slate-900 dark:text-white">{typeof employee.team === 'object' ? (employee.team?.name || 'No Team') : (employee.team || 'No Team')}</span>
                             </div>
                             <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Location</span>
@@ -812,7 +812,7 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onTransparencyClick, visibleC
                                 <h4 className="text-base font-black text-slate-900 dark:text-white truncate leading-tight">{employee.name}</h4>
                                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wide truncate mt-0.5">{employee.email}</p>
                                 <div className="mt-1.5 inline-flex items-center px-2 py-0.5 rounded-md bg-primary-50 dark:bg-primary-900/20 text-[9px] font-black text-primary-600 dark:text-primary-400 uppercase tracking-tighter">
-                                    {employee.team}
+                                    {typeof employee.team === 'object' ? employee.team?.name : employee.team}
                                 </div>
                             </div>
                         </div>
@@ -898,7 +898,7 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onTransparencyClick, visibleC
                 {visibleColumns.includes('Team') && (
                     <td className="px-6 py-5">
                         <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-600 dark:text-slate-400">
-                            {employee.team}
+                            {typeof employee.team === 'object' ? (employee.team?.name || 'No Team') : (employee.team || 'No Team')}
                         </span>
                     </td>
                 )}
@@ -1016,8 +1016,9 @@ export function EmployeeManagement() {
     // Filtering Logic
     const filteredEmployees = employees.filter(emp => {
         const q = searchQuery.toLowerCase();
+        const teamName = typeof emp.team === 'object' ? emp.team?.name : emp.team;
         const matchesSearch = (emp.name?.toLowerCase() ?? '').includes(q) ||
-            (emp.team?.toLowerCase() ?? '').includes(q) ||
+            (teamName?.toLowerCase() ?? '').includes(q) ||
             (emp.email?.toLowerCase() ?? '').includes(q);
         const matchesTab = activeTab === 'Active' ? ['active', 'idle', 'offline', 'online'].includes(emp.status) :
             activeTab === 'Pending' ? ['pending', 'invited'].includes(emp.status) :
