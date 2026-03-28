@@ -197,8 +197,8 @@ export function Payroll() {
         const params = {
             startDate: dateRange.start,
             endDate: dateRange.end,
-            userId: selectedEmployee?.id,
-            teamId: selectedTeam?.id
+            userId: selectedEmployee,
+            teamId: selectedTeam
         };
         fetchSummary(params);
         fetchRecords(params);

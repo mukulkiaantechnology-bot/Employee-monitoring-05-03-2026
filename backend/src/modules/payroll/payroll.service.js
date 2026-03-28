@@ -9,7 +9,9 @@ const getPayrollSummary = async (organizationId, params = {}) => {
     // Default: current month
     const now = new Date();
     const start = startDate ? new Date(startDate) : new Date(now.getFullYear(), now.getMonth(), 1);
+    start.setHours(0, 0, 0, 0);
     const end = endDate ? new Date(endDate) : new Date();
+    end.setHours(23, 59, 59, 999);
 
     const employeeWhere = { organizationId };
     if (userId) employeeWhere.id = userId;
@@ -21,7 +23,7 @@ const getPayrollSummary = async (organizationId, params = {}) => {
             attendance: {
                 where: { date: { gte: start, lte: end } }
             },
-            manualTime: {
+            manualTimeEntries: {
                 where: {
                     startTime: { gte: start },
                     endTime: { lte: end }
@@ -37,7 +39,7 @@ const getPayrollSummary = async (organizationId, params = {}) => {
         // Attendance hours
         const attSeconds = emp.attendance.reduce((acc, a) => acc + (a.duration || 0), 0);
         // Manual time hours
-        const manualSeconds = (emp.manualTime || []).reduce((acc, m) => acc + (m.duration || 0), 0);
+        const manualSeconds = (emp.manualTimeEntries || []).reduce((acc, m) => acc + (m.duration || 0), 0);
         const empHours = (attSeconds + manualSeconds) / 3600;
 
         totalHours += empHours;
@@ -66,7 +68,9 @@ const getPayrollRecords = async (organizationId, startDate, endDate, params = {}
     // Default: current month
     const now = new Date();
     const start = startDate instanceof Date ? startDate : (startDate ? new Date(startDate) : new Date(now.getFullYear(), now.getMonth(), 1));
+    start.setHours(0, 0, 0, 0);
     const end = endDate instanceof Date ? endDate : (endDate ? new Date(endDate) : new Date());
+    end.setHours(23, 59, 59, 999);
 
     const employeeWhere = { organizationId };
     if (userId) employeeWhere.id = userId;
@@ -78,7 +82,7 @@ const getPayrollRecords = async (organizationId, startDate, endDate, params = {}
             attendance: {
                 where: { date: { gte: start, lte: end } }
             },
-            manualTime: {
+            manualTimeEntries: {
                 where: {
                     startTime: { gte: start },
                     endTime: { lte: end }
@@ -94,7 +98,7 @@ const getPayrollRecords = async (organizationId, startDate, endDate, params = {}
         // Attendance (clock-in/out) seconds
         const attSeconds = emp.attendance.reduce((acc, a) => acc + (a.duration || 0), 0);
         // Manual time seconds
-        const manualSeconds = (emp.manualTime || []).reduce((acc, m) => acc + (m.duration || 0), 0);
+        const manualSeconds = (emp.manualTimeEntries || []).reduce((acc, m) => acc + (m.duration || 0), 0);
 
         const totalSeconds = attSeconds + manualSeconds;
         const totalHours = Math.round((totalSeconds / 3600) * 100) / 100;

@@ -470,6 +470,43 @@ const GenericSelectionModal = memo(({
 
 GenericSelectionModal.displayName = 'GenericSelectionModal';
 
+const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, isEmployee }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm animate-fade-in">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-scale-in border border-slate-200 dark:border-slate-800 p-6">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="h-12 w-12 rounded-full bg-rose-100 dark:bg-rose-500/10 flex items-center justify-center text-rose-600">
+            <Trash2 size={24} />
+          </div>
+          <div>
+            <h3 className="text-lg font-black text-slate-900 dark:text-white">Delete Screenshot?</h3>
+            <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+              {isEmployee 
+                ? "This will hide it from your view, but it may still be visible to admins." 
+                : "This will permanently remove the screenshot from the database and disk."}
+            </p>
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 translate-y-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-xl text-sm font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="px-6 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-rose-500/20 active:scale-95 transition-all"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export function ScreenshotMonitoring() {
   const { user, role } = useAuthStore();
   const { employees: contextEmployees, teams: contextTeams, projects: contextProjects, screenshots: contextScreenshots, deleteScreenshot, addNotification } = useRealTime();
@@ -598,6 +635,10 @@ export function ScreenshotMonitoring() {
     productivityTypes: [],
     category: []
   });
+
+  // Deletion Modal State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [screenshotToDelete, setScreenshotToDelete] = useState(null);
 
   // Outside click handlers
   useEffect(() => {
@@ -806,11 +847,23 @@ export function ScreenshotMonitoring() {
   }, [isLoadingArchive, timelineDate]);
 
   const handleDelete = useCallback((id) => {
-    if (confirm('Delete this screenshot permanently?')) {
-      deleteScreenshot(id);
-      setBackendScreenshots(prev => prev.filter(s => s.id !== id));
+    setScreenshotToDelete(id);
+    setIsDeleteModalOpen(true);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!screenshotToDelete) return;
+    try {
+        await deleteScreenshot(screenshotToDelete);
+        setBackendScreenshots(prev => prev.filter(s => s.id !== screenshotToDelete));
+        setIsDeleteModalOpen(false);
+        setScreenshotToDelete(null);
+        if (addNotification) addNotification('Success', 'Screenshot deleted successfully', 'success');
+    } catch (err) {
+        console.error('Failed to delete screenshot:', err);
+        if (addNotification) addNotification('Error', 'Failed to delete screenshot', 'error');
     }
-  }, [deleteScreenshot]);
+  }, [deleteScreenshot, screenshotToDelete, addNotification]);
 
   const handleBlurToggleBackend = useCallback(async (id) => {
     try {
@@ -822,9 +875,31 @@ export function ScreenshotMonitoring() {
     }
   }, []);
 
-  const handleDownload = useCallback((url) => {
-    alert("Downloading encrypted screenshot...");
-  }, []);
+  const handleDownload = useCallback(async (url) => {
+    if (!url) return;
+    try {
+      const baseUrl = API_BASE_URL.replace('/api', '');
+      const fullUrl = url.startsWith('http') ? url : `${baseUrl}${url}`;
+      
+      const response = await fetch(fullUrl);
+      if (!response.ok) throw new Error('Network response was not ok');
+      
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = url.split('/').pop() || 'screenshot.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      
+      if (addNotification) addNotification('Downloading...', 'Your screenshot download has started.', 'info');
+    } catch (err) {
+      console.error('Download failed:', err);
+      if (addNotification) addNotification('Error', 'Failed to download screenshot. Check your connection.', 'error');
+    }
+  }, [addNotification]);
 
   const handleViewScreenshot = useCallback((screenshot, index) => {
     setPlaybackIndex(index);
@@ -1531,6 +1606,12 @@ export function ScreenshotMonitoring() {
           </div>
         </div>
       )}
+      <DeleteConfirmationModal 
+        isOpen={isDeleteModalOpen} 
+        onClose={() => setIsDeleteModalOpen(false)} 
+        onConfirm={handleConfirmDelete}
+        isEmployee={role === 'EMPLOYEE'}
+      />
     </>
   );
-}
+}

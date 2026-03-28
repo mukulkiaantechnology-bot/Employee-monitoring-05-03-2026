@@ -27,7 +27,7 @@ export function getDateRangeForPreset(preset) {
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
-const INITIAL = getDateRangeForPreset('today');
+const INITIAL = getDateRangeForPreset('this_month');
 
 export const useFilterStore = create((set) => ({
     dateRange: INITIAL,      // { start: 'YYYY-MM-DD', end: 'YYYY-MM-DD' }

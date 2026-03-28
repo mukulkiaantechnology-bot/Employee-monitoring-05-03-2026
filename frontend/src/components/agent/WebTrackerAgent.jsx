@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, ShieldAlert, MonitorCheck, MonitorOff, Square } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Camera, ShieldAlert, MonitorCheck } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuthStore } from '../../store/authStore';
 import screenshotService from '../../services/screenshotService';
@@ -13,20 +14,36 @@ export function WebTrackerAgent() {
     const streamRef = useRef(null);
     const intervalRef = useRef(null);
     const videoRef = useRef(null);
+    const isStartingRef = useRef(false);
 
     // Only allow for EMPLOYEE role
     if (role !== 'EMPLOYEE') return null;
 
     const startTracking = async () => {
+        if (isStartingRef.current || isTracking) return;
+        
         try {
+            isStartingRef.current = true;
             setError('');
             const stream = await navigator.mediaDevices.getDisplayMedia({ 
                 video: { 
-                    displaySurface: 'monitor', // This favors 'Entire Screen'
+                    displaySurface: 'monitor', 
                     cursor: 'always'
                 }, 
                 audio: false 
             });
+
+            // Validate "Entire Screen" selection
+            const track = stream.getVideoTracks()[0];
+            const settings = track.getSettings();
+            
+            if (settings.displaySurface !== 'monitor') {
+                track.stop();
+                setError('You MUST share your ENTIRE SCREEN to continue. Window or Tab sharing is not allowed.');
+                setIsTracking(false);
+                return;
+            }
+
             streamRef.current = stream;
 
             const video = document.createElement('video');
@@ -46,9 +63,10 @@ export function WebTrackerAgent() {
             }
 
             setIsTracking(true);
+            setError(''); // Clear any previous errors
 
             // Handle when user stops sharing via browser default UI
-            stream.getVideoTracks()[0].onended = () => {
+            track.onended = () => {
                 stopTracking();
             };
 
@@ -62,8 +80,10 @@ export function WebTrackerAgent() {
 
         } catch (err) {
             console.error('Failed to start tracking:', err);
-            setError('Screen recording permission denied.');
+            setError('Permission denied. Please click "Start Work" and allow screen sharing.');
             setIsTracking(false);
+        } finally {
+            isStartingRef.current = false;
         }
     };
 
@@ -116,8 +136,8 @@ export function WebTrackerAgent() {
         }
     };
 
+    // Initial settings fetch - only runs once
     useEffect(() => {
-        // Fetch organizational settings
         const initSettings = async () => {
             try {
                 const res = await screenshotService.getSettings();
@@ -131,33 +151,49 @@ export function WebTrackerAgent() {
                 console.error('[WebTrackerAgent] Failed to fetch settings:', err);
             }
         };
+        initSettings();
+    }, []);
 
-        // Attempt to auto-start on mount (will likely need one user click)
-        const tryAutoStart = async () => {
-            // Check if we already have a session active (this is tricky in pure JS, but we can try)
+    // Global persistence lifecycle - only runs on mount/unmount
+    useEffect(() => {
+        const handleUnload = () => stopTracking();
+        window.addEventListener('beforeunload', handleUnload);
+
+        return () => {
+            window.removeEventListener('beforeunload', handleUnload);
+            stopTracking(); // Only stop when component actually unmounts
+        };
+    }, []);
+
+    // Explicit Logout/Role-Change stop
+    useEffect(() => {
+        if (role !== 'EMPLOYEE') {
+            stopTracking();
+        }
+    }, [role]);
+
+    // Interaction trigger - only runs when NOT tracking
+    useEffect(() => {
+        if (isTracking) return;
+
+        const handleFirstInteraction = () => {
             if (!isTracking) {
-                // If the user already interacted, this might work
+                console.log('[WebTrackerAgent] User interacted. Attempting to start tracking...');
                 startTracking().catch(() => {
-                    console.log('[WebTrackerAgent] Auto-start blocked by browser. Awaiting user interaction.');
+                    // Fail silently or show error in overlay
                 });
             }
         };
 
-        // Handle window close
-        const handleUnload = () => {
-            stopTracking();
-        };
-        window.addEventListener('beforeunload', handleUnload);
+        const timer = setTimeout(() => {
+            document.addEventListener('click', handleFirstInteraction);
+        }, 1000); // Small delay to avoid triggering on the click that mounts the component
 
-        initSettings();
-        tryAutoStart();
- 
-        // Cleanup on unmount
         return () => {
-            window.removeEventListener('beforeunload', handleUnload);
-            stopTracking();
+            document.removeEventListener('click', handleFirstInteraction);
+            clearTimeout(timer);
         };
-    }, []);
+    }, [isTracking]);
 
     // Effect to handle dynamic frequency changes while tracking
     useEffect(() => {
@@ -172,77 +208,62 @@ export function WebTrackerAgent() {
     return (
         <>
             <div className="flex items-center gap-2">
-                {error && <span className="text-xs text-red-500 font-bold hidden sm:block">{error}</span>}
-                
-                {!isTracking ? (
-                    <button
-                        onClick={startTracking}
-                        className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 rounded-xl text-xs sm:text-sm font-bold shadow-lg shadow-slate-900/20 active:scale-95 transition-all animate-pulse"
-                    >
-                        <MonitorCheck size={16} />
-                        <span className="hidden sm:inline">Initialize Monitoring</span>
-                        <span className="sm:hidden">Start</span>
-                    </button>
-                ) : (
-                    <div className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-xl">
-                        <div className="flex items-center gap-2">
-                            <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse" />
-                            <span className="text-xs sm:text-sm font-bold text-emerald-700 dark:text-emerald-400">Agent Active</span>
-                        </div>
+                {isTracking ? (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-xl">
+                        <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse" />
+                        <span className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Agent Active</span>
                     </div>
+                ) : (
+                    error && <span className="text-[10px] text-rose-500 font-black uppercase tracking-widest animate-pulse">{error}</span>
                 )}
             </div>
 
-            {/* Auto-start Modal Overlay for Employees */}
-            {!isTracking && !error && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/80 backdrop-blur-xl animate-in fade-in duration-500">
-                    <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl max-w-md w-full mx-4 border border-slate-200 dark:border-slate-800 text-center transform scale-105 transition-transform">
-                        <div className="h-20 w-20 bg-primary-50 dark:bg-primary-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <MonitorCheck size={40} className="text-primary-600 dark:text-primary-400 animate-bounce" />
+            {/* Compliance Blocking Overlay - Global Portal */}
+            {!isTracking && createPortal(
+                <div 
+                    className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/90 backdrop-blur-2xl animate-in fade-in duration-500 pointer-events-auto"
+                    onContextMenu={(e) => e.preventDefault()}
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh' }}
+                >
+                    <div className="bg-white dark:bg-slate-900 p-8 sm:p-12 rounded-[3.5rem] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.6)] max-w-lg w-full mx-4 border border-white/20 text-center transform scale-100 transition-all">
+                        <div className="h-28 w-28 bg-primary-600 rounded-full flex items-center justify-center mx-auto mb-10 border-8 border-slate-100 dark:border-slate-800 shadow-2xl">
+                            <MonitorCheck size={56} className="text-white animate-pulse" />
                         </div>
-                        <h2 className="text-2xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">System Initialization</h2>
-                        <p className="text-slate-500 dark:text-slate-400 text-sm mb-8 leading-relaxed">
-                            To begin your work session, please grant permission to share your <strong>Entire Screen</strong>. This ensures your productivity is accurately tracked.
+                        
+                        <h2 className="text-4xl font-black text-slate-900 dark:text-white mb-6 tracking-tight leading-tight">
+                            Work Session <br/> Required
+                        </h2>
+                        
+                        <p className="text-slate-500 dark:text-slate-400 text-lg mb-12 leading-relaxed font-semibold">
+                            To continue your shift, please share your <strong className="text-slate-900 dark:text-white underline decoration-primary-500 decoration-4">ENTIRE SCREEN</strong>. 
+                            <br/><span className="text-sm mt-3 block opacity-80 font-bold text-primary-600 dark:text-primary-400 uppercase tracking-widest">Software is locked for safety</span>
                         </p>
+
+                        {error && (
+                            <div className="mb-10 p-5 bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-200 dark:border-rose-500/20 rounded-3xl flex items-center gap-4 text-left animate-in slide-in-from-bottom-3 shadow-lg">
+                                <ShieldAlert size={28} className="text-rose-500 shrink-0" />
+                                <span className="text-sm font-black text-rose-700 dark:text-rose-400 leading-tight tracking-tight uppercase">{error}</span>
+                            </div>
+                        )}
+
                         <button
                             onClick={startTracking}
-                            className="w-full py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-2xl text-base font-black uppercase tracking-widest shadow-xl shadow-primary-500/30 transition-all hover:scale-[1.02] active:scale-95 mb-4"
+                            className="w-full py-6 bg-primary-600 hover:bg-primary-700 text-white rounded-[2rem] text-xl font-black uppercase tracking-[0.1em] shadow-[0_20px_50px_rgba(37,99,235,0.4)] transition-all hover:scale-[1.05] active:scale-95 mb-8 group flex items-center justify-center gap-4"
                         >
-                            Start Work Now
+                            <MonitorCheck size={28} />
+                            <span>Start Work Now</span>
                         </button>
-                        <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">
-                            Secure • Encrypted • Automated
-                        </p>
-                    </div>
-                </div>
-            )}
 
-            {error && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-rose-950/80 backdrop-blur-xl animate-in fade-in duration-500">
-                    <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] shadow-2xl max-w-md w-full mx-4 border border-rose-200 dark:border-rose-800 text-center">
-                        <div className="h-16 w-16 bg-rose-50 dark:bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <ShieldAlert size={32} className="text-rose-500" />
-                        </div>
-                        <h2 className="text-xl font-black text-slate-900 dark:text-white mb-2 tracking-tight">Permission Required</h2>
-                        <p className="text-slate-500 dark:text-slate-400 text-sm mb-8 leading-relaxed">
-                            Screen recording was denied or stopped. To continue your shift, choose <strong>"Entire Screen"</strong> in the popup.
-                        </p>
-                        <div className="flex flex-col gap-3">
-                            <button
-                                onClick={startTracking}
-                                className="w-full py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-2xl text-base font-black uppercase tracking-widest shadow-xl shadow-primary-500/30 transition-all hover:scale-[1.02] active:scale-95"
-                            >
-                                Try Again
-                            </button>
-                            <button
-                                onClick={() => window.location.reload()}
-                                className="w-full py-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all"
-                            >
-                                Refresh Page
-                            </button>
+                        <div className="flex items-center justify-center gap-6 text-[11px] text-slate-400 uppercase font-black tracking-[0.25em] opacity-40">
+                            <span>Secure</span>
+                            <div className="h-1.5 w-1.5 bg-slate-400 rounded-full" />
+                            <span>Monitor</span>
+                            <div className="h-1.5 w-1.5 bg-slate-400 rounded-full" />
+                            <span>Compliant</span>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </>
     );

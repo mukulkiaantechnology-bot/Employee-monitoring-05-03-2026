@@ -18,6 +18,7 @@ import teamService from '../services/teamService';
 import taskService from '../services/taskService';
 import projectService from '../services/projectService';
 import goalService from '../services/goalService';
+import screenshotService from '../services/screenshotService';
 import { io } from 'socket.io-client';
 
 const SOCKET_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
@@ -796,8 +797,14 @@ export function RealTimeProvider({ children }) {
     }, [addNotification, state.employees]);
 
     // Screenshots
-    const deleteScreenshot = useCallback((id) => {
-        setState(prev => ({ ...prev, screenshots: prev.screenshots.filter(s => s.id !== id) }));
+    const deleteScreenshot = useCallback(async (id) => {
+        try {
+            await screenshotService.deleteScreenshot(id);
+            setState(prev => ({ ...prev, screenshots: prev.screenshots.filter(s => s.id !== id) }));
+        } catch (error) {
+            console.error('Failed to delete screenshot:', error);
+            throw error;
+        }
     }, []);
 
     // Location / Geofences

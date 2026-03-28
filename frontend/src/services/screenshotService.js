@@ -30,6 +30,17 @@ const screenshotService = {
     },
 
     /**
+     * Delete a screenshot.
+     * Admin/Manager: permanently deletes from DB.
+     * Employee: soft-deletes (hides from own view; admin/manager still see it).
+     * @param {string} id - screenshot id
+     */
+    deleteScreenshot: async (id) => {
+        const response = await apiClient.delete(`/screenshots/${id}`);
+        return response.data;
+    },
+
+    /**
      * Create screenshot record (used by tracking agent / simulation)
      * @param {Object} data - { employeeId, imageUrl, productivity, capturedAt }
      */
@@ -68,3 +79,4 @@ const screenshotService = {
 };
 
 export default screenshotService;
+
