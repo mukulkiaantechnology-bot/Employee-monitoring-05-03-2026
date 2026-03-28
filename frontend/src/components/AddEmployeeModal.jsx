@@ -317,6 +317,7 @@ export function AddEmployeeModal({ isOpen, onClose }) {
                     </button>
                     <button
                         onClick={async () => {
+                            const orgId = organization?.id;
                             if (!orgId) {
                                 toast.error("No organization ID found. Please try logging in again.");
                                 return;
@@ -364,7 +365,7 @@ export function AddEmployeeModal({ isOpen, onClose }) {
 
                             if (successCount > 0) {
                                 await fetchEmployees();
-                                toast.success(`${successCount} employee(s) invited successfully!`);
+                                toast.success(`employee add suceessful`);
                                 if (failCount === 0) {
                                     onClose();
                                 }

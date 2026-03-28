@@ -4,6 +4,7 @@ import { Mail, Lock, Eye, EyeOff, Loader2, Shield, Users, User } from 'lucide-re
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../context/ToastContext';
 import authService from '../services/authService';
+import { getErrorMessage } from '../utils/errorHandler';
 
 export function Login() {
     const navigate = useNavigate();
@@ -15,6 +16,7 @@ export function Login() {
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+    const [info, setInfo] = useState('');
 
     const from = location.state?.from?.pathname || '/';
 
@@ -42,7 +44,7 @@ export function Login() {
             toast.success(`Logged in as ${role}`);
             navigate(`/${role.toLowerCase()}`, { replace: true });
         } catch (err) {
-            setError(err.message || 'Quick login failed. Make sure the database is seeded.');
+            setError(getErrorMessage(err));
         } finally {
             setIsLoading(false);
         }
@@ -59,7 +61,7 @@ export function Login() {
             toast.success('Login successful');
             navigate(`/${rolePath}`, { replace: true });
         } catch (err) {
-            setError(err.message || 'Invalid email or password');
+            setError(getErrorMessage(err));
         } finally {
             setIsLoading(false);
         }

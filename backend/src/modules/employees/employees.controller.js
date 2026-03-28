@@ -76,14 +76,20 @@ const inviteEmployee = async (req, res, next) => {
         }
         const validatedData = inviteEmployeeSchema.parse(req.body);
         
-        // 1. Create employee in DB (status: INVITED)
-        const employee = await employeesService.inviteEmployee(validatedData);
+        const role = validatedData.role || 'EMPLOYEE';
+        
+        let employee = null;
+        if (role === 'EMPLOYEE') {
+            // 1. Create employee in DB (status: INVITED) - ONLY for EMPLOYEE role
+            employee = await employeesService.inviteEmployee(validatedData);
+        }
         
         // 2. Generate invitation token and link
         const { setupLink } = await invitationService.sendInvitation(
             validatedData.email, 
-            'EMPLOYEE', // or validatedData.role if added to schema
-            validatedData.organizationId
+            role,
+            validatedData.organizationId,
+            validatedData.fullName
         );
 
         res.status(201).json({

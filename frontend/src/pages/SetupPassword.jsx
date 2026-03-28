@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Lock, Eye, EyeOff, Loader2, CheckCircle2 } from 'lucide-react';
 import axios from 'axios';
+import api from '../services/apiClient';
+import { getErrorMessage } from '../utils/errorHandler';
 
 export function SetupPassword() {
     const navigate = useNavigate();
@@ -36,14 +38,14 @@ export function SetupPassword() {
         setIsLoading(true);
 
         try {
-            await axios.post('http://localhost:5000/api/auth/invitations/complete', {
+            await api.post('/auth/invitations/complete', {
                 token,
                 password
             });
             setIsSuccess(true);
             setTimeout(() => navigate('/login'), 3000);
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to setup password');
+            setError(getErrorMessage(err));
         } finally {
             setIsLoading(false);
         }

@@ -1,6 +1,7 @@
 import axios from "axios";
 import API_BASE_URL from "../config/api";
 import { toast } from "../utils/toastManager";
+import { getErrorMessage } from "../utils/errorHandler";
 
 const api = axios.create({
     baseURL: API_BASE_URL,
@@ -29,13 +30,14 @@ api.interceptors.response.use(
         return response;
     },
     (error) => {
-        const message = error.response?.data?.message || error.message || "Something went wrong";
+        const message = getErrorMessage(error);
         
         // Don't show toast for 401 Unauthorized as it's handled by auth logic usually
         if (error.response?.status !== 401) {
             toast.error(message);
         }
         
+        error.userMessage = message;
         return Promise.reject(error);
     }
 );

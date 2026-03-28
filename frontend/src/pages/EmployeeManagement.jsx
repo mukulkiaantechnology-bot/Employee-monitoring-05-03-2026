@@ -222,7 +222,7 @@ const MergeEmployeesModal = ({ isOpen, onClose, employees, onMerge }) => {
     const [fromId, setFromId] = useState('');
     const [intoId, setIntoId] = useState('');
     const { orgId } = useOrganizationStore();
-    const { toast } = useToast();
+    const toast = useToast();
 
     const handleMerge = () => {
         if (!fromId || !intoId) {
@@ -285,8 +285,9 @@ const MergeEmployeesModal = ({ isOpen, onClose, employees, onMerge }) => {
 };
 
 const EditEmployeeModal = ({ isOpen, onClose, employee, onUpdate }) => {
-    const { toast } = useToast();
+    const toast = useToast();
     const { teams } = useTeamStore();
+    const [showPassword, setShowPassword] = useState(false);
     const [formData, setFormData] = useState({
         fullName: '',
         email: '',
@@ -339,7 +340,8 @@ const EditEmployeeModal = ({ isOpen, onClose, employee, onUpdate }) => {
             toast.success("Employee updated successfully!");
             onClose();
         } catch (error) {
-            // Error is handled by apiClient global toast
+            // Error is handled by apiClient global toast, but we can add specific handling if needed
+            console.error("Update failed:", error);
         }
     };
 
@@ -419,37 +421,42 @@ const EditEmployeeModal = ({ isOpen, onClose, employee, onUpdate }) => {
                 </div>
                 <div className="space-y-1.5">
                     <div className="flex items-center justify-between px-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">New Password (Optional)</label>
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            Reset Password (Optional)
+                        </label>
                         <button
                             type="button"
                             onClick={generatePassword}
-                            className="text-[10px] font-black text-primary-600 uppercase tracking-widest hover:underline"
+                            className="text-[10px] font-black text-primary-600 uppercase tracking-widest hover:text-primary-700 transition-all"
                         >
                             Generate Password
                         </button>
                     </div>
-                    <div className="relative">
+                    <div className="relative group">
                         <input
-                            type="text" // Changed to text so they can see the generated password
-                            placeholder="Type or generate new password"
+                            type={showPassword ? "text" : "password"}
                             value={formData.password}
                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                            className="w-full h-11 px-4 rounded-xl border-2 border-slate-100 bg-slate-50 text-xs font-bold outline-none focus:border-primary-500 transition-all pr-12"
+                            placeholder={formData.status === 'INVITED' ? "Password not set - Enter to create" : "Leave blank to keep existing (********)"}
+                            className={cn(
+                                "w-full h-11 pl-4 pr-10 rounded-xl border-2 bg-slate-50 text-xs font-bold outline-none transition-all",
+                                formData.status === 'INVITED' ? "border-amber-200 focus:border-amber-500" : "border-slate-100 focus:border-primary-500"
+                            )}
                         />
-                        {formData.password && (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    navigator.clipboard.writeText(formData.password);
-                                    toast.success("Password copied to clipboard!");
-                                }}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary-600 p-1"
-                                title="Copy password"
-                            >
-                                <Copy size={16} />
-                            </button>
-                        )}
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-all"
+                        >
+                            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
                     </div>
+                    {formData.status === 'INVITED' && !formData.password && (
+                        <p className="text-[10px] font-bold text-amber-600 mt-1 flex items-center gap-1 px-1">
+                            <Info size={12} strokeWidth={3} />
+                            User has not set their password yet.
+                        </p>
+                    )}
                 </div>
                 <div className="flex gap-3 pt-4">
                     <button type="button" onClick={onClose} className="flex-1 py-4 text-xs font-black uppercase text-slate-400 hover:text-slate-600">Cancel</button>
@@ -771,10 +778,8 @@ const AdvancedCalendar = ({ isOpen, onClose, selectedPreset, onSelectPreset, tri
 
 const EmployeeRow = ({ employee, onEdit, onDelete, onTransparencyClick, visibleColumns }) => {
     const navigate = useNavigate();
-    const { role } = useAuthStore();
-    const rolePath = role ? `/${role.toLowerCase()}` : '';
-    const [showOptions, setShowOptions] = useState(false);
-    const optionsRef = useRef(null);
+    const { role: userRole } = useAuthStore();
+    const rolePath = userRole ? `/${userRole.toLowerCase()}` : '';
 
     const statusColor =
         employee.status === 'active' || employee.status === 'online' ? 'bg-emerald-500' :
@@ -862,7 +867,7 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onTransparencyClick, visibleC
                             >
                                 <ShieldCheck size={16} /> Privacy
                             </button>
-                            {(role === 'ADMIN' || role === 'MANAGER') && (
+                            {(userRole === 'ADMIN' || userRole === 'MANAGER') && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onEdit(employee); }}
                                     className="h-11 w-11 shrink-0 rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-amber-500 transition-all flex items-center justify-center border border-slate-100 dark:border-slate-700 shadow-sm"
@@ -870,7 +875,7 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onTransparencyClick, visibleC
                                     <Edit size={16} />
                                 </button>
                             )}
-                            {(role === 'ADMIN' || role === 'MANAGER') && (
+                            {(userRole === 'ADMIN' || userRole === 'MANAGER') && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onDelete(employee); }}
                                     className="h-11 w-11 shrink-0 rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-rose-500 transition-all flex items-center justify-center border border-slate-100 dark:border-slate-700 shadow-sm"
@@ -935,7 +940,7 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onTransparencyClick, visibleC
                     </div>
                 </td>
                 <td className="px-6 py-5 text-right relative">
-                    <div className="flex items-center justify-end gap-[10px]" ref={optionsRef}>
+                    <div className="flex items-center justify-end gap-[10px]">
                         <button
                             onClick={(e) => { e.stopPropagation(); onTransparencyClick(employee); }}
                             className="h-9 w-9 rounded-full border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm flex items-center justify-center text-slate-400 hover:text-primary-600 hover:border-primary-100 transition-all group/btn"
@@ -952,32 +957,25 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onTransparencyClick, visibleC
                             <Eye size={18} className="group-hover/btn:scale-110 transition-transform" />
                         </button>
 
-                        <div className="relative">
-                            <button
-                                onClick={(e) => { e.stopPropagation(); setShowOptions(!showOptions); }}
-                                className="h-9 w-9 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-sm"
-                            >
-                                <MoreVertical size={18} />
-                            </button>
+                        {(userRole === 'ADMIN' || userRole === 'MANAGER') && (
+                            <>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onEdit(employee); }}
+                                    className="h-9 w-9 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-sm group/btn"
+                                    title="Edit Employee"
+                                >
+                                    <Edit size={18} className="group-hover/btn:scale-110 transition-transform" />
+                                </button>
 
-                            {(role === 'ADMIN' || role === 'MANAGER') && showOptions && (
-                                <div className="absolute right-0 bottom-full mb-2 z-[110] w-48 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 p-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onEdit(employee); setShowOptions(false); }}
-                                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-left"
-                                    >
-                                        <Edit size={16} className="text-amber-500" /> Edit Employee
-                                    </button>
-                                    <div className="h-px bg-slate-50 dark:bg-slate-800 my-1 mx-2" />
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); onDelete(employee); setShowOptions(false); }}
-                                        className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all text-left"
-                                    >
-                                        <Trash2 size={16} /> Delete Employee
-                                    </button>
-                                </div>
-                            )}
-                        </div>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onDelete(employee); }}
+                                    className="h-9 w-9 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-rose-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all shadow-sm group/btn"
+                                    title="Delete Employee"
+                                >
+                                    <Trash2 size={18} className="group-hover/btn:scale-110 transition-transform" />
+                                </button>
+                            </>
+                        )}
                     </div>
                 </td>
             </tr>
@@ -990,7 +988,7 @@ export function EmployeeManagement() {
     const { employees, fetchEmployees, updateEmployee, removeEmployee, isLoading } = useEmployeeStore();
     const { teams, fetchTeams } = useTeamStore();
     const { role } = useAuthStore();
-    const { toast } = useToast();
+    const toast = useToast();
 
     // UI States
     const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -1041,11 +1039,7 @@ export function EmployeeManagement() {
 
     // Handlers
     const handleUpdateEmployee = async (id, data) => {
-        try {
-            await updateEmployee(id, data);
-        } catch (error) {
-            // Error handled by apiClient
-        }
+        await updateEmployee(id, data);
     };
 
     const handleDeleteEmployee = async (id) => {

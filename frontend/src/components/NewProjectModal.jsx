@@ -7,6 +7,7 @@ export function NewProjectModal({ isOpen, onClose, employees = [], teams = [], i
     const [billRateType, setBillRateType] = useState('Project');
     const [projectName, setProjectName] = useState('');
     const [projectBillRate, setProjectBillRate] = useState('0');
+    const [projectBudget, setProjectBudget] = useState('0');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedEmployees, setSelectedEmployees] = useState([]);
     const [showError, setShowError] = useState(false);
@@ -26,10 +27,12 @@ export function NewProjectModal({ isOpen, onClose, employees = [], teams = [], i
         if (initialData) {
             setProjectName(initialData.projectName || initialData.name || '');
             setProjectBillRate(String(initialData.billRate || '0'));
+            setProjectBudget(String(initialData.budget || initialData.totalCosts || '0'));
             setSelectedEmployees(initialData.employeeIds || initialData.assignments?.map(a => a.employeeId) || []);
         } else {
             setProjectName('');
             setProjectBillRate('0');
+            setProjectBudget('0');
             setSelectedEmployees([]);
         }
     }, [initialData, isOpen]);
@@ -51,6 +54,7 @@ export function NewProjectModal({ isOpen, onClose, employees = [], teams = [], i
         const projectData = {
             name: projectName,
             billRate: Number(projectBillRate),
+            budget: Number(projectBudget),
             employeeIds: selectedEmployees,
         };
 
@@ -119,8 +123,8 @@ export function NewProjectModal({ isOpen, onClose, employees = [], teams = [], i
                     </div>
 
                     {/* Project Name & Rate Wrapper */}
-                    <div className="grid grid-cols-3 gap-6">
-                        <div className="col-span-2 space-y-2">
+                    <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2">
                             <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Project Name</label>
                             <input
                                 type="text"
@@ -134,16 +138,30 @@ export function NewProjectModal({ isOpen, onClose, employees = [], teams = [], i
                             />
                             {showError && <p className="text-[10px] text-rose-500 font-bold">Project name is required</p>}
                         </div>
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Project Bill rate</label>
-                            <div className="relative">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 font-bold">$</span>
-                                <input
-                                    type="number"
-                                    value={projectBillRate}
-                                    onChange={(e) => setProjectBillRate(e.target.value)}
-                                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-8 pr-4 py-3 text-sm font-medium dark:text-slate-200 outline-none transition-all"
-                                />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Bill rate</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 font-bold text-xs">$</span>
+                                    <input
+                                        type="number"
+                                        value={projectBillRate}
+                                        onChange={(e) => setProjectBillRate(e.target.value)}
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-6 pr-3 py-3 text-xs font-medium dark:text-slate-200 outline-none transition-all focus:border-primary-500"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Costs</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 font-bold text-xs">$</span>
+                                    <input
+                                        type="number"
+                                        value={projectBudget}
+                                        onChange={(e) => setProjectBudget(e.target.value)}
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-6 pr-3 py-3 text-xs font-medium dark:text-slate-200 outline-none transition-all focus:border-primary-500"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
