@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import authService from '../services/authService';
+import { toast } from '../utils/toastManager';
 
 export const useAuthStore = create(
     persist(
@@ -31,6 +32,7 @@ export const useAuthStore = create(
                             isAuthenticated: true,
                             token: response.data.token
                         });
+                        toast.success('Login successful');
                         return response.data;
                     }
                     throw new Error(response.message);

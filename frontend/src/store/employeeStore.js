@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import employeeService from '../services/employeeService';
+import toast from '../services/toastService';
 
 export const useEmployeeStore = create((set, get) => ({
     employees: [],
@@ -30,6 +31,7 @@ export const useEmployeeStore = create((set, get) => ({
                 }],
                 isLoading: false
             }));
+            toast.success('Invitation sent successfully');
             return response;
         } catch (error) {
             set({ error: error.message, isLoading: false });
@@ -46,6 +48,7 @@ export const useEmployeeStore = create((set, get) => ({
                     emp.id === id ? { ...emp, ...updatedEmployee, name: updatedEmployee.fullName || emp.name } : emp
                 )
             }));
+            toast.success('Employee updated successfully');
             return response;
         } catch (error) {
             set({ error: error.message });
@@ -59,6 +62,7 @@ export const useEmployeeStore = create((set, get) => ({
             set((state) => ({
                 employees: state.employees.filter((emp) => emp.id !== id)
             }));
+            toast.success('Employee removed successfully');
         } catch (error) {
             set({ error: error.message });
             throw error;

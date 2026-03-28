@@ -10,16 +10,6 @@ import {
 import { InfoBanner } from '../../components/ui/InfoBanner';
 import { cn } from '../../utils/cn';
 
-// ── Mini toast ──────────────────────────────────────────────────────────────
-function Toast({ show, message }) {
-    if (!show) return null;
-    return (
-        <div className="fixed bottom-8 right-8 z-[300] px-6 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl shadow-2xl font-bold text-sm animate-in slide-in-from-bottom-4 fade-in duration-300 flex items-center gap-3">
-            <span className="text-emerald-400 dark:text-emerald-600">✓</span>
-            {message}
-        </div>
-    );
-}
 
 // ── Timezone Change Confirm Modal ───────────────────────────────────────────
 function TimezoneConfirmModal({ isOpen, oldTz, newTz, onConfirm, onCancel }) {
@@ -108,7 +98,6 @@ export function Organization() {
     const { organization, originalOrganization, updateField, saveOrganization, fetchOrganization, resetChanges, hasChanges, isLoading } = useOrganizationStore();
 
     const [errors, setErrors] = useState({});
-    const [toast, setToast] = useState({ show: false, message: '' });
     const [tzConfirm, setTzConfirm] = useState({ open: false, pendingTz: '' });
 
     useEffect(() => {
@@ -127,10 +116,6 @@ export function Organization() {
 
     const isDirty = hasChanges();
 
-    const showToast = (msg) => {
-        setToast({ show: true, message: msg });
-        setTimeout(() => setToast({ show: false, message: '' }), 3000);
-    };
 
     const validate = () => {
         const errs = {};
@@ -162,10 +147,9 @@ export function Organization() {
         if (Object.keys(errs).length) { setErrors(errs); return; }
         try {
             await saveOrganization();
-            showToast('Organization updated successfully!');
             setErrors({});
         } catch (error) {
-            showToast('Failed to update organization: ' + error.message);
+            // Error is handled by apiClient global toast
         }
     };
 
@@ -373,8 +357,6 @@ export function Organization() {
                 onCancel={handleTzCancel}
             />
 
-            {/* Toast */}
-            <Toast show={toast.show} message={toast.message} />
         </div>
     );
 }

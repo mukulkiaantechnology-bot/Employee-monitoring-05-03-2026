@@ -6,16 +6,6 @@ import { ManualTimeTable } from '../../components/manualTime/ManualTimeTable';
 import { AddEditManualTimeModal } from '../../components/manualTime/AddEditManualTimeModal';
 import { ConfirmDeleteModal } from '../../components/modals/ConfirmDeleteModal';
 
-// Mini toast
-function Toast({ show, message }) {
-    if (!show) return null;
-    return (
-        <div className="fixed bottom-8 right-8 z-[300] px-6 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl shadow-2xl font-bold text-sm animate-in slide-in-from-bottom-4 fade-in duration-300 flex items-center gap-3">
-            <span className="text-emerald-400 dark:text-emerald-600">✓</span>
-            {message}
-        </div>
-    );
-}
 
 export function ManualTime() {
     const navigate = useNavigate();
@@ -25,12 +15,7 @@ export function ManualTime() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingType, setEditingType] = useState(null);
     const [deletingId, setDeletingId] = useState(null);
-    const [toast, setToast] = useState({ show: false, message: '' });
 
-    const showToast = (message) => {
-        setToast({ show: true, message });
-        setTimeout(() => setToast({ show: false, message: '' }), 3000);
-    };
 
     const filteredTypes = useMemo(
         () => types.filter(t => t.title.toLowerCase().includes(searchQuery.toLowerCase())),
@@ -42,11 +27,9 @@ export function ManualTime() {
     const handleSave = (formData) => {
         if (editingType) {
             updateType(editingType.id, formData);
-            showToast('Manual time type updated!');
             setEditingType(null);
         } else {
             addType(formData);
-            showToast('Manual time type created!');
         }
     };
 
@@ -64,7 +47,6 @@ export function ManualTime() {
     const handleDeleteConfirm = () => {
         if (!deletingId) return;
         deleteType(deletingId);
-        showToast('Manual time type deleted.');
         setDeletingId(null);
     };
 
@@ -148,7 +130,6 @@ export function ManualTime() {
                 description={`Are you sure you want to delete "${deletingTitle}"? This action cannot be undone.`}
             />
 
-            <Toast show={toast.show} message={toast.message} />
         </div>
     );
 }

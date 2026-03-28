@@ -10,23 +10,12 @@ const TABS = [
     { id: 'compliance', label: 'Compliance', route: 'compliance' },
 ];
 
-// Mini toast
-function Toast({ show, message }) {
-    if (!show) return null;
-    return (
-        <div className="fixed bottom-8 right-8 z-[300] px-6 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl shadow-2xl font-bold text-sm animate-in slide-in-from-bottom-4 fade-in duration-300 flex items-center gap-3">
-            <span className="text-emerald-400 dark:text-emerald-600">✓</span>
-            {message}
-        </div>
-    );
-}
 
 export function Privacy() {
     const navigate = useNavigate();
     const location = useLocation();
     const { privacy, fetchPrivacySettings, savePrivacySettings, resetChanges, hasChanges, loading } = usePrivacyStore();
     const { role } = useAuthStore();
-    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
     const [errors, setErrors] = useState({});
 
     const rolePath = role?.toLowerCase() === 'admin' ? '/admin' : '/manager';
@@ -38,10 +27,6 @@ export function Privacy() {
     const isDirty = hasChanges();
     const isComplianceTab = location.pathname.includes('compliance');
 
-    const showToast = (msg, type = 'success') => {
-        setToast({ show: true, message: msg, type });
-        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
-    };
 
     const validate = () => {
         const errs = {};
@@ -59,10 +44,9 @@ export function Privacy() {
         }
         try {
             await savePrivacySettings();
-            showToast('Privacy settings saved successfully!');
             setErrors({});
         } catch (err) {
-            showToast('Failed to save privacy settings.', 'error');
+            // Error is handled by apiClient global toast
         }
     };
 
@@ -143,7 +127,6 @@ export function Privacy() {
                 </button>
             </div>
 
-            <Toast show={toast.show} message={toast.message} type={toast.type} />
         </div>
     );
 }

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { toast } from '../utils/toastManager';
 
 export const PRODUCTIVITY_OPTIONS = [
     { id: 'productive', label: 'Productive', color: 'emerald' },
@@ -60,25 +61,31 @@ export const useManualTimeStore = create(
         (set) => ({
             types: INITIAL_TYPES,
 
-            addType: (typeData) =>
+            addType: (typeData) => {
                 set((state) => ({
                     types: [
                         ...state.types,
                         { id: `type_${Date.now()}`, ...typeData },
                     ],
-                })),
+                }));
+                toast.success('Manual time type created!');
+            },
 
-            updateType: (id, updatedData) =>
+            updateType: (id, updatedData) => {
                 set((state) => ({
                     types: state.types.map((t) =>
                         t.id === id ? { ...t, ...updatedData } : t
                     ),
-                })),
+                }));
+                toast.success('Manual time type updated!');
+            },
 
-            deleteType: (id) =>
+            deleteType: (id) => {
                 set((state) => ({
                     types: state.types.filter((t) => t.id !== id),
-                })),
+                }));
+                toast.success('Manual time type deleted!');
+            },
 
             toggleAutoApproval: (id) =>
                 set((state) => ({

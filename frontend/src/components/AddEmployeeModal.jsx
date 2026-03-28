@@ -356,16 +356,13 @@ export function AddEmployeeModal({ isOpen, onClose }) {
                                         successCount++;
                                     } catch (err) {
                                         failCount++;
-                                        const errorMsg = err.response?.data?.message || err.message;
-                                        toast.error(`Error inviting ${emp.email}: ${errorMsg}`);
-                                        if (errorMsg.toLowerCase().includes("duplicate")) break;
+                                        if (err.response?.data?.message?.toLowerCase().includes("duplicate")) break;
                                     }
                                 }
                             }
 
                             if (successCount > 0) {
                                 await fetchEmployees();
-                                toast.success(`employee add suceessful`);
                                 if (failCount === 0) {
                                     onClose();
                                 }

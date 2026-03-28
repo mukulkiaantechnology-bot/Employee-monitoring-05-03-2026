@@ -821,18 +821,12 @@ export function Payroll() {
                             </div>
 
                             {/* Actions */}
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 gap-3">
                                 <button
                                     onClick={() => addNotification("Payslip email sent successfully", "success")}
                                     className="py-3.5 rounded-xl border-2 border-slate-100 dark:border-slate-800 font-black text-slate-500 uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2 text-[9px] md:text-[10px] active:scale-95"
                                 >
                                     <Send size={14} className="text-indigo-500" /> Email Slip
-                                </button>
-                                <button
-                                    onClick={() => addNotification("Sent via WhatsApp", "success")}
-                                    className="py-3.5 rounded-xl border-2 border-slate-100 dark:border-slate-800 font-black text-slate-500 uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2 text-[9px] md:text-[10px] active:scale-95"
-                                >
-                                    <MessageCircle size={14} className="text-emerald-500" /> WhatsApp
                                 </button>
                             </div>
                         </div>

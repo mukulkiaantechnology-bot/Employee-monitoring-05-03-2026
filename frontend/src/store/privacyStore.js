@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import complianceService from '../services/complianceService';
+import { toast } from '../utils/toastManager';
 
 const INITIAL = {
     showUrlsInActivityLogs: false,
@@ -53,6 +54,7 @@ export const usePrivacyStore = create((set, get) => ({
                 originalPrivacy: { ...privacy },
                 loading: false
             });
+            toast.success('Privacy settings saved successfully!');
         } catch (error) {
             set({ error: error.message, loading: false });
             throw error;

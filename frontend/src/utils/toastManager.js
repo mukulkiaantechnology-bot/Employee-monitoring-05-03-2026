@@ -1,12 +1,12 @@
-let toastNotificationHandler = null;
-
-export const registerToastHandler = (handler) => {
-    toastNotificationHandler = handler;
-};
+import { useNotificationStore } from '../store/notificationStore';
 
 export const toast = {
-    success: (message, duration) => toastNotificationHandler?.success(message, duration),
-    error: (message, duration) => toastNotificationHandler?.error(message, duration),
-    warning: (message, duration) => toastNotificationHandler?.warning(message, duration),
-    info: (message, duration) => toastNotificationHandler?.info(message, duration),
+    success: (message) => useNotificationStore.getState().addNotification(message, 'success'),
+    error: (message) => useNotificationStore.getState().addNotification(message, 'error'),
+    warning: (message) => useNotificationStore.getState().addNotification(message, 'warning'),
+    info: (message) => useNotificationStore.getState().addNotification(message, 'info'),
+};
+
+export const registerToastHandler = () => {
+    // Legacy support: No-op since we use Zustand store directly now
 };

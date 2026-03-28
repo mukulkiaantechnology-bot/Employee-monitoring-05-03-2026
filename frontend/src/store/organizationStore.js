@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import organizationService from '../services/organizationService';
+import { toast } from '../utils/toastManager';
 
 export const INDUSTRY_OPTIONS = [
     'Technology',
@@ -89,6 +90,7 @@ export const useOrganizationStore = create(
                         workHours: { start: org.workStartTime, end: org.workEndTime }
                     };
                     set({ organization: formattedOrg, originalOrganization: formattedOrg, isLoading: false });
+                    toast.success('Organization updated successfully!');
                     return response;
                 } catch (error) {
                     set({ error: error.message, isLoading: false });

@@ -36,8 +36,19 @@ const getPayrollSummary = async (organizationId, params = {}) => {
     let totalHours = 0;
     
     employees.forEach(emp => {
-        // Attendance hours
-        const attSeconds = emp.attendance.reduce((acc, a) => acc + (a.duration || 0), 0);
+        // Attendance hours - Calculate from clockIn/clockOut if duration is 0
+        const attSeconds = emp.attendance.reduce((acc, a) => {
+            if (a.duration > 0) return acc + a.duration;
+            if (a.clockIn && a.clockOut) {
+                return acc + Math.floor((new Date(a.clockOut) - new Date(a.clockIn)) / 1000);
+            }
+            if (a.clockIn && !a.clockOut) {
+                // If currently clocked in, calculate until now
+                return acc + Math.floor((new Date() - new Date(a.clockIn)) / 1000);
+            }
+            return acc;
+        }, 0);
+
         // Manual time hours
         const manualSeconds = (emp.manualTimeEntries || []).reduce((acc, m) => acc + (m.duration || 0), 0);
         const empHours = (attSeconds + manualSeconds) / 3600;
@@ -95,11 +106,20 @@ const getPayrollRecords = async (organizationId, startDate, endDate, params = {}
     const periodLabel = `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
     return employees.map(emp => {
-        // Attendance (clock-in/out) seconds
-        const attSeconds = emp.attendance.reduce((acc, a) => acc + (a.duration || 0), 0);
+        // Attendance (clock-in/out) seconds - Calculate dynamically if duration is 0
+        const attSeconds = emp.attendance.reduce((acc, a) => {
+            if (a.duration > 0) return acc + a.duration;
+            if (a.clockIn && a.clockOut) {
+                return acc + Math.floor((new Date(a.clockOut) - new Date(a.clockIn)) / 1000);
+            }
+            if (a.clockIn && !a.clockOut) {
+                return acc + Math.floor((new Date() - new Date(a.clockIn)) / 1000);
+            }
+            return acc;
+        }, 0);
+        
         // Manual time seconds
         const manualSeconds = (emp.manualTimeEntries || []).reduce((acc, m) => acc + (m.duration || 0), 0);
-
         const totalSeconds = attSeconds + manualSeconds;
         const totalHours = Math.round((totalSeconds / 3600) * 100) / 100;
 

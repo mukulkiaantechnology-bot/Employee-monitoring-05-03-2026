@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import integrationService from '../services/integrationService';
+import { toast } from '../utils/toastManager';
 
 // ── Integration metadata (logos + descriptions + config type) ──────────────
 export const INTEGRATION_META = {
@@ -196,6 +197,7 @@ export const useIntegrationStore = create((set, get) => ({
                 },
                 loading: false
             }));
+            toast.success('Integration connected successfully!');
         } catch (error) {
             set({ error: error.message, loading: false });
             throw error;
@@ -213,6 +215,7 @@ export const useIntegrationStore = create((set, get) => ({
                 },
                 loading: false
             }));
+            toast.success('Integration disconnected!');
         } catch (error) {
             set({ error: error.message, loading: false });
             throw error;

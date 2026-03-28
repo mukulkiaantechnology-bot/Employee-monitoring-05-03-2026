@@ -96,7 +96,6 @@ export function RealTimeProvider({ children }) {
 
     const { user, role, isAuthenticated } = useAuthStore();
 
-    const [activeToast, setActiveToast] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
     const timerInterval = useRef(null);
 
@@ -698,7 +697,7 @@ export function RealTimeProvider({ children }) {
             }
         } catch (error) {
             console.error('Failed to add task:', error);
-            addNotification('Failed to create task', 'alert');
+            // Error is handled by apiClient global toast
         }
     }, [addNotification]);
 
@@ -744,7 +743,7 @@ export function RealTimeProvider({ children }) {
             }
         } catch (error) {
             console.error('Failed to update task status:', error);
-            addNotification('Failed to update task status', 'alert');
+            // Error is handled by apiClient global toast
         }
     }, [addNotification]);
 
@@ -757,7 +756,7 @@ export function RealTimeProvider({ children }) {
             }
         } catch (error) {
             console.error('Failed to delete task:', error);
-            addNotification('Failed to delete task', 'alert');
+            // Error is handled by apiClient global toast
         }
     }, [addNotification]);
 
@@ -786,7 +785,7 @@ export function RealTimeProvider({ children }) {
             }
         } catch (error) {
             console.error('Failed to update task:', error);
-            addNotification('Failed to update task', 'alert');
+            // Error is handled by apiClient global toast
         }
     }, [addNotification]);
 
@@ -910,7 +909,7 @@ export function RealTimeProvider({ children }) {
             }
         } catch (error) {
             console.error('Failed to add goal:', error);
-            addNotification('Failed to create goal', 'alert');
+            // Error is handled by apiClient global toast
         }
     }, [addNotification]);
 
@@ -923,7 +922,7 @@ export function RealTimeProvider({ children }) {
             }
         } catch (error) {
             console.error('Failed to delete goal:', error);
-            addNotification('Failed to delete goal', 'alert');
+            // Error is handled by apiClient global toast
         }
     }, [addNotification]);
 
@@ -939,7 +938,7 @@ export function RealTimeProvider({ children }) {
             }
         } catch (error) {
             console.error('Failed to update goal:', error);
-            addNotification('Failed to update goal', 'alert');
+            // Error is handled by apiClient global toast
         }
     }, [addNotification]);
 
@@ -1018,17 +1017,6 @@ export function RealTimeProvider({ children }) {
     return (
         <RealTimeContext.Provider value={contextValue}>
             {children}
-            {activeToast && (
-                <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[9999] animate-in slide-in-from-bottom-5 fade-in duration-300 pointer-events-none">
-                    <div className={`px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border backdrop-blur-md font-bold text-sm ${activeToast.type === 'success' ? 'bg-emerald-500/90 border-emerald-400 text-white' :
-                        activeToast.type === 'alert' ? 'bg-red-500/90 border-red-400 text-white' :
-                            'bg-slate-900/90 border-slate-700 text-white'
-                        }`}>
-                        <div className="h-2 w-2 rounded-full bg-white animate-pulse" />
-                        {activeToast.title}
-                    </div>
-                </div>
-            )}
         </RealTimeContext.Provider>
     );
 }

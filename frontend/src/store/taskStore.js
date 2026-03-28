@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import taskService from '../services/taskService';
+import toast from '../services/toastService';
 
 export const useTaskStore = create((set, get) => ({
     tasks: [],
@@ -38,6 +39,7 @@ export const useTaskStore = create((set, get) => ({
             const response = await taskService.createTask(taskData);
             await get().fetchBoardTasks();
             set({ loading: false });
+            toast.success('Task created successfully');
             return response.data;
         } catch (error) {
             set({ error: error.message, loading: false });
@@ -49,6 +51,7 @@ export const useTaskStore = create((set, get) => ({
         try {
             await taskService.updateTaskStatus(taskId, status);
             await get().fetchBoardTasks();
+            toast.success('Task status updated');
         } catch (error) {
             set({ error: error.message });
             throw error;
@@ -59,6 +62,7 @@ export const useTaskStore = create((set, get) => ({
         try {
             await taskService.deleteTask(taskId);
             await get().fetchBoardTasks();
+            toast.success('Task deleted successfully');
         } catch (error) {
             set({ error: error.message });
             throw error;
@@ -69,6 +73,7 @@ export const useTaskStore = create((set, get) => ({
         try {
             await taskService.updateTask(taskId, taskData);
             await get().fetchBoardTasks();
+            toast.success('Task updated successfully');
         } catch (error) {
             set({ error: error.message });
             throw error;

@@ -41,7 +41,6 @@ export function Login() {
             const email = `${role.toLowerCase()}@example.com`;
             const password = '123456';
             await login(email, password);
-            toast.success(`Logged in as ${role}`);
             navigate(`/${role.toLowerCase()}`, { replace: true });
         } catch (err) {
             setError(getErrorMessage(err));
@@ -58,7 +57,6 @@ export function Login() {
         try {
             const data = await login(email, password);
             const rolePath = data.user.role.toLowerCase();
-            toast.success('Login successful');
             navigate(`/${rolePath}`, { replace: true });
         } catch (err) {
             setError(getErrorMessage(err));

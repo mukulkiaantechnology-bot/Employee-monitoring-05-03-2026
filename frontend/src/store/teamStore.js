@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import teamService from '../services/teamService';
+import { toast } from '../utils/toastManager';
 
 export const useTeamStore = create((set, get) => ({
     teams: [],
@@ -24,6 +25,7 @@ export const useTeamStore = create((set, get) => ({
                 teams: [...state.teams, response.data],
                 isLoading: false
             }));
+            toast.success('Team created successfully!');
             return response;
         } catch (error) {
             set({ error: error.message, isLoading: false });
@@ -37,6 +39,7 @@ export const useTeamStore = create((set, get) => ({
             set((state) => ({
                 teams: state.teams.filter((t) => t.id !== id)
             }));
+            toast.success('Team deleted successfully!');
         } catch (error) {
             set({ error: error.message });
             throw error;
@@ -51,6 +54,7 @@ export const useTeamStore = create((set, get) => ({
                 teams: state.teams.map((t) => t.id === id ? response.data : t),
                 isLoading: false
             }));
+            toast.success('Team updated successfully!');
             return response;
         } catch (error) {
             set({ error: error.message, isLoading: false });

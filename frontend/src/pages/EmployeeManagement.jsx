@@ -337,10 +337,9 @@ const EditEmployeeModal = ({ isOpen, onClose, employee, onUpdate }) => {
 
         try {
             await onUpdate(employee.id, submitData);
-            toast.success("Employee updated successfully!");
             onClose();
         } catch (error) {
-            // Error is handled by apiClient global toast, but we can add specific handling if needed
+            // Error is handled by apiClient global toast
             console.error("Update failed:", error);
         }
     };
@@ -1045,7 +1044,6 @@ export function EmployeeManagement() {
     const handleDeleteEmployee = async (id) => {
         try {
             await removeEmployee(id);
-            toast.success("Employee deleted successfully!");
             setShowDeleteModal(false);
             setDeletingEmployee(null);
         } catch (error) {

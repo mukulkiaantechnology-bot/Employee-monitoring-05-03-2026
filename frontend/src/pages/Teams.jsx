@@ -45,7 +45,6 @@ export function Teams() {
         if (editingTeam) {
             try {
                 await updateTeam(editingTeam.id, teamData);
-                toast.success("Team updated successfully!");
                 setIsModalOpen(false);
                 setEditingTeam(null);
             } catch (error) {
@@ -69,7 +68,6 @@ export function Teams() {
                 ...teamData,
                 organizationId: orgId
             });
-            toast.success("Team created successfully!");
             setIsModalOpen(false);
         } catch (error) {
             // Error handled by apiClient

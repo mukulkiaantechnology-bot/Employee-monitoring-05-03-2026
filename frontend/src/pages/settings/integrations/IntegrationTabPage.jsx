@@ -7,19 +7,6 @@ import { IntegrationConfigModal } from '../../../components/modals/IntegrationCo
 import { DisconnectConfirmModal } from '../../../components/modals/DisconnectConfirmModal';
 import { cn } from '../../../utils/cn';
 
-// Mini toast
-function Toast({ show, message, type = 'success' }) {
-    if (!show) return null;
-    return (
-        <div className={cn(
-            'fixed bottom-8 right-8 z-[300] px-6 py-4 rounded-2xl shadow-2xl font-bold text-sm animate-in slide-in-from-bottom-4 fade-in duration-300 flex items-center gap-3',
-            type === 'success' ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900' : 'bg-rose-600 text-white'
-        )}>
-            <span className={type === 'success' ? 'text-emerald-400 dark:text-emerald-600' : ''}>{type === 'success' ? '✓' : '!'}</span>
-            {message}
-        </div>
-    );
-}
 
 /**
  * Shared tab page component used by all 4 integration tabs.
@@ -36,12 +23,7 @@ export function IntegrationTabPage({ integrationKeys, searchQuery: propSearchQue
 
     const [configuringId, setConfiguringId] = useState(null);
     const [disconnectingId, setDisconnectingId] = useState(null);
-    const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
-    const showToast = (message, type = 'success') => {
-        setToast({ show: true, message, type });
-        setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
-    };
 
     const filtered = integrationKeys.filter((id) => {
         const meta = INTEGRATION_META[id];
@@ -122,9 +104,8 @@ export function IntegrationTabPage({ integrationKeys, searchQuery: propSearchQue
                 onSave={async (id, config) => {
                     try {
                         await connectIntegration(id, config);
-                        showToast(`${INTEGRATION_META[id]?.name} connected successfully!`);
                     } catch (err) {
-                        showToast(`Failed to connect ${INTEGRATION_META[id]?.name}`, 'error');
+                        // Error is handled by apiClient global toast
                     }
                 }}
             />
@@ -137,14 +118,12 @@ export function IntegrationTabPage({ integrationKeys, searchQuery: propSearchQue
                 onConfirm={async (id) => {
                     try {
                         await disconnectIntegration(id);
-                        showToast(`${INTEGRATION_META[id]?.name} disconnected.`, 'error');
                     } catch (err) {
-                        showToast(`Failed to disconnect ${INTEGRATION_META[id]?.name}`, 'error');
+                        // Error is handled by apiClient global toast
                     }
                 }}
             />
 
-            <Toast show={toast.show} message={toast.message} type={toast.type} />
         </>
     );
 }
