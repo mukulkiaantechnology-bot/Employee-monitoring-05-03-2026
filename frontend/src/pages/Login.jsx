@@ -2,34 +2,33 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, Loader2, Shield, Users, User } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useToast } from '../context/ToastContext';
+import authService from '../services/authService';
 
 export function Login() {
     const navigate = useNavigate();
     const location = useLocation();
     const { login } = useAuthStore();
+    const { toast } = useToast();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
-    const [info, setInfo] = useState('');
 
     const from = location.state?.from?.pathname || '/';
 
     const handleForgotPassword = async (e) => {
         e.preventDefault();
         if (!email) {
-            setError('Please enter your email address first.');
+            toast.error('Please enter your email address first.');
             return;
         }
-        setError('');
-        setInfo('Sending reset link...');
         try {
             await authService.forgotPassword(email);
-            setInfo('If an account exists, a reset link has been sent to your email.');
+            toast.success('If an account exists, a reset link has been sent to your email.');
         } catch (err) {
-            setError('Failed to process request.');
-            setInfo('');
+            toast.error('Failed to process request.');
         }
     };
 
@@ -37,11 +36,10 @@ export function Login() {
         setIsLoading(true);
         setError('');
         try {
-            // In a real app, quick login would still hit a test account or specific dummy endpoint
-            // For now, we simulate with a known test email or just the role name if seeded
             const email = `${role.toLowerCase()}@example.com`;
             const password = '123456';
             await login(email, password);
+            toast.success(`Logged in as ${role}`);
             navigate(`/${role.toLowerCase()}`, { replace: true });
         } catch (err) {
             setError(err.message || 'Quick login failed. Make sure the database is seeded.');
@@ -57,8 +55,8 @@ export function Login() {
 
         try {
             const data = await login(email, password);
-            // Redirection based on role: ADMIN -> /admin, etc.
             const rolePath = data.user.role.toLowerCase();
+            toast.success('Login successful');
             navigate(`/${rolePath}`, { replace: true });
         } catch (err) {
             setError(err.message || 'Invalid email or password');

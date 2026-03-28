@@ -5,6 +5,7 @@ import { useTeamStore } from '../store/teamStore';
 import { useEmployeeStore } from '../store/employeeStore';
 import { useAuthStore } from '../store/authStore';
 import { useOrganizationStore } from '../store/organizationStore';
+import { useToast } from '../context/ToastContext';
 
 export function Teams() {
     const { teams: contextTeams, fetchTeams, addTeam, updateTeam, deleteTeam, isLoading } = useTeamStore();
@@ -14,6 +15,7 @@ export function Teams() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTeam, setEditingTeam] = useState(null);
     const [search, setSearch] = useState('');
+    const { toast } = useToast();
     const [openMenu, setOpenMenu] = useState(null);
 
     useEffect(() => {
@@ -43,10 +45,11 @@ export function Teams() {
         if (editingTeam) {
             try {
                 await updateTeam(editingTeam.id, teamData);
+                toast.success("Team updated successfully!");
                 setIsModalOpen(false);
                 setEditingTeam(null);
             } catch (error) {
-                console.error("Failed to update team:", error);
+                // Error handled by apiClient
             }
             return;
         }
@@ -57,8 +60,7 @@ export function Teams() {
             employees?.[0]?.organizationId;
 
         if (!orgId) {
-            console.error("No organization ID found. Cannot create team.");
-            alert("No organization found. Please contact support.");
+            toast.error("No organization found. Please contact support.");
             return;
         }
 
@@ -67,9 +69,10 @@ export function Teams() {
                 ...teamData,
                 organizationId: orgId
             });
+            toast.success("Team created successfully!");
             setIsModalOpen(false);
         } catch (error) {
-            console.error("Failed to create team:", error);
+            // Error handled by apiClient
         }
     };
 

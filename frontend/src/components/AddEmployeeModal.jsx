@@ -6,12 +6,14 @@ import { useTeamStore } from '../store/teamStore';
 import { useAuthStore } from '../store/authStore';
 import { useOrganizationStore } from '../store/organizationStore';
 import { logAction } from '../utils/logAction';
+import { useToast } from '../context/ToastContext';
 
 export function AddEmployeeModal({ isOpen, onClose }) {
     const { inviteEmployee, fetchEmployees } = useEmployeeStore();
     const { teams } = useTeamStore();
     const { user, role } = useAuthStore();
     const { organization } = useOrganizationStore();
+    const { toast } = useToast();
     const [step, setStep] = useState('choice'); // choice, company, personal
     const [copied, setCopied] = useState(false);
 
@@ -27,6 +29,7 @@ export function AddEmployeeModal({ isOpen, onClose }) {
     const handleCopy = () => {
         navigator.clipboard.writeText("https://app.insightful.io/#/installation/company/12345");
         setCopied(true);
+        toast.success("Installation URL copied to clipboard!");
         setTimeout(() => setCopied(false), 2000);
     };
 
@@ -314,9 +317,8 @@ export function AddEmployeeModal({ isOpen, onClose }) {
                     </button>
                     <button
                         onClick={async () => {
-                            const orgId = organization?.id || user?.organizationId;
                             if (!orgId) {
-                                alert("No organization ID found. Please try logging in again.");
+                                toast.error("No organization ID found. Please try logging in again.");
                                 return;
                             }
 
@@ -354,7 +356,7 @@ export function AddEmployeeModal({ isOpen, onClose }) {
                                     } catch (err) {
                                         failCount++;
                                         const errorMsg = err.response?.data?.message || err.message;
-                                        alert(`Error inviting ${emp.email}: ${errorMsg}`);
+                                        toast.error(`Error inviting ${emp.email}: ${errorMsg}`);
                                         if (errorMsg.toLowerCase().includes("duplicate")) break;
                                     }
                                 }
@@ -362,6 +364,7 @@ export function AddEmployeeModal({ isOpen, onClose }) {
 
                             if (successCount > 0) {
                                 await fetchEmployees();
+                                toast.success(`${successCount} employee(s) invited successfully!`);
                                 if (failCount === 0) {
                                     onClose();
                                 }

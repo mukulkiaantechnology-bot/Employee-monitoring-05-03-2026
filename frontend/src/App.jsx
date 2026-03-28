@@ -62,6 +62,7 @@ import { useEffect } from 'react';
 import { useAuthStore } from './store/authStore';
 
 import authService from './services/authService';
+import { ToastProvider } from './context/ToastContext';
 
 function App() {
     const { isAuthenticated, role, setSession } = useAuthStore();
@@ -106,98 +107,100 @@ function App() {
     }, [isAuthenticated, role, setSession]);
 
     return (
-        <RealTimeProvider>
-            <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-                <Routes>
-                    {/* Public Routes */}
-                    <Route path="/login" element={
-                        <PublicRoute>
-                            <Login />
-                        </PublicRoute>
-                    } />
-                    <Route path="/setup-password" element={<SetupPassword />} />
+        <ToastProvider>
+            <RealTimeProvider>
+                <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                    <Routes>
+                        {/* Public Routes */}
+                        <Route path="/login" element={
+                            <PublicRoute>
+                                <Login />
+                            </PublicRoute>
+                        } />
+                        <Route path="/setup-password" element={<SetupPassword />} />
 
-                    {/* Protected Dashboard Routes */}
-                    <Route path="/" element={<ProtectedRoute><Navigate to="/" replace /></ProtectedRoute>} />
-                    <Route path="/:rolePath/*" element={
-                        <ProtectedRoute>
-                            <DashboardLayout>
-                                <Routes>
-                                    <Route path="/" element={<Dashboard />} />
-                                    <Route path="real-time" element={<RealTimeInsights />} />
-                                    <Route path="time-attendance" element={<TimeAndAttendance />} />
-                                    <Route path="activity" element={<ActivityMonitoring />} />
-                                    <Route path="screenshots" element={<ScreenshotMonitoring />} />
-                                    <Route path="location" element={<LocationTracking />} />
-                                    <Route path="tasks" element={<TasksProjects />} />
+                        {/* Protected Dashboard Routes */}
+                        <Route path="/" element={<ProtectedRoute><Navigate to="/" replace /></ProtectedRoute>} />
+                        <Route path="/:rolePath/*" element={
+                            <ProtectedRoute>
+                                <DashboardLayout>
+                                    <Routes>
+                                        <Route path="/" element={<Dashboard />} />
+                                        <Route path="real-time" element={<RealTimeInsights />} />
+                                        <Route path="time-attendance" element={<TimeAndAttendance />} />
+                                        <Route path="activity" element={<ActivityMonitoring />} />
+                                        <Route path="screenshots" element={<ScreenshotMonitoring />} />
+                                        <Route path="location" element={<LocationTracking />} />
+                                        <Route path="tasks" element={<TasksProjects />} />
 
-                                    <Route path="reports" element={<Reports />}>
-                                        <Route index element={<Navigate to="work-type" replace />} />
-                                        <Route path="work-type" element={<WorkType />} />
-                                        <Route path="schedule-adherence" element={<ScheduleAdherence />} />
-                                        <Route path="workload-distribution" element={<WorkloadDistribution />} />
-                                        <Route path="apps-websites" element={<AppsWebsites />} />
-                                        <Route path="location-insights" element={<LocationInsights />} />
-                                    </Route>
-                                    <Route path="payroll" element={<Payroll />} />
-                                    <Route path="alerts" element={<Alerts />} />
-                                    <Route path="employees" element={<EmployeeManagement />} />
-                                    <Route path="employees/:id" element={<EmployeeProfile />} />
-                                    <Route path="teams" element={<Teams />} />
-                                    <Route path="projects" element={<Projects />} />
-                                    <Route path="settings" element={<Settings />} />
-                                    <Route path="settings/reports/workload-distribution" element={<WorkloadDistributionSettings />} />
-                                    <Route path="settings/reports/location-insights" element={<LocationInsightsSettings />} />
+                                        <Route path="reports" element={<Reports />}>
+                                            <Route index element={<Navigate to="work-type" replace />} />
+                                            <Route path="work-type" element={<WorkType />} />
+                                            <Route path="schedule-adherence" element={<ScheduleAdherence />} />
+                                            <Route path="workload-distribution" element={<WorkloadDistribution />} />
+                                            <Route path="apps-websites" element={<AppsWebsites />} />
+                                            <Route path="location-insights" element={<LocationInsights />} />
+                                        </Route>
+                                        <Route path="payroll" element={<Payroll />} />
+                                        <Route path="alerts" element={<Alerts />} />
+                                        <Route path="employees" element={<EmployeeManagement />} />
+                                        <Route path="employees/:id" element={<EmployeeProfile />} />
+                                        <Route path="teams" element={<Teams />} />
+                                        <Route path="projects" element={<Projects />} />
+                                        <Route path="settings" element={<Settings />} />
+                                        <Route path="settings/reports/workload-distribution" element={<WorkloadDistributionSettings />} />
+                                        <Route path="settings/reports/location-insights" element={<LocationInsightsSettings />} />
 
-                                    <Route path="settings/alerts" element={<AlertsLayout />}>
-                                        <Route index element={<Navigate to="attendance" replace />} />
-                                        <Route path="attendance" element={<AttendanceAlerts />} />
-                                        <Route path="security" element={<SecurityAlerts />} />
-                                        <Route path="shift-scheduling" element={<ShiftScheduling />} />
-                                        <Route path="other" element={<OtherAlerts />} />
-                                    </Route>
-                                    <Route path="settings/productivity/apps" element={<ProductivityApps />} />
+                                        <Route path="settings/alerts" element={<AlertsLayout />}>
+                                            <Route index element={<Navigate to="attendance" replace />} />
+                                            <Route path="attendance" element={<AttendanceAlerts />} />
+                                            <Route path="security" element={<SecurityAlerts />} />
+                                            <Route path="shift-scheduling" element={<ShiftScheduling />} />
+                                            <Route path="other" element={<OtherAlerts />} />
+                                        </Route>
+                                        <Route path="settings/productivity/apps" element={<ProductivityApps />} />
 
-                                    <Route path="settings/api-tokens" element={<ApiTokens />} />
-                                    <Route path="settings/audit-logs" element={<AuditLogs />} />
-                                    <Route path="settings/email-reports" element={<EmailReports />} />
-                                    <Route path="settings/manual-time" element={<ManualTime />} />
-                                    <Route path="settings/organization" element={<Organization />} />
-                                    <Route path="settings/personal" element={<PersonalSettings />} />
-                                    <Route path="settings/security" element={<SecurityLanding />} />
-                                    <Route path="settings/security/saml" element={<SamlWizard />} />
-                                    <Route path="settings/tracking" element={<TrackingSettings />} />
-                                    <Route path="settings/tracking/advanced" element={<><TrackingSettings /><AdvancedTrackingSettings /></>} />
-                                    <Route path="settings/user-management/users" element={<ManageUsers />} />
-                                    <Route path="settings/user-management/org-groups" element={<ManageOrgGroups />} />
-                                    <Route path="settings/utilization" element={<Utilization />} />
-                                    <Route path="settings/privacy" element={<Privacy />}>
-                                        <Route index element={<Navigate to="overview" replace />} />
-                                        <Route path="overview" element={<PrivacyOverview />} />
-                                        <Route path="compliance" element={<PrivacyCompliance />} />
-                                    </Route>
-                                    <Route path="settings/integrations" element={<IntegrationsLayout />}>
-                                        <Route index element={<Navigate to="overview/org-chart" replace />} />
-                                        <Route path="overview/org-chart" element={<OrgChart />} />
-                                        <Route path="overview/project-management" element={<IntegrationTabPage integrationKeys={['asana', 'azureDevops', 'clickup', 'height', 'jira', 'teamwork']} />} />
-                                    </Route>
+                                        <Route path="settings/api-tokens" element={<ApiTokens />} />
+                                        <Route path="settings/audit-logs" element={<AuditLogs />} />
+                                        <Route path="settings/email-reports" element={<EmailReports />} />
+                                        <Route path="settings/manual-time" element={<ManualTime />} />
+                                        <Route path="settings/organization" element={<Organization />} />
+                                        <Route path="settings/personal" element={<PersonalSettings />} />
+                                        <Route path="settings/security" element={<SecurityLanding />} />
+                                        <Route path="settings/security/saml" element={<SamlWizard />} />
+                                        <Route path="settings/tracking" element={<TrackingSettings />} />
+                                        <Route path="settings/tracking/advanced" element={<><TrackingSettings /><AdvancedTrackingSettings /></>} />
+                                        <Route path="settings/user-management/users" element={<ManageUsers />} />
+                                        <Route path="settings/user-management/org-groups" element={<ManageOrgGroups />} />
+                                        <Route path="settings/utilization" element={<Utilization />} />
+                                        <Route path="settings/privacy" element={<Privacy />}>
+                                            <Route index element={<Navigate to="overview" replace />} />
+                                            <Route path="overview" element={<PrivacyOverview />} />
+                                            <Route path="compliance" element={<PrivacyCompliance />} />
+                                        </Route>
+                                        <Route path="settings/integrations" element={<IntegrationsLayout />}>
+                                            <Route index element={<Navigate to="overview/org-chart" replace />} />
+                                            <Route path="overview/org-chart" element={<OrgChart />} />
+                                            <Route path="overview/project-management" element={<IntegrationTabPage integrationKeys={['asana', 'azureDevops', 'clickup', 'height', 'jira', 'teamwork']} />} />
+                                        </Route>
 
-                                    <Route path="settings/billing" element={<BillingLayout />}>
-                                        <Route index element={<Navigate to="plans" replace />} />
-                                        <Route path="plans" element={<Plans />} />
-                                        <Route path="add-ons" element={<AddOns />} />
-                                    </Route>
+                                        <Route path="settings/billing" element={<BillingLayout />}>
+                                            <Route index element={<Navigate to="plans" replace />} />
+                                            <Route path="plans" element={<Plans />} />
+                                            <Route path="add-ons" element={<AddOns />} />
+                                        </Route>
 
-                                    <Route path="compliance" element={<Compliance />} />
-                                    <Route path="notifications" element={<Notifications />} />
-                                    <Route path="*" element={<Navigate to="/" replace />} />
-                                </Routes>
-                            </DashboardLayout>
-                        </ProtectedRoute>
-                    } />
-                </Routes>
-            </Router>
-        </RealTimeProvider>
+                                        <Route path="compliance" element={<Compliance />} />
+                                        <Route path="notifications" element={<Notifications />} />
+                                        <Route path="*" element={<Navigate to="/" replace />} />
+                                    </Routes>
+                                </DashboardLayout>
+                            </ProtectedRoute>
+                        } />
+                    </Routes>
+                </Router>
+            </RealTimeProvider>
+        </ToastProvider>
     );
 }
 

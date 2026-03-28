@@ -10,6 +10,8 @@ import {
     appUsageByCategory,
     teamProductivity,
 } from '../store/analyticsEngine';
+import { logAction } from '../utils/logAction';
+import { useToast } from '../context/ToastContext';
 import { useAuthStore } from '../store/authStore';
 import { useFilterStore } from '../store/filterStore';
 import employeeService from '../services/employeeService';
@@ -35,6 +37,9 @@ const formatTime = (totalSeconds) => {
 };
 
 export function RealTimeProvider({ children }) {
+    const { toast } = useToast();
+    const [step, setStep] = useState('choice');
+    const [copied, setCopied] = useState(false);
     // Generate seed data once on module load
     const seedData = useMemo(() => generateSeedData(), []);
 
@@ -152,6 +157,7 @@ export function RealTimeProvider({ children }) {
         if (isLoading || !isAuthenticated) return;
 
         const syncEmployees = async () => {
+            if (role !== 'ADMIN' && role !== 'MANAGER') return;
             try {
                 const res = await employeeService.getEmployees();
                 if (res.success && res.data) {
@@ -182,6 +188,7 @@ export function RealTimeProvider({ children }) {
         if (isLoading || !isAuthenticated) return;
 
         const syncTeams = async () => {
+            if (role !== 'ADMIN' && role !== 'MANAGER') return;
             try {
                 const res = await teamService.getTeams();
                 if (res.success && res.data) {
@@ -212,15 +219,31 @@ export function RealTimeProvider({ children }) {
                     teamId: selectedTeam,
                     employeeId: selectedEmployee
                 };
-                const res = await activityService.getOrganizationSummary(params);
-                if (res.success && res.data) {
+                
+                let res;
+                if (role === 'ADMIN' || role === 'MANAGER') {
+                    res = await activityService.getOrganizationSummary(params);
+                } else if (role === 'EMPLOYEE' && user?.id) {
+                    res = await activityService.getEmployeeSummary(user.id, params);
+                    // Standardize response for employee (backend might return single object vs array)
+                    if (res.success && res.data && !Array.isArray(res.data)) {
+                        res.data = [res.data];
+                    }
+                } else {
+                    return;
+                }
+
+                if (res && res.success && res.data) {
                     setState(prev => ({
                         ...prev,
                         activityLogs: res.data
                     }));
                 }
             } catch (err) {
-                console.error('Failed to sync activity logs:', err);
+                // Silently handle 403 or other sync errors to avoid console noise for users
+                if (err.response?.status !== 403) {
+                    console.error('Failed to sync activity logs:', err);
+                }
             }
         };
 
@@ -342,6 +365,13 @@ export function RealTimeProvider({ children }) {
 
         return () => clearInterval(interval);
     }, [isLoading, isAuthenticated]);
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText("https://app.insightful.io/#/installation/company/12345");
+        setCopied(true);
+        toast.success("Installation URL copied to clipboard!");
+        setTimeout(() => setCopied(false), 2000);
+    };
 
     // Live backend projects sync
     useEffect(() => {
@@ -505,9 +535,13 @@ export function RealTimeProvider({ children }) {
     const addNotification = useCallback((title, type = 'info') => {
         const n = { id: Date.now(), title, time: 'Just now', type, unread: true };
         setState(prev => ({ ...prev, notifications: [n, ...prev.notifications].slice(0, 50) }));
-        setActiveToast(n);
-        setTimeout(() => setActiveToast(null), 3500);
-    }, []);
+        
+        // Route to global toast system
+        if (type === 'alert' || type === 'error') toast.error(title);
+        else if (type === 'success') toast.success(title);
+        else if (type === 'warning') toast.warning(title);
+        else toast.info(title);
+    }, [toast]);
 
     // Employee CRUD
     const addEmployee = useCallback((employee) => {

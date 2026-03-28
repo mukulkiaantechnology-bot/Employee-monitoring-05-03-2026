@@ -32,8 +32,10 @@ import { useNavigate } from 'react-router-dom';
 import { useEmployeeStore } from '../store/employeeStore';
 import { useTeamStore } from '../store/teamStore';
 import { useAuthStore } from '../store/authStore';
+import { useOrganizationStore } from '../store/organizationStore';
 import { useRealTime } from '../hooks/RealTimeContext';
 import { AddEmployeeModal } from '../components/AddEmployeeModal';
+import { useToast } from '../context/ToastContext';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -219,15 +221,20 @@ const PrivacyControlsPanel = ({ isExpanded, toggleExpand }) => {
 const MergeEmployeesModal = ({ isOpen, onClose, employees, onMerge }) => {
     const [fromId, setFromId] = useState('');
     const [intoId, setIntoId] = useState('');
-    const [error, setError] = useState('');
+    const { orgId } = useOrganizationStore();
+    const { toast } = useToast();
 
     const handleMerge = () => {
         if (!fromId || !intoId) {
-            setError('Both employees must be selected');
+            toast.error('Both employees must be selected');
             return;
         }
         if (fromId === intoId) {
-            setError('Cannot select same employee');
+            toast.error('Cannot select same employee');
+            return;
+        }
+        if (!orgId) {
+            toast.error("No organization found. Please contact support.");
             return;
         }
         onMerge(fromId, intoId);
@@ -262,8 +269,6 @@ const MergeEmployeesModal = ({ isOpen, onClose, employees, onMerge }) => {
                     </div>
                 </div>
 
-                {error && <p className="text-rose-500 text-[10px] font-bold uppercase">{error}</p>}
-
                 <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
                     <p className="text-[11px] font-medium text-slate-400 leading-relaxed">
                         Merging employees is a one-way action. All data from the source employee will be transferred, and the source will be marked as merged.
@@ -280,6 +285,7 @@ const MergeEmployeesModal = ({ isOpen, onClose, employees, onMerge }) => {
 };
 
 const EditEmployeeModal = ({ isOpen, onClose, employee, onUpdate }) => {
+    const { toast } = useToast();
     const { teams } = useTeamStore();
     const [formData, setFormData] = useState({
         fullName: '',
@@ -330,10 +336,10 @@ const EditEmployeeModal = ({ isOpen, onClose, employee, onUpdate }) => {
 
         try {
             await onUpdate(employee.id, submitData);
-            alert("Employee updated successfully!");
+            toast.success("Employee updated successfully!");
             onClose();
         } catch (error) {
-            alert(`Error: ${error.message || 'Failed to update employee'}`);
+            // Error is handled by apiClient global toast
         }
     };
 
@@ -435,7 +441,7 @@ const EditEmployeeModal = ({ isOpen, onClose, employee, onUpdate }) => {
                                 type="button"
                                 onClick={() => {
                                     navigator.clipboard.writeText(formData.password);
-                                    alert("Password copied to clipboard!");
+                                    toast.success("Password copied to clipboard!");
                                 }}
                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary-600 p-1"
                                 title="Copy password"
@@ -984,6 +990,7 @@ export function EmployeeManagement() {
     const { employees, fetchEmployees, updateEmployee, removeEmployee, isLoading } = useEmployeeStore();
     const { teams, fetchTeams } = useTeamStore();
     const { role } = useAuthStore();
+    const { toast } = useToast();
 
     // UI States
     const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -1037,17 +1044,18 @@ export function EmployeeManagement() {
         try {
             await updateEmployee(id, data);
         } catch (error) {
-            console.error('Update failed:', error);
+            // Error handled by apiClient
         }
     };
 
     const handleDeleteEmployee = async (id) => {
         try {
             await removeEmployee(id);
+            toast.success("Employee deleted successfully!");
             setShowDeleteModal(false);
             setDeletingEmployee(null);
         } catch (error) {
-            console.error('Delete failed:', error);
+            // Error handled by apiClient
         }
     };
 
