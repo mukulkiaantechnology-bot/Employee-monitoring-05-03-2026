@@ -3,11 +3,28 @@ import { useAuthStore } from '../store/authStore';
 
 export function ProtectedRoute({ children }) {
     const location = useLocation();
-    const { isAuthenticated, role } = useAuthStore();
+    const { isAuthenticated, role, agentStatus } = useAuthStore();
 
     if (!isAuthenticated) {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
+
+    // // Role-based Agent Check (Disabled as per user request to rely on WebTrackerAgent)
+    // const isEmployee = role?.toUpperCase() === 'EMPLOYEE';
+    // const isAgentRequiredPage = location.pathname === '/agent-required';
+
+    // if (isAuthenticated && isEmployee && !agentStatus?.active && !isAgentRequiredPage) {
+    //     return <Navigate to="/agent-required" replace />;
+    // }
+
+    // if (isAuthenticated && isEmployee && agentStatus?.active && isAgentRequiredPage) {
+    //     return <Navigate to="/employee" replace />;
+    // }
+
+    // // If they are on the agent required page and are supposed to be there, let them render it
+    // if (isAuthenticated && isEmployee && !agentStatus?.active && isAgentRequiredPage) {
+    //     return children;
+    // }
 
     const parts = location.pathname.split('/').filter(Boolean);
     const urlRole = parts[0];

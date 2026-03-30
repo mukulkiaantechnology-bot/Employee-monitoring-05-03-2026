@@ -385,12 +385,12 @@ export function Dashboard() {
                                 {role === 'EMPLOYEE' ? 'My Recent Work Captures' : 'Recent Team Activity'}
                             </h3>
                         </div>
-                        <button
+                        {/* <button
                             onClick={() => navigate(role === 'EMPLOYEE' ? '/employee/screenshots' : '/screenshots')}
                             className="text-[10px] font-black text-primary-600/60 dark:text-primary-400/60 hover:text-primary-600 dark:hover:text-primary-400 uppercase tracking-widest transition-colors flex items-center gap-1"
                         >
                             View All <ArrowRightLeft size={10} />
-                        </button>
+                        </button> */}
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                         {stats.screenshots

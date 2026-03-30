@@ -1,0 +1,20 @@
+{
+  "name": "ems-tracker",
+  "version": "1.0.0",
+  "description": "Employee Monitoring System Agent",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "screenshot-desktop": "^1.12.7",
+    "active-win": "^7.7.1",
+    "os": "^0.1.2"
+  },
+  "devDependencies": {
+    "electron": "^25.0.0",
+    "electron-builder": "^24.6.3"
+  }
+}

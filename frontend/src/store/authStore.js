@@ -17,7 +17,8 @@ export const useAuthStore = create(
                     user: user,
                     role: user.role?.toUpperCase(),
                     isAuthenticated: true,
-                    token: localStorage.getItem('token')
+                    token: localStorage.getItem('token'),
+                    agentStatus: user.agentStatus
                 });
             },
 
@@ -30,7 +31,8 @@ export const useAuthStore = create(
                             user: userData,
                             role: userData.role?.toUpperCase(),
                             isAuthenticated: true,
-                            token: response.data.token
+                            token: response.data.token,
+                            agentStatus: userData.agentStatus
                         });
                         toast.success('Login successful');
                         return response.data;

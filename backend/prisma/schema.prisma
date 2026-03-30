@@ -122,6 +122,7 @@ model Organization {
   advancedTrackingSetting AdvancedTrackingSetting?
   goals            Goal[]
   screenshotSetting ScreenshotSetting?
+  videoRecordings  VideoRecording[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 
@@ -188,6 +189,9 @@ model Employee {
   projectTimeLogs    ProjectTimeLog[]
   auditLogs          AuditLog[]
   goalStakeholders   GoalStakeholder[]
+  agent              Agent?
+  tracking           Tracking[]
+  videoRecordings    VideoRecording[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -719,4 +723,46 @@ model GoalActivity {
   createdAt  DateTime @default(now())
 
   @@map("goal_activities")
+}
+
+model Agent {
+  id             String       @id @default(uuid())
+  employee       Employee     @relation(fields: [employeeId], references: [id])
+  employeeId     String       @unique
+  deviceId       String       @unique
+  status         String       @default("inactive") // "active", "inactive"
+  systemInfo     Json?
+  lastSeen       DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("agents")
+}
+
+model Tracking {
+  id             String       @id @default(uuid())
+  employee       Employee     @relation(fields: [employeeId], references: [id])
+  employeeId     String
+  screenshotUrl  String?      @db.LongText
+  videoUrl       String?      @db.LongText
+  activityStatus String?      // "active", "idle"
+  location       String?
+  source         String       @default("AGENT")
+  timestamp      DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+
+  @@map("tracking_data")
+}
+
+model VideoRecording {
+  id             String       @id @default(uuid())
+  employee       Employee     @relation(fields: [employeeId], references: [id])
+  employeeId     String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  fileUrl        String       @db.LongText
+  sizeMb         Float?
+  createdAt      DateTime     @default(now())
+
+  @@map("video_recordings")
 }

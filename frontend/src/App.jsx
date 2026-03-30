@@ -47,7 +47,6 @@ import { SecurityLanding } from './pages/settings/SecurityLanding';
 import { SamlWizard } from './pages/settings/SamlWizard';
 import { TrackingSettings } from './pages/settings/TrackingSettings';
 import { AdvancedTrackingSettings } from './pages/settings/AdvancedTrackingSettings';
-import { ManageUsers } from './pages/settings/ManageUsers';
 import { ManageOrgGroups } from './pages/settings/ManageOrgGroups';
 import { Utilization } from './pages/settings/Utilization';
 import { Plans } from './pages/settings/billing/Plans';
@@ -56,6 +55,7 @@ import { IntegrationsLayout } from './pages/settings/integrations/IntegrationsLa
 import { OrgChart } from './pages/settings/integrations/OrgChart';
 import { IntegrationTabPage } from './pages/settings/integrations/IntegrationTabPage';
 import { ProtectedRoute, PublicRoute } from './components/ProtectedRoute';
+import { ManageUsers } from './pages/settings/ManageUsers';
 import { RealTimeProvider } from './hooks/RealTimeContext';
 
 import { useEffect } from 'react';
@@ -128,7 +128,7 @@ function App() {
                                         <Route path="/" element={<Dashboard />} />
                                         <Route path="real-time" element={<RealTimeInsights />} />
                                         <Route path="time-attendance" element={<TimeAndAttendance />} />
-                                        <Route path="activity" element={<ActivityMonitoring />} />
+                                        <Route path="monitoring" element={<ActivityMonitoring />} />
                                         <Route path="screenshots" element={<ScreenshotMonitoring />} />
                                         <Route path="location" element={<LocationTracking />} />
                                         <Route path="tasks" element={<TasksProjects />} />

@@ -33,7 +33,7 @@ const navItems = [
     { name: 'Teams', icon: Users, path: '/teams', key: 'teams' },
     { name: 'Screenshot Monitoring', icon: Monitor, path: '/screenshots', key: 'screenshots' },
     { name: 'Time & Attendance', icon: Clock, path: '/time-attendance', key: 'timeAttendance' },
-    { name: 'Activity Monitoring', icon: Activity, path: '/activity', key: 'activity' },
+    // { name: 'Monitoring', icon: Monitor, path: '/monitoring', key: 'activity' },
     { name: 'Projects', icon: CheckSquare, path: '/projects', key: 'projects' },
     { name: 'Tasks', icon: CheckSquare, path: '/tasks', key: 'tasks' },
     { name: 'Payroll', icon: CreditCard, path: '/payroll', key: 'payroll' },

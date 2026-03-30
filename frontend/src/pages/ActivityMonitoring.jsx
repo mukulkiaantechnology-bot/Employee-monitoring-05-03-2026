@@ -1,269 +1,175 @@
-import React, { useState } from 'react';
-import {
-    Bell,
-    Calendar,
-    Plus,
-    Search,
-    ZoomIn,
-    RotateCcw,
-    ZoomOut,
-    LayoutGrid,
-    Info,
-    X,
-    FileText,
-    Globe,
-    Monitor,
-    Play
-} from 'lucide-react';
-import { FilterDropdown } from '../components/FilterDropdown';
-import { GlobalCalendar } from '../components/GlobalCalendar';
-import { useRealTime } from '../hooks/RealTimeContext';
-import { useFilterStore } from '../store/filterStore';
-import { cn } from '../utils/cn';
+import React, { useState, useEffect } from 'react';
+import { LayoutGrid, List, Monitor, Activity, MapPin, Search, Filter, RefreshCw, Clock, Shield, ShieldAlert, User, ChevronRight, ExternalLink, Image as ImageIcon, Video } from 'lucide-react';
+import api from '../services/apiClient';
+import { toast } from '../utils/toastManager';
 
-const LegendItem = ({ color, label, isStriped, isHashed, isOutline }) => (
-    <div className="flex items-center gap-2">
-        <div className={`h-3 w-3 rounded-full ${color} ${isStriped ? 'bg-gradient-to-r from-orange-400 to-orange-200' : ''} ${isHashed ? 'bg-slate-200 dark:bg-slate-800 opacity-50' : ''} ${isOutline ? 'border border-orange-400 dark:border-orange-500 text-transparent' : ''}`}></div>
-        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">{label}</span>
-        <div className="h-3 w-3 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[8px] text-slate-400 dark:text-slate-500">?</div>
-    </div>
-);
+export const ActivityMonitoring = () => {
+    const [employees, setEmployees] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filter, setFilter] = useState('all'); // all, active, idle, offline
 
-export function ActivityMonitoring() {
-    const { activityLogs, employees, stats } = useRealTime();
-    const { searchQuery, setSearch } = useFilterStore();
-    const [activeTab, setActiveTab] = useState('Timeline');
-    const [zoomLevel, setZoomLevel] = useState(1);   // 0.75 | 1 | 1.5
-    const [viewMode, setViewMode] = useState('normal'); // 'normal' | 'compact'
-    const [showInfo, setShowInfo] = useState(true);
+    const fetchStatus = async () => {
+        try {
+            const response = await api.get('/employees');
+            // Using real agent status and tracking data from backend
+            const enriched = response.data.map(emp => ({
+                ...emp,
+                agentStatus: emp.agentStatus || 'inactive',
+                lastSeen: emp.lastSeen ? emp.lastSeen : new Date(Date.now() - 600000).toISOString(),
+                currentActivity: emp.currentActivity || 'Idle',
+            }));
+            setEmployees(enriched);
+        } catch (error) {
+            console.error('Fetch monitoring error:', error);
+            toast.error('Failed to load monitoring data');
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    const handleZoomIn = () => setZoomLevel(z => Math.min(2, +(z + 0.25).toFixed(2)));
-    const handleZoomOut = () => setZoomLevel(z => Math.max(0.5, +(z - 0.25).toFixed(2)));
-    const handleReset = () => { setZoomLevel(1); setSearch(''); };
+    useEffect(() => {
+        fetchStatus();
+        const interval = setInterval(fetchStatus, 30000);
+        return () => clearInterval(interval);
+    }, []);
 
-    const timelineHours = [
-        '12:00 AM', '02:00 AM', '04:00 AM', '06:00 AM', '08:00 AM',
-        '10:00 AM', '12:00 PM', '02:00 PM', '04:00 PM', '06:00 PM', '08:00 PM'
-    ];
-
-    const logsData = (stats.empMetrics || []).flatMap(emp => {
-        const log = emp.logs || {};
-        return (log.rawLogs || []).map(act => ({
-            date: log.date || 'Today',
-            startTime: act.startTime || '—',
-            endTime: act.endTime || '—',
-            duration: act.duration || 0,
-            employee: emp.name,
-            computer: act.computer || 'N/A',
-            app: act.appWebsite || 'Unknown',
-            appIcon: act.appWebsite?.includes('Chrome') ? Globe : Monitor,
-            website: act.appWebsite?.includes('.') ? act.appWebsite : null,
-            webIcon: Globe,
-            hasAction: act.activityType === 'ACTIVE'
-        }));
+    const filteredEmployees = employees.filter(emp => {
+        const matchesSearch = emp.fullName.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesFilter = filter === 'all' || (filter === 'active' && emp.agentStatus === 'active') || (filter === 'offline' && emp.agentStatus === 'inactive');
+        return matchesSearch && matchesFilter;
     });
 
     return (
-        <div className="min-h-screen bg-[#fcfdfe] dark:bg-slate-950 pb-12 px-2 sm:px-4 lg:px-8 transition-colors duration-200 overflow-x-hidden">
-            {/* Top Bar */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-8 mb-4">
+        <div className="p-6 space-y-8 bg-slate-50/50 dark:bg-slate-950/20 min-h-screen">
+            {/* Header Area */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Activities</h1>
+                    <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-3">
+                        <Monitor className="text-indigo-600" size={32} /> Monitoring Dashboard
+                    </h1>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1 font-medium">Real-time employee activity and agent compliance.</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <button 
+                        onClick={fetchStatus}
+                        className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 transition-all active:scale-95"
+                    >
+                        <RefreshCw size={20} />
+                    </button>
+                    <div className="relative group">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
+                        <input 
+                            type="text" 
+                            placeholder="Search employees..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-12 pr-6 py-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full md:w-80 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-medium"
+                        />
+                    </div>
                 </div>
             </div>
 
-            {/* Tabs */}
-            <div className="flex items-center gap-10 mb-8 border-b border-slate-100 dark:border-slate-800 overflow-x-auto no-scrollbar">
-                {['Timeline', 'Logs'].map(tab => (
-                    <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={`pb-4 text-sm font-black transition-all relative whitespace-nowrap ${activeTab === tab ? 'text-primary-600 dark:text-primary-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                            }`}
-                    >
-                        {tab}
-                        {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-primary-600 rounded-full" />}
-                    </button>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                {[
+                    { label: 'Total Tracked', val: employees.length, icon: User, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                    { label: 'Agent Active', val: employees.filter(e => e.agentStatus === 'active').length, icon: Shield, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                    { label: 'Compliance Issues', val: employees.filter(e => e.agentStatus === 'inactive').length, icon: ShieldAlert, color: 'text-rose-600', bg: 'bg-rose-50' },
+                    { label: 'Currently Idle', val: employees.filter(e => e.currentActivity === 'Idle').length, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' }
+                ].map((s, i) => (
+                    <div key={i} className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all group">
+                        <div className="flex items-center justify-between">
+                            <div className={`p-3 rounded-2xl ${s.bg} dark:bg-opacity-10 ${s.color}`}>
+                                <s.icon size={24} />
+                            </div>
+                            <span className="text-2xl font-black text-slate-900 dark:text-white group-hover:scale-110 transition-transform">{s.val}</span>
+                        </div>
+                        <p className="mt-4 text-sm font-bold text-slate-500 uppercase tracking-widest">{s.label}</p>
+                    </div>
                 ))}
             </div>
 
-            {/* Filter Bar */}
-            <div className="flex flex-wrap items-center gap-4 mb-8">
-                <GlobalCalendar />
-                <FilterDropdown />
-
-                <div className="ml-auto flex items-center gap-3 w-full md:w-auto">
-                    <div className="relative group w-full md:w-64">
-                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" />
-                        <input
-                            type="text"
-                            placeholder="Search employee or team"
-                            value={searchQuery}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs font-medium dark:text-slate-200 focus:ring-2 focus:ring-primary-500/10 focus:border-primary-500 outline-none transition-all placeholder:text-slate-400"
-                        />
-                    </div>
-                    {activeTab === 'Timeline' && (
-                        <>
-                            <div className="flex items-center gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg p-1 shrink-0">
-                                <button onClick={handleZoomIn} title="Zoom In" className={`p-1.5 rounded-md transition-colors text-primary-600 dark:text-primary-400 ${zoomLevel >= 2 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}><ZoomIn size={16} /></button>
-                                <button onClick={handleReset} title="Reset" className="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-primary-600 dark:text-primary-400 rounded-md transition-colors"><RotateCcw size={16} /></button>
-                                <button onClick={handleZoomOut} title="Zoom Out" className={`p-1.5 rounded-md transition-colors text-primary-600 dark:text-primary-400 ${zoomLevel <= 0.5 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}><ZoomOut size={16} /></button>
-                            </div>
+            {/* Employee List */}
+            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-xl overflow-hidden">
+                <div className="p-8 border-b border-slate-50 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/20">
+                    <h2 className="text-xl font-black text-slate-900 dark:text-white">Active Sessions</h2>
+                    <div className="flex gap-2 p-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                        {['all', 'active', 'offline'].map(t => (
                             <button
-                                onClick={() => setViewMode(v => v === 'normal' ? 'compact' : 'normal')}
-                                title={viewMode === 'normal' ? 'Compact View' : 'Normal View'}
-                                className={`p-2 border rounded-lg transition-colors shadow-sm shrink-0 ${viewMode === 'compact'
-                                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30 text-primary-600'
-                                    : 'border-slate-200 dark:border-slate-800 text-primary-600 dark:text-primary-400 hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                                    }`}
+                                key={t}
+                                onClick={() => setFilter(t)}
+                                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all uppercase tracking-tight ${filter === t ? 'bg-slate-900 text-white dark:bg-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
                             >
-                                <LayoutGrid size={18} strokeWidth={2.5} />
+                                {t}
                             </button>
-                        </>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="divide-y divide-slate-50 dark:divide-slate-800">
+                    {filteredEmployees.map((emp) => (
+                        <div key={emp.id} className="p-6 hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-all flex flex-col md:flex-row md:items-center justify-between gap-6">
+                            <div className="flex items-center gap-4">
+                                <div className="relative">
+                                    <div className="w-14 h-14 rounded-2xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-indigo-600 font-black text-xl overflow-hidden shadow-inner">
+                                        {emp.avatar ? <img src={emp.avatar} alt="" className="w-full h-full object-cover" /> : emp.fullName[0]}
+                                    </div>
+                                    <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-4 border-white dark:border-slate-900 ${emp.agentStatus === 'active' ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
+                                </div>
+                                <div>
+                                    <h3 className="font-black text-slate-900 dark:text-white text-lg leading-tight">{emp.fullName}</h3>
+                                    <span className="text-sm font-bold text-slate-400 uppercase tracking-tighter">{emp.role} • {emp.team?.name || 'No Team'}</span>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Agent Status</p>
+                                    <div className={`flex items-center gap-1.5 font-bold text-sm ${emp.agentStatus === 'active' ? 'text-emerald-600' : 'text-rose-500'}`}>
+                                        {emp.agentStatus === 'active' ? <Shield size={14} /> : <ShieldAlert size={14} />}
+                                        {emp.agentStatus === 'active' ? 'Connected' : 'Missing'}
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Last Activity</p>
+                                    <p className="font-black text-slate-900 dark:text-white text-sm">
+                                        {new Date(emp.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Productivity</p>
+                                    <div className="flex items-center gap-1.5 font-bold text-sm text-indigo-600">
+                                        <Activity size={14} /> {emp.currentActivity}
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Actions</p>
+                                    <div className="flex gap-2">
+                                        <button className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-indigo-600 hover:text-white transition-all">
+                                            <ImageIcon size={16} />
+                                        </button>
+                                        <button className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-indigo-600 hover:text-white transition-all">
+                                            <Video size={16} />
+                                        </button>
+                                        <button className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-900 hover:text-white transition-all">
+                                            <ExternalLink size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {filteredEmployees.length === 0 && (
+                        <div className="p-20 text-center space-y-4">
+                            <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto text-slate-300">
+                                <Search size={40} />
+                            </div>
+                            <p className="text-slate-500 font-bold">No employees matching your criteria.</p>
+                        </div>
                     )}
                 </div>
             </div>
-
-            {activeTab === 'Timeline' ? (
-                <div className="space-y-6">
-                    {/* Legend */}
-                    <div className="flex flex-wrap items-center gap-x-6 gap-y-3 p-4 bg-white/50 dark:bg-slate-900/50 rounded-xl">
-                        <LegendItem color="bg-primary-300 dark:bg-primary-500/80" label="Active Time" />
-                        <LegendItem color="bg-sky-200 dark:bg-sky-500/50" label="Break Time" />
-                        <LegendItem color="bg-primary-400 dark:bg-primary-500" label="Break Time Overages" />
-                        <LegendItem color="bg-orange-300 dark:bg-orange-500/80" label="Manual Time" />
-                        <LegendItem color="bg-white dark:bg-slate-900" label="Unreviewed Manual Time" isOutline />
-                        <LegendItem color="bg-orange-200 dark:bg-orange-500/50" label="Manual Time (Processing)" isStriped />
-                        <LegendItem color="bg-white dark:bg-slate-900" label="Idle Time" isHashed />
-                        <div className="flex items-center gap-2">
-                            <div className="h-[2px] w-4 bg-primary-600 dark:bg-primary-500"></div>
-                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tight">Scheduled Time</span>
-                            <div className="h-3 w-3 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[8px] text-slate-400 dark:text-slate-500">?</div>
-                        </div>
-                    </div>
-
-                    {/* Timeline Grid */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden overflow-x-auto custom-scrollbar">
-                        <div className="grid grid-cols-12 min-w-[1200px]" style={{ zoom: zoomLevel }}>
-                            {/* Empty space + Time headers */}
-                            <div className="col-span-3 p-4 border-b border-r border-slate-50 dark:border-slate-800 font-bold text-slate-400 text-[10px] uppercase tracking-wider sticky left-0 bg-white dark:bg-slate-900 z-30">Employee Name</div>
-                            <div className="col-span-9 grid grid-cols-11 border-b border-slate-50 dark:border-slate-800">
-                                {timelineHours.map((hour, idx) => (
-                                    <div key={idx} className="p-4 text-[10px] font-bold text-slate-400 dark:text-slate-500 border-r border-slate-50/50 dark:border-slate-800/50 flex items-center justify-center relative">
-                                        {idx === 0 && <Play size={8} className="absolute left-2 text-primary-500 rotate-180" />}
-                                        {hour}
-                                    </div>
-                                ))}
-                            </div>
-
-                            {(stats.empMetrics || [])
-                                .filter(emp => 
-                                    (emp.name?.toLowerCase() ?? '').includes(searchQuery.toLowerCase()) ||
-                                    (emp.team?.toLowerCase() ?? '').includes(searchQuery.toLowerCase())
-                                )
-                                .map((emp, empIdx) => {
-                                    const buckets = emp.logs?.intradayBuckets || [];
-                                    return (
-                                        <React.Fragment key={emp.id}>
-                                            <div className={`col-span-3 border-b border-r border-slate-50 dark:border-slate-800 flex items-center gap-4 sticky left-0 bg-white dark:bg-slate-900 z-20 ${viewMode === 'compact' ? 'p-3' : 'p-6'}`}>
-                                                <div className="h-10 w-10 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center border border-slate-200">
-                                                    <img src={emp.avatar || `https://ui-avatars.com/api/?name=${emp.name}`} alt="" className="h-full w-full object-cover" />
-                                                </div>
-                                                <div>
-                                                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200 leading-none">{emp.name}</p>
-                                                    <p className="text-[10px] font-bold text-emerald-500 mt-1">{emp.utilization}% utilization</p>
-                                                </div>
-                                            </div>
-                                            <div className="col-span-9 grid grid-cols-11 border-b border-slate-50 dark:border-slate-800 relative">
-                                                {/* Actual Activity blocks from intradayBuckets */}
-                                                <div className="absolute inset-0 flex">
-                                                    {buckets.slice(0, 22).map((bucket, i) => (
-                                                        <div key={i} className="flex-1 flex flex-col justify-center px-[1px]">
-                                                            {bucket.active > 0 && (
-                                                                <div
-                                                                    className="bg-primary-300 dark:bg-primary-500/60 rounded-sm"
-                                                                    style={{ height: `${Math.min(100, (bucket.active / 60) * 100)}%` }}
-                                                                    title={`${bucket.name}: ${bucket.active}m active`}
-                                                                ></div>
-                                                            )}
-                                                            {bucket.idle > 0 && (
-                                                                <div
-                                                                    className="bg-slate-200 dark:bg-slate-700/50 rounded-sm mt-[1px]"
-                                                                    style={{ height: `${Math.min(20, (bucket.idle / 60) * 100)}%`, opacity: 0.5 }}
-                                                                ></div>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                {Array.from({ length: 11 }).map((_, i) => <div key={i} className="border-r border-slate-50/50 dark:border-slate-800/50 z-10 pointer-events-none"></div>)}
-                                            </div>
-                                        </React.Fragment>
-                                    );
-                                })}
-                        </div>
-                    </div>
-                </div>
-            ) : (
-                <div className="space-y-6">
-                    {/* Info Bar */}
-                    {showInfo && (
-                        <div className="bg-[#eef8ff] dark:bg-primary-900/10 border border-primary-100 dark:border-primary-800/50 text-[#00609b] dark:text-primary-300 px-5 py-3.5 rounded-lg flex items-center gap-3 text-xs font-bold w-full shadow-sm">
-                            <Info size={18} className="text-[#0092e0] dark:text-primary-400" />
-                            <span className="flex-1">Visibility of URLs and titles can be changed in the privacy settings. <button className="hover:underline font-black text-primary-600 dark:text-primary-400">Click here to change this.</button></span>
-                            <button onClick={() => setShowInfo(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"><X size={16} /></button>
-                        </div>
-                    )}
-
-                    {/* Logs Table */}
-                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden overflow-x-auto">
-                        <table className="w-full text-left min-w-[1000px]">
-                            <thead className="bg-[#fcfdfe] dark:bg-slate-950 text-slate-400 dark:text-slate-500 font-bold text-[10px] uppercase tracking-widest border-b border-slate-50 dark:border-slate-800">
-                                <tr>
-                                    <th className="px-6 py-4 w-12"></th>
-                                    <th className="px-6 py-4">Date</th>
-                                    <th className="px-6 py-4">Time</th>
-                                    <th className="px-6 py-4">Duration [h]</th>
-                                    <th className="px-6 py-4">Employee</th>
-                                    <th className="px-6 py-4">Computer</th>
-                                    <th className="px-6 py-4">App</th>
-                                    <th className="px-6 py-4">Website</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
-                                {logsData.map((log, idx) => (
-                                    <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors group">
-                                        <td className="px-6 py-4">
-                                            {log.hasAction && <Play size={12} className="text-primary-500 fill-primary-500" />}
-                                        </td>
-                                        <td className="px-6 py-4 text-xs font-bold text-slate-600 dark:text-slate-400">{log.date}</td>
-                                        <td className="px-6 py-4 text-xs font-bold text-slate-600 dark:text-slate-400">{log.startTime} - {log.endTime}</td>
-                                        <td className="px-6 py-4 text-xs font-bold text-slate-900 dark:text-slate-200">{log.duration}</td>
-                                        <td className="px-6 py-4 text-xs font-bold text-slate-800 dark:text-slate-300">{log.employee}</td>
-                                        <td className="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400">{log.computer}</td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-2">
-                                                <div className="p-1 rounded bg-slate-100 dark:bg-slate-800">
-                                                    <log.appIcon size={14} className="text-primary-600 dark:text-primary-400" />
-                                                </div>
-                                                <span className="text-xs font-bold text-slate-400 dark:text-slate-400">{log.app}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            {log.website && (
-                                                <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit border border-slate-200 dark:border-slate-700">
-                                                    <log.webIcon size={12} className="text-slate-400 dark:text-slate-500" />
-                                                    <span className="text-[10px] font-black text-slate-400 dark:text-slate-400">{log.website}</span>
-                                                </div>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
         </div>
     );
-}
+};
