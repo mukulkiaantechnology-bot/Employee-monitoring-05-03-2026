@@ -79,20 +79,48 @@ export function workloadDistribution(tasks, employees) {
  */
 export function intradayActivity(activityLogs, dateStr) {
     const dayLogs = activityLogs.filter(l => l.date === dateStr);
-    if (!dayLogs.length) {
-        // fallback shape for chart
-        return Array.from({ length: 11 }, (_, i) => ({ name: `${String(8+i).padStart(2,'0')}:00`, active: 0, idle: 0, manual: 0, break: 0 }));
-    }
+    
     const bucketMap = {};
+    // Initialize full day buckets 00 to 23
+    for (let i = 0; i < 24; i++) {
+        const hour = `${String(i).padStart(2, '0')}:00`;
+        bucketMap[hour] = { name: hour, active: 0, idle: 0, manual: 0, break: 0, utilization: 0 };
+    }
+
     dayLogs.forEach(log => {
-        (log.intradayBuckets || []).forEach(b => {
-            if (!bucketMap[b.name]) bucketMap[b.name] = { name: b.name, active: 0, idle: 0, manual: 0, break: 0 };
-            bucketMap[b.name].active  += b.active || 0;
-            bucketMap[b.name].idle    += b.idle || 0;
-            bucketMap[b.name].manual  += b.manual || 0;
-            bucketMap[b.name].break   += b.break || 0;
-        });
+        // If it has predefined buckets (simulated data), use them
+        if (log.intradayBuckets && log.intradayBuckets.length > 0) {
+            log.intradayBuckets.forEach(b => {
+                if (bucketMap[b.name]) {
+                    bucketMap[b.name].active += b.active || 0;
+                    bucketMap[b.name].idle += b.idle || 0;
+                    bucketMap[b.name].manual += b.manual || 0;
+                    bucketMap[b.name].break += b.break || 0;
+                }
+            });
+        } else {
+            // Otherwise, group by log status + timestamp
+            const hour = new Date(log.timestamp).getHours();
+            const bucketName = `${String(hour).padStart(2, '0')}:00`;
+            const durationHrs = (log.duration || 60) / 3600;
+
+            if (bucketMap[bucketName]) {
+                const type = log.activityType?.toUpperCase();
+                if (type === 'ACTIVE') bucketMap[bucketName].active += durationHrs;
+                else if (type === 'IDLE') bucketMap[bucketName].idle += durationHrs;
+                else if (type === 'BREAK') bucketMap[bucketName].break += durationHrs;
+                else if (type === 'MANUAL') bucketMap[bucketName].manual += durationHrs;
+            }
+        }
     });
+
+    // Calculate utilization for each bucket
+    Object.keys(bucketMap).forEach(key => {
+        const b = bucketMap[key];
+        const total = b.active + b.idle + b.manual;
+        b.utilization = total > 0 ? Math.round(((b.active + b.manual) / total) * 100) : 0;
+    });
+
     return Object.values(bucketMap).sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -102,13 +130,13 @@ export function intradayActivity(activityLogs, dateStr) {
 export function computeSummaryStats(activityLogs, dateStr) {
     const dayLogs = activityLogs.filter(l => l.date === dateStr);
     const totals = dayLogs.reduce((acc, l) => ({
-        workHours:        acc.workHours + l.workHours,
-        activeHours:      acc.activeHours + l.activeHours,
-        idleHours:        acc.idleHours + l.idleHours,
-        breakHours:       acc.breakHours + l.breakHours,
-        productiveHours:  acc.productiveHours + l.productiveHours,
-        neutralHours:     acc.neutralHours + l.neutralHours,
-        unproductiveHours: acc.unproductiveHours + l.unproductiveHours,
+        workHours:        acc.workHours + (l.workHours || l.activeHours + l.idleHours + (l.manualHours || 0)),
+        activeHours:      acc.activeHours + (l.activeHours || 0),
+        idleHours:        acc.idleHours + (l.idleHours || 0),
+        breakHours:       acc.breakHours + (l.breakHours || 0),
+        productiveHours:  acc.productiveHours + (l.productiveHours || 0),
+        neutralHours:     acc.neutralHours + (l.neutralHours || 0),
+        unproductiveHours: acc.unproductiveHours + (l.unproductiveHours || 0),
     }), { workHours:0, activeHours:0, idleHours:0, breakHours:0, productiveHours:0, neutralHours:0, unproductiveHours:0 });
 
     const fmt = (h) => `${String(Math.floor(h)).padStart(2,'0')}h ${String(Math.round((h % 1) * 60)).padStart(2,'0')}m`;
@@ -203,13 +231,13 @@ export function weeklyProductivityTrend(activityLogs) {
     const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
     const trend = [];
     for (let i = 6; i >= 0; i--) {
-        const d = new Date('2026-02-28');
+        const d = new Date();
         d.setDate(d.getDate() - i);
         const dateStr = d.toISOString().split('T')[0];
         const logs = activityLogs.filter(l => l.date === dateStr);
-        const totPrd = logs.reduce((s, l) => s + l.productiveHours, 0);
-        const totAct = logs.reduce((s, l) => s + l.activeHours, 0);
-        const totWork = logs.reduce((s, l) => s + l.workHours, 0);
+        const totPrd = logs.reduce((s, l) => s + (l.productiveHours || 0), 0);
+        const totAct = logs.reduce((s, l) => s + (l.activeHours || 0), 0);
+        const totWork = logs.reduce((s, l) => s + (l.workHours || 0), 0);
         trend.push({
             name: days[d.getDay()],
             productivity: productivityPct(totPrd, totAct),
@@ -228,6 +256,7 @@ export function liveEmployeeStats(employees) {
         total:   employees.length,
         online:  employees.filter(e => e.status === 'online').length,
         idle:    employees.filter(e => e.status === 'idle').length,
+        break:   employees.filter(e => e.status === 'break').length,
         offline: employees.filter(e => e.status === 'offline').length,
     };
 }

@@ -54,9 +54,10 @@ import { AddOns } from './pages/settings/billing/AddOns';
 import { IntegrationsLayout } from './pages/settings/integrations/IntegrationsLayout';
 import { OrgChart } from './pages/settings/integrations/OrgChart';
 import { IntegrationTabPage } from './pages/settings/integrations/IntegrationTabPage';
-import { ProtectedRoute, PublicRoute } from './components/ProtectedRoute';
+import { ProtectedRoute, PublicRoute, RoleRoute } from './components/ProtectedRoute';
 import { ManageUsers } from './pages/settings/ManageUsers';
 import { RealTimeProvider } from './hooks/RealTimeContext';
+import { WorkSessionRequired } from './components/employee/WorkSessionRequired';
 
 import { useEffect } from 'react';
 import { useAuthStore } from './store/authStore';
@@ -118,6 +119,13 @@ function App() {
                             </PublicRoute>
                         } />
                         <Route path="/setup-password" element={<SetupPassword />} />
+
+                        {/* Special Monitoring Route */}
+                        <Route path="/employee/work-session" element={
+                            <RoleRoute allowedRoles={['EMPLOYEE']}>
+                                <WorkSessionRequired />
+                            </RoleRoute>
+                        } />
 
                         {/* Protected Dashboard Routes */}
                         <Route path="/" element={<ProtectedRoute><Navigate to="/" replace /></ProtectedRoute>} />

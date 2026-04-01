@@ -3,11 +3,11 @@ import { createPortal } from 'react-dom';
 import { ShieldAlert, MonitorCheck } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import screenshotService from '../../services/screenshotService';
-import videoService from '../../services/videoService';
-import attendanceService from '../../services/attendanceService';
+import useSocket from '../../hooks/useSocket';
+import { toast } from '../../utils/toastManager';
 
 export function WebTrackerAgent() {
-    const { user, role } = useAuthStore();
+    const { user, role, clockIn, clockOut, isClockedIn, isTrackerActive, setTrackerActive } = useAuthStore();
     const [isTracking, setIsTracking] = useState(false);
     const [error, setError] = useState('');
     const [settings, setSettings] = useState({ frequency: 10, globalBlur: false });
@@ -16,103 +16,14 @@ export function WebTrackerAgent() {
     const intervalRef = useRef(null);
     const videoRef = useRef(null);
     const isStartingRef = useRef(false);
-
-    // Video recording refs
-    const mediaRecorderRef = useRef(null);
-    const videoChunksRef = useRef([]);
-    const videoIntervalRef = useRef(null); // For chunk-based uploads
-    const VIDEO_CHUNK_MINUTES = 5; // Upload a video chunk every 5 minutes
+    
+    // WebRTC Live Monitoring
+    const { socket, on, emit, off } = useSocket();
+    const pcRef = useRef(null);
 
     // Only render for EMPLOYEE role
     if (role !== 'EMPLOYEE') return null;
 
-    // ─── Upload a video blob ───────────────────────────────────────────────────
-    const uploadVideoChunk = async (blob) => {
-        if (!blob || blob.size === 0) return;
-        try {
-            const formData = new FormData();
-            formData.append('video', blob, `session-${Date.now()}.webm`);
-            formData.append('employeeId', user?.employeeId || '');
-            await videoService.uploadVideo(formData);
-            console.log('[WebTrackerAgent] Video chunk uploaded successfully.');
-        } catch (err) {
-            console.error('[WebTrackerAgent] Video chunk upload failed:', err);
-        }
-    };
-
-    // ─── Start MediaRecorder ───────────────────────────────────────────────────
-    const startVideoRecording = (stream) => {
-        videoChunksRef.current = [];
-
-        const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-            ? 'video/webm;codecs=vp9'
-            : MediaRecorder.isTypeSupported('video/webm')
-            ? 'video/webm'
-            : 'video/mp4';
-
-        try {
-            const recorder = new MediaRecorder(stream, { mimeType });
-            mediaRecorderRef.current = recorder;
-
-            recorder.ondataavailable = (e) => {
-                if (e.data && e.data.size > 0) {
-                    videoChunksRef.current.push(e.data);
-                }
-            };
-
-            recorder.start();
-            console.log(`[WebTrackerAgent] Video recording started (${mimeType}).`);
-
-            // Every VIDEO_CHUNK_MINUTES, stop current recorder → triggers onstop → upload → restart
-            videoIntervalRef.current = setInterval(() => {
-                if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                    mediaRecorderRef.current.stop(); // triggers onstop
-                }
-            }, VIDEO_CHUNK_MINUTES * 60 * 1000);
-
-            recorder.onstop = () => {
-                const blob = new Blob(videoChunksRef.current, { type: mimeType });
-                videoChunksRef.current = [];
-                uploadVideoChunk(blob);
-
-                // Restart recording if we're still tracking
-                if (streamRef.current && isTracking) {
-                    try {
-                        const newRecorder = new MediaRecorder(streamRef.current, { mimeType });
-                        mediaRecorderRef.current = newRecorder;
-                        newRecorder.ondataavailable = (e) => {
-                            if (e.data && e.data.size > 0) videoChunksRef.current.push(e.data);
-                        };
-                        newRecorder.onstop = recorder.onstop; // recursive chain
-                        newRecorder.start();
-                    } catch (err) {
-                        console.warn('[WebTrackerAgent] Could not restart recorder:', err);
-                    }
-                }
-            };
-        } catch (err) {
-            console.warn('[WebTrackerAgent] MediaRecorder failed to start:', err);
-        }
-    };
-
-    // ─── Stop MediaRecorder ────────────────────────────────────────────────────
-    const stopVideoRecording = () => {
-        if (videoIntervalRef.current) {
-            clearInterval(videoIntervalRef.current);
-            videoIntervalRef.current = null;
-        }
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-            // Final chunk — upload after stop
-            mediaRecorderRef.current.onstop = () => {
-                const mimeType = mediaRecorderRef.current.mimeType || 'video/webm';
-                const blob = new Blob(videoChunksRef.current, { type: mimeType });
-                videoChunksRef.current = [];
-                uploadVideoChunk(blob);
-                mediaRecorderRef.current = null;
-            };
-            mediaRecorderRef.current.stop();
-        }
-    };
 
     // ─── Screenshot capture ────────────────────────────────────────────────────
     const captureAndUpload = async () => {
@@ -154,10 +65,12 @@ export function WebTrackerAgent() {
             const track = stream.getVideoTracks()[0];
             const trackSettings = track.getSettings();
 
+            // Screen sharing check
             if (trackSettings.displaySurface !== 'monitor') {
                 track.stop();
                 setError('You MUST share your ENTIRE SCREEN. Window or Tab sharing is not allowed.');
                 setIsTracking(false);
+                setTrackerActive(false);
                 return;
             }
 
@@ -170,15 +83,13 @@ export function WebTrackerAgent() {
 
             await new Promise((resolve) => { video.onplaying = resolve; });
 
-            // Clock-In
-            try {
-                await attendanceService.clockIn();
-                console.log('[WebTrackerAgent] Clock-In successful.');
-            } catch (clkErr) {
-                console.warn('[WebTrackerAgent] Clock-In skipped:', clkErr.message);
+            // Trigger Location Permission
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(() => {}, () => {}, { enableHighAccuracy: true });
             }
 
             setIsTracking(true);
+            setTrackerActive(true);
             setError('');
 
             // Stop when user ends screen share via browser UI
@@ -189,8 +100,7 @@ export function WebTrackerAgent() {
             const intervalMs = (settings.frequency || 10) * 60 * 1000;
             intervalRef.current = setInterval(captureAndUpload, intervalMs);
 
-            // Start video recording
-            startVideoRecording(stream);
+            intervalRef.current = setInterval(captureAndUpload, intervalMs);
 
         } catch (err) {
             console.error('[WebTrackerAgent] Failed to start tracking:', err);
@@ -201,9 +111,7 @@ export function WebTrackerAgent() {
         }
     };
 
-    // ─── Stop tracking ─────────────────────────────────────────────────────────
     const stopTracking = async () => {
-        stopVideoRecording();
 
         if (streamRef.current) {
             streamRef.current.getTracks().forEach((t) => t.stop());
@@ -214,14 +122,8 @@ export function WebTrackerAgent() {
             intervalRef.current = null;
         }
 
-        try {
-            await attendanceService.clockOut();
-            console.log('[WebTrackerAgent] Clock-Out successful.');
-        } catch (clkErr) {
-            console.warn('[WebTrackerAgent] Clock-Out failed:', clkErr.message);
-        }
-
         setIsTracking(false);
+        setTrackerActive(false);
     };
 
     // ─── Lifecycle effects ─────────────────────────────────────────────────────
@@ -243,31 +145,113 @@ export function WebTrackerAgent() {
     // Cleanup on unmount
     useEffect(() => {
         const handleUnload = () => stopTracking();
+        const handleStartTrackerEvent = () => startTracking().catch(() => {});
+        const handleStopTrackerEvent = () => stopTracking();
+        
         window.addEventListener('beforeunload', handleUnload);
+        window.addEventListener('start-web-tracker', handleStartTrackerEvent);
+        window.addEventListener('stop-web-tracker', handleStopTrackerEvent);
+        
         return () => {
             window.removeEventListener('beforeunload', handleUnload);
+            window.removeEventListener('start-web-tracker', handleStartTrackerEvent);
+            window.removeEventListener('stop-web-tracker', handleStopTrackerEvent);
             stopTracking();
         };
     }, []);
 
-    // Stop if role changes away from EMPLOYEE
+    // Stop if role changes away from EMPLOYEE or if logged out
     useEffect(() => {
         if (role !== 'EMPLOYEE') stopTracking();
     }, [role]);
 
-    // Auto-start on first interaction
+    // Cleanup tracks only when unmounting, but don't force clockOut if persistent
     useEffect(() => {
-        if (isTracking) return;
-        const handleClick = () => {
-            if (!isTracking) startTracking().catch(() => {});
-        };
-        const timer = setTimeout(() => document.addEventListener('click', handleClick), 1000);
         return () => {
-            document.removeEventListener('click', handleClick);
-            clearTimeout(timer);
+            if (intervalRef.current) clearInterval(intervalRef.current);
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(t => t.stop());
+            }
         };
-    }, [isTracking]);
+    }, []);
 
+    // ─── WebRTC Live Signaling ───────────────────────────────────────────────
+    useEffect(() => {
+        if (!socket || role !== 'EMPLOYEE' || !isTracking) return;
+
+        const handleLiveRequest = async ({ requesterId }) => {
+            console.log('[WebTrackerAgent] Received live request from:', requesterId);
+            
+            if (pcRef.current) {
+                pcRef.current.close();
+            }
+
+            const pc = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+            pcRef.current = pc;
+
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => pc.addTrack(track, streamRef.current));
+            }
+
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    emit('live:candidate', { 
+                        targetId: requesterId, 
+                        candidate: event.candidate,
+                        forEmployeeId: user?.employeeId 
+                    });
+                }
+            };
+
+            try {
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                emit('live:offer', { requesterId, offer });
+            } catch (err) {
+                console.error('[WebTrackerAgent] WebRTC Offer failed:', err);
+            }
+        };
+
+        const handleLiveAnswer = async ({ answer }) => {
+            if (pcRef.current) {
+                try {
+                    await pcRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+                } catch (err) {
+                    console.error('[WebTrackerAgent] WebRTC Answer failed:', err);
+                }
+            }
+        };
+
+        const handleIceCandidate = async ({ candidate }) => {
+            if (pcRef.current) {
+                try {
+                    await pcRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+                } catch (err) {
+                    console.error('[WebTrackerAgent] WebRTC Candidate failed:', err);
+                }
+            }
+        };
+
+        on('live:request', handleLiveRequest);
+        on('live:answer', handleLiveAnswer);
+        on('live:candidate', handleIceCandidate);
+
+        return () => {
+            off('live:request', handleLiveRequest);
+            off('live:answer', handleLiveAnswer);
+            off('live:candidate', handleIceCandidate);
+            if (pcRef.current) {
+                pcRef.current.close();
+                pcRef.current = null;
+            }
+        };
+    }, [socket, role, isTracking, emit, on, off]);
+
+    // Removed arbitrary click auto-start
+    // The user will explicitly click "Start Tracker" in the WorkSessionBanner now.
+    
     // Dynamic screenshot frequency update
     useEffect(() => {
         if (isTracking && intervalRef.current) {
@@ -277,62 +261,51 @@ export function WebTrackerAgent() {
         }
     }, [settings.frequency, isTracking]);
 
-    // ─── Render ────────────────────────────────────────────────────────────────
+    // Use isTrackerActive to hide the global overlay
+    const showLoadingOverlay = !isTrackerActive && role === 'EMPLOYEE';
+
     return (
         <>
-            <div className="flex items-center gap-2">
-                {isTracking ? (
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 rounded-xl">
-                        <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse" />
-                        <span className="text-[10px] sm:text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Agent Active</span>
-                    </div>
-                ) : (
-                    error && <span className="text-[10px] text-rose-500 font-black uppercase tracking-widest animate-pulse">{error}</span>
-                )}
-            </div>
-
+            {/* We no longer render the tiny top-left badge; 
+                the UI is managed fully by the WorkSessionBanner and this Overlay */}
+            
             {/* Compliance Blocking Overlay */}
-            {!isTracking && createPortal(
+            {showLoadingOverlay && createPortal(
                 <div
                     className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/90 backdrop-blur-2xl animate-in fade-in duration-500 pointer-events-auto"
                     onContextMenu={(e) => e.preventDefault()}
                     style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh' }}
                 >
-                    <div className="bg-white dark:bg-slate-900 p-8 sm:p-12 rounded-[3.5rem] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.6)] max-w-lg w-full mx-4 border border-white/20 text-center">
-                        <div className="h-28 w-28 bg-primary-600 rounded-full flex items-center justify-center mx-auto mb-10 border-8 border-slate-100 dark:border-slate-800 shadow-2xl">
-                            <MonitorCheck size={56} className="text-white animate-pulse" />
+                    <div className="bg-white dark:bg-slate-900 p-8 sm:p-12 rounded-[2rem] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.6)] max-w-lg w-full mx-4 border border-slate-200 dark:border-slate-800 text-center">
+                        <div className="h-24 w-24 bg-rose-100 dark:bg-rose-500/20 rounded-full flex items-center justify-center mx-auto mb-8 border-4 border-white dark:border-slate-900 shadow-xl">
+                            <ShieldAlert size={48} className="text-rose-600 dark:text-rose-400 animate-pulse" />
                         </div>
 
-                        <h2 className="text-4xl font-black text-slate-900 dark:text-white mb-6 tracking-tight leading-tight">
-                            Work Session <br/> Required
+                        <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-4 tracking-tight">
+                            System Locked
                         </h2>
 
-                        <p className="text-slate-500 dark:text-slate-400 text-lg mb-12 leading-relaxed font-semibold">
-                            To continue your shift, please share your <strong className="text-slate-900 dark:text-white underline decoration-primary-500 decoration-4">ENTIRE SCREEN</strong>.
-                            <br/><span className="text-sm mt-3 block opacity-80 font-bold text-primary-600 dark:text-primary-400 uppercase tracking-widest">Software is locked for safety</span>
+                        <p className="text-slate-500 dark:text-slate-400 text-base mb-8 leading-relaxed font-medium">
+                            To unlock the software and access your dashboard, you must first activate the <strong className="text-slate-900 dark:text-white">Web Tracker Agent</strong> and share your <strong className="text-slate-900 dark:text-white underline decoration-rose-500 decoration-2">ENTIRE SCREEN</strong>.
                         </p>
 
                         {error && (
-                            <div className="mb-10 p-5 bg-rose-50 dark:bg-rose-500/10 border-2 border-rose-200 dark:border-rose-500/20 rounded-3xl flex items-center gap-4 text-left animate-in slide-in-from-bottom-3 shadow-lg">
-                                <ShieldAlert size={28} className="text-rose-500 shrink-0" />
-                                <span className="text-sm font-black text-rose-700 dark:text-rose-400 leading-tight tracking-tight uppercase">{error}</span>
+                            <div className="mb-8 p-4 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl flex items-center gap-3 text-left animate-in slide-in-from-bottom-3">
+                                <ShieldAlert size={24} className="text-rose-500 shrink-0" />
+                                <span className="text-xs font-bold text-rose-700 dark:text-rose-400 uppercase leading-tight tracking-wider">{error}</span>
                             </div>
                         )}
 
                         <button
-                            onClick={startTracking}
-                            className="w-full py-6 bg-primary-600 hover:bg-primary-700 text-white rounded-[2rem] text-xl font-black uppercase tracking-[0.1em] shadow-[0_20px_50px_rgba(37,99,235,0.4)] transition-all hover:scale-[1.05] active:scale-95 mb-8 flex items-center justify-center gap-4"
+                            onClick={() => startTracking().catch(()=>{})}
+                            className="w-full py-5 bg-rose-600 hover:bg-rose-700 text-white rounded-2xl text-lg font-black uppercase tracking-widest shadow-[0_10px_30px_rgba(225,29,72,0.3)] transition-all hover:scale-[1.02] active:scale-95 mb-6 flex items-center justify-center gap-3"
                         >
-                            <MonitorCheck size={28} />
-                            <span>Start Work Now</span>
+                            <MonitorCheck size={24} />
+                            <span>Launch Web Tracker</span>
                         </button>
 
-                        <div className="flex items-center justify-center gap-6 text-[11px] text-slate-400 uppercase font-black tracking-[0.25em] opacity-40">
-                            <span>Secure</span>
-                            <div className="h-1.5 w-1.5 bg-slate-400 rounded-full" />
-                            <span>Monitor</span>
-                            <div className="h-1.5 w-1.5 bg-slate-400 rounded-full" />
-                            <span>Compliant</span>
+                        <div className="flex items-center justify-center gap-4 text-[10px] text-slate-400 uppercase font-black tracking-widest opacity-60">
+                            <span>Requires Screen Share</span>
                         </div>
                     </div>
                 </div>,

@@ -70,9 +70,9 @@ export function Login() {
             <div className="w-full max-w-md space-y-8">
                 <div className="text-center group cursor-default">
                     <div className="flex flex-col items-center mb-12">
-                        <h1 className="text-5xl md:text-6xl font-black tracking-tighter bg-gradient-to-r from-primary-600 via-primary-400 to-primary-600 bg-[length:200%_auto] animate-gradient-x bg-clip-text text-transparent leading-none transition-transform duration-500 group-hover:scale-110">
-                            EMPLOYEE<br />
-                            MANAGEMENT
+                        <h1 className="text-4xl md:text-5xl font-black tracking-tighter bg-gradient-to-r from-primary-600 via-primary-400 to-primary-600 bg-[length:200%_auto] animate-gradient-x bg-clip-text text-transparent leading-tight transition-transform duration-500 group-hover:scale-105">
+                            Employee Performance Software<br />
+                            <span className="text-2xl">- DSP Consultants</span>
                         </h1>
                         <div className="h-1.5 w-24 bg-primary-600 mt-4 rounded-full transition-all duration-500 group-hover:w-48 opacity-30"></div>
                     </div>

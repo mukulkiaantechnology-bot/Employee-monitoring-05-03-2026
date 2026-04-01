@@ -34,6 +34,7 @@ import { GlobalCalendar } from '../components/GlobalCalendar';
 import { useRealTime } from '../hooks/RealTimeContext';
 import { useAuthStore } from '../store/authStore';
 import API_BASE_URL from '../config/api';
+import { WorkSessionBanner } from '../components/dashboard/WorkSessionBanner';
 
 const SummaryCard = ({ title, value, trend, subValue, icon: Icon, color }) => (
     <div className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm transition-all hover:shadow-md h-full">
@@ -217,8 +218,9 @@ export function Dashboard() {
         URL.revokeObjectURL(url);
     };
 
-    // Use fetched dashboard data or fallback to real-time stats
-    const stats = dashboardData || realTimeStats;
+    // Use real-time stats for TODAY, and API data for historical date ranges
+    const isToday = !startDate || new Date(startDate).toISOString().split('T')[0] === new Date().toISOString().split('T')[0];
+    const stats = (isToday && realTimeStats) ? realTimeStats : (dashboardData || realTimeStats);
 
     const chartData = stats.intradayActivity?.length
         ? stats.intradayActivity
@@ -263,6 +265,8 @@ export function Dashboard() {
                     )}
                 </div>
             </div>
+
+            {role === 'EMPLOYEE' && <WorkSessionBanner />}
 
             {/* Filter Hub */}
             <div className="bg-white dark:bg-slate-900 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-wrap items-center gap-3 mb-8">
@@ -342,7 +346,8 @@ export function Dashboard() {
                                 axisLine={false}
                                 tickLine={false}
                                 tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 800 }}
-                                tickFormatter={(val) => `${val}h`}
+                                tickFormatter={(val) => activeChartTab === 'Utilization' ? `${val}%` : `${val}h`}
+                                domain={activeChartTab === 'Utilization' ? [0, 100] : [0, 'auto']}
                             />
                             <Tooltip
                                 contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 800, fontSize: '12px' }}
@@ -354,10 +359,34 @@ export function Dashboard() {
                                 iconType="circle"
                                 wrapperStyle={{ fontSize: '11px', fontWeight: 700, paddingTop: '30px' }}
                             />
-                            <Area type="monotone" name="Active Time" dataKey="active" fill="#6366f1" stroke="#4f46e5" strokeWidth={3} fillOpacity={0.1} />
-                            <Area type="monotone" name="Break Time" dataKey="break" fill="#22d3ee" stroke="#06b6d4" strokeWidth={2} fillOpacity={0.05} />
-                            <Area type="monotone" name="Idle Time" dataKey="idle" fill="#cbd5e1" stroke="#94a3b8" strokeWidth={2} fillOpacity={0.05} />
-                            <Bar name="Manual Time" dataKey="manual" fill="#fbbf24" radius={[4, 4, 0, 0]} barSize={20} />
+                            {activeChartTab === 'Activities' ? (
+                                <>
+                                    <Area type="monotone" name="Active Time" dataKey="active" fill="url(#colorActive)" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} />
+                                    <Area type="monotone" name="Break Time" dataKey="break" fill="url(#colorBreak)" stroke="#06b6d4" strokeWidth={2} fillOpacity={1} />
+                                    <Area type="monotone" name="Idle Time" dataKey="idle" fill="url(#colorIdle)" stroke="#94a3b8" strokeWidth={2} fillOpacity={1} />
+                                    <Bar name="Manual Time" dataKey="manual" fill="#fbbf24" radius={[4, 4, 0, 0]} barSize={20} />
+                                </>
+                            ) : (
+                                <Area type="monotone" name="Utilization %" dataKey="utilization" fill="url(#colorUtil)" stroke="#10b981" strokeWidth={3} fillOpacity={1} />
+                            )}
+                            <defs>
+                                <linearGradient id="colorActive" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                                </linearGradient>
+                                <linearGradient id="colorBreak" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.2} />
+                                    <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
+                                </linearGradient>
+                                <linearGradient id="colorIdle" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#cbd5e1" stopOpacity={0.2} />
+                                    <stop offset="95%" stopColor="#cbd5e1" stopOpacity={0} />
+                                </linearGradient>
+                                <linearGradient id="colorUtil" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
                         </ComposedChart>
                     </ResponsiveContainer>
                 </div>

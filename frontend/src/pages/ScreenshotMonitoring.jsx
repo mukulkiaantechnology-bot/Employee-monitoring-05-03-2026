@@ -44,10 +44,132 @@ import { twMerge } from 'tailwind-merge';
 import { useRealTime } from '../hooks/RealTimeContext';
 import { useAuthStore } from '../store/authStore';
 import screenshotService from '../services/screenshotService';
-import videoService from '../services/videoService';
 import API_BASE_URL from '../config/api';
 
 const cn = (...inputs) => twMerge(clsx(inputs));
+
+// ─── Live Stream Viewer Component ───────────────────────────────────────────
+const LiveStreamModal = memo(({ isOpen, onClose, employee, socket }) => {
+  const { employees: contextEmployees } = useRealTime();
+  const videoRef = useRef(null);
+  const pcRef = useRef(null);
+  const senderSocketIdRef = useRef(null);
+  const [status, setStatus] = useState('Connecting...');
+
+  // Proactive status check
+  const isEmployeeOnline = useMemo(() => {
+    if (!employee || !contextEmployees) return false;
+    const emp = contextEmployees.find(e => e.id === employee.id);
+    return emp?.status === 'online' || emp?.status === 'idle';
+  }, [employee, contextEmployees]);
+
+  useEffect(() => {
+    if (!isOpen || !socket || !employee) return;
+    
+    // If proactively offline, don't even start WebRTC
+    if (!isEmployeeOnline) {
+      setStatus('OFFLINE');
+      return;
+    }
+
+    let isEstablished = false;
+    const timeout = setTimeout(() => {
+        if (!isEstablished) setStatus('Offline or Not Sharing');
+    }, 15000);
+
+    console.log('[WebRTC] Starting receiver for:', employee.name);
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
+    pcRef.current = pc;
+
+    pc.ontrack = (event) => {
+      console.log('[WebRTC] Received track');
+      isEstablished = true;
+      clearTimeout(timeout);
+      if (videoRef.current) {
+        videoRef.current.srcObject = event.streams[0];
+        setStatus('Live');
+      }
+    };
+
+    const handleOffer = async ({ employeeId, offer, fromId }) => {
+      if (employeeId !== employee.id) return;
+      console.log('[WebRTC] Received offer from:', fromId);
+      senderSocketIdRef.current = fromId;
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        socket.emit('live:answer', { employeeId, answer, targetId: fromId });
+      } catch (err) {
+        console.error('[WebRTC] Offer handling failed:', err);
+      }
+    };
+
+    const handleCandidate = async ({ employeeId, candidate }) => {
+        if (employeeId !== employee.id) return;
+        try {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+            console.error('[WebRTC] Candidate handling failed:', err);
+        }
+    };
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate && senderSocketIdRef.current) {
+        socket.emit('live:candidate', { 
+            targetId: senderSocketIdRef.current, 
+            candidate: event.candidate, 
+            forEmployeeId: employee.id 
+        });
+      }
+    };
+
+    socket.on('live:offer', handleOffer);
+    socket.on('live:candidate', handleCandidate);
+
+    // Initial request
+    socket.emit('live:request', { employeeId: employee.id });
+
+    return () => {
+      clearTimeout(timeout);
+      socket.off('live:offer', handleOffer);
+      socket.off('live:candidate', handleCandidate);
+      pc.close();
+      pcRef.current = null;
+    };
+  }, [isOpen, socket, employee, isEmployeeOnline]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-fade-in">
+        <div className="bg-slate-900 rounded-[2.5rem] overflow-hidden border border-white/10 w-full max-w-5xl shadow-2xl relative animate-scale-in">
+            <div className="absolute top-6 left-6 right-6 flex justify-between items-center z-10">
+                <div className="flex items-center gap-4 bg-black/40 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/10">
+                    <div className={cn("h-2 w-2 rounded-full", status === 'Live' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500')} />
+                    <span className="text-white text-xs font-black uppercase tracking-widest">{status}</span>
+                    <div className="h-4 w-[1px] bg-white/20 mx-1" />
+                    <span className="text-white/70 text-xs font-bold">{employee.name}</span>
+                </div>
+                <button onClick={onClose} className="h-10 w-10 bg-white/10 hover:bg-white/20 text-white rounded-xl flex items-center justify-center transition-all">
+                    <X size={20} />
+                </button>
+            </div>
+            <video ref={videoRef} autoPlay playsInline className="w-full aspect-video object-contain bg-black rounded-lg" />
+            {status !== 'Live' && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center">
+                        <Monitor className="h-12 w-12 text-slate-700 mx-auto mb-4 animate-pulse" />
+                        <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">{status}</p>
+                    </div>
+                </div>
+            )}
+        </div>
+    </div>
+  );
+});
 
 // --- Components ---
 const FilterButton = memo(({ active, label, icon: Icon, onClick }) => (
@@ -122,7 +244,7 @@ const categoryList = [
   { id: 3, name: "Personal" }
 ];
 
-const ScreenshotCard = memo(({ id, employee, timestamp, image, isBlurred, app, productivity, onDelete, viewMode, onDownload, globalBlur, onView, project, task, team, category, type, onBlurToggle }) => {
+const ScreenshotCard = memo(({ id, employeeId, employee, timestamp, image, isBlurred, app, productivity, onDelete, viewMode, onDownload, globalBlur, onView, onViewLive, project, task, team, category, type, onBlurToggle }) => {
   const [localBlur, setLocalBlur] = useState(isBlurred);
   const effectiveBlur = globalBlur || localBlur;
   const time = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -142,6 +264,11 @@ const ScreenshotCard = memo(({ id, employee, timestamp, image, isBlurred, app, p
     e.stopPropagation();
     onDownload(image);
   }, [onDownload, image]);
+
+  const handleLiveClick = useCallback((e) => {
+    e.stopPropagation();
+    onViewLive({ id: employeeId, name: employee });
+  }, [onViewLive, employeeId, employee]);
 
   const handleDeleteClick = useCallback((e) => {
     e.stopPropagation();
@@ -197,6 +324,9 @@ const ScreenshotCard = memo(({ id, employee, timestamp, image, isBlurred, app, p
           <button onClick={handleBlurToggle} className="p-2 sm:p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
             {localBlur ? <Eye size={16} /> : <EyeOff size={16} />}
           </button>
+          <button onClick={handleLiveClick} className="p-2 sm:p-2 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg text-rose-400 hover:text-rose-500 transition-colors">
+            <Video size={16} />
+          </button>
           <button onClick={handleDownloadClick} className="p-2 sm:p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
             <Download size={16} />
           </button>
@@ -235,6 +365,13 @@ const ScreenshotCard = memo(({ id, employee, timestamp, image, isBlurred, app, p
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3 sm:p-4">
           <div className="flex items-center justify-between translate-y-0 sm:translate-y-4 sm:group-hover:translate-y-0 transition-transform duration-300" onClick={e => e.stopPropagation()}>
             <div className="flex gap-2">
+              <button
+                onClick={handleLiveClick}
+                className="h-9 w-9 sm:h-8 sm:w-8 flex items-center justify-center rounded-lg bg-rose-500 hover:bg-rose-600 text-white backdrop-blur-sm transition-colors"
+                title="View Live"
+              >
+                <Video size={16} />
+              </button>
               <button
                 onClick={handleBlurToggle}
                 className="h-9 w-9 sm:h-8 sm:w-8 flex items-center justify-center rounded-lg bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm transition-colors"
@@ -512,11 +649,14 @@ const DeleteConfirmationModal = ({ isOpen, onClose, onConfirm, isEmployee }) => 
 };
 
 export function ScreenshotMonitoring() {
-  const { user, role } = useAuthStore();
-  const { employees: contextEmployees, teams: contextTeams, projects: contextProjects, screenshots: contextScreenshots, deleteScreenshot, addNotification } = useRealTime();
-
-  // Real backend screenshots state
-  const [backendScreenshots, setBackendScreenshots] = useState([]);
+    const { user, role } = useAuthStore();
+    const { socket, employees: contextEmployees, teams: contextTeams, projects: contextProjects, screenshots: contextScreenshots, deleteScreenshot, addNotification } = useRealTime();
+    
+    // Live Monitoring State
+    const [viewingLiveEmployee, setViewingLiveEmployee] = useState(null);
+    const [backendScreenshots, setBackendScreenshots] = useState([]);
+    const [videoRecordings, setVideoRecordings] = useState([]);
+    const [loadingVideos, setLoadingVideos] = useState(false);
 
   // Sync context screenshots (newly arrived via socket) to local state
   useEffect(() => {
@@ -533,10 +673,6 @@ export function ScreenshotMonitoring() {
   const [hasMore, setHasMore] = useState(true);
   const limit = 20;
 
-  // ── Video Recordings State ──────────────────────────────────────────────────
-  const [videoRecordings, setVideoRecordings] = useState([]);
-  const [loadingVideos, setLoadingVideos] = useState(false);
-  const [selectedVideo, setSelectedVideo] = useState(null); // for inline player modal
 
   // Derived employee list from real backend data
   const employeesList = useMemo(() =>
@@ -1372,6 +1508,7 @@ export function ScreenshotMonitoring() {
                     onDownload={handleDownload}
                     onBlurToggle={handleBlurToggleBackend}
                     onView={(data) => handleViewScreenshot(data, index)}
+                    onViewLive={setViewingLiveEmployee}
                   />
                 </div>
               ))}
@@ -1411,163 +1548,15 @@ export function ScreenshotMonitoring() {
           </>
         )}
 
-        {/* ── Video Recordings Section (Admin / Manager only) ─────────────── */}
-        {role !== 'EMPLOYEE' && (
-          <div className="mt-12 mb-4">
-            {/* Section Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 bg-violet-100 dark:bg-violet-500/10 rounded-2xl flex items-center justify-center">
-                  <FileVideo size={20} className="text-violet-600 dark:text-violet-400" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-black text-slate-900 dark:text-white">Video Recordings</h2>
-                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                    Screen session recordings from active employees
-                  </p>
-                </div>
-              </div>
-              <span className="text-xs font-bold text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl">
-                {videoRecordings.length} recording{videoRecordings.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-
-            {/* Video Grid */}
-            {loadingVideos ? (
-              <div className="flex items-center justify-center py-16">
-                <div className="flex flex-col items-center gap-4">
-                  <div className="h-10 w-10 border-4 border-violet-200 dark:border-violet-800 border-t-violet-600 dark:border-t-violet-400 rounded-full animate-spin" />
-                  <p className="text-sm font-bold text-slate-400 dark:text-slate-500">Loading recordings...</p>
-                </div>
-              </div>
-            ) : videoRecordings.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800">
-                <div className="h-16 w-16 bg-slate-100 dark:bg-slate-800 rounded-3xl flex items-center justify-center mb-4">
-                  <Video size={28} className="text-slate-400 dark:text-slate-500" />
-                </div>
-                <h3 className="text-sm font-black text-slate-700 dark:text-slate-300 mb-1">No recordings yet</h3>
-                <p className="text-xs font-bold text-slate-400 dark:text-slate-500">Recordings will appear here once employees start their work sessions.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {videoRecordings.map((vid) => {
-                  const recordedAt = new Date(vid.createdAt);
-                  const timeStr = recordedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                  const dateStr = recordedAt.toLocaleDateString([], { month: 'short', day: 'numeric' });
-                  const fileUrl = vid.fileUrl?.startsWith('/')
-                    ? `${API_BASE_URL.replace(/\/api\/?$/, '')}${vid.fileUrl}`
-                    : vid.fileUrl;
-
-                  return (
-                    <div
-                      key={vid.id}
-                      className="group relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 overflow-hidden"
-                    >
-                      {/* Thumbnail / Preview area */}
-                      <button
-                        onClick={() => setSelectedVideo({ ...vid, fileUrl })}
-                        className="w-full aspect-video bg-gradient-to-br from-violet-900 via-slate-900 to-slate-800 flex items-center justify-center relative group-hover:from-violet-800 transition-all"
-                      >
-                        <div className="h-14 w-14 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                          <Play size={24} className="text-white ml-1" />
-                        </div>
-                        <div className="absolute bottom-2 right-2 bg-black/60 rounded-lg px-2 py-1">
-                          <span className="text-[10px] font-bold text-white">
-                            {vid.sizeMb ? `${vid.sizeMb} MB` : 'Video'}
-                          </span>
-                        </div>
-                      </button>
-
-                      {/* Info */}
-                      <div className="p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="h-6 w-6 rounded-full bg-violet-100 dark:bg-violet-500/10 flex items-center justify-center text-[10px] font-bold text-violet-600 dark:text-violet-400 flex-shrink-0">
-                            {(vid.employee?.fullName || 'E').charAt(0)}
-                          </div>
-                          <p className="text-xs font-bold text-slate-700 dark:text-slate-300 truncate">{vid.employee?.fullName || 'Employee'}</p>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-slate-400 dark:text-slate-500">
-                            <Clock size={11} />
-                            <span className="text-[10px] font-bold">{dateStr} · {timeStr}</span>
-                          </div>
-                          <button
-                            onClick={async () => {
-                              try {
-                                await videoService.deleteVideo(vid.id);
-                                setVideoRecordings(prev => prev.filter(v => v.id !== vid.id));
-                              } catch (err) {
-                                console.error('Failed to delete video:', err);
-                              }
-                            }}
-                            className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-lg text-slate-400 hover:text-rose-500 transition-colors opacity-0 group-hover:opacity-100"
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* ── Inline Video Player Modal ─────────────────────────────────────────── */}
-      {selectedVideo && (
-        <div
-          className="fixed inset-0 z-[120] flex items-center justify-center p-4 md:p-10 bg-black/95 backdrop-blur-xl animate-fade-in"
-          onClick={() => setSelectedVideo(null)}
-        >
-          <div
-            className="relative w-full max-w-5xl bg-black rounded-3xl shadow-2xl overflow-hidden animate-scale-in border border-white/10"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="absolute top-0 inset-x-0 p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/80 to-transparent">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-violet-600 flex items-center justify-center text-white text-[11px] font-bold">
-                  {(selectedVideo.employee?.fullName || 'E').charAt(0)}
-                </div>
-                <div>
-                  <p className="text-white font-black text-sm">{selectedVideo.employee?.fullName || 'Employee'}</p>
-                  <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest">
-                    {new Date(selectedVideo.createdAt).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedVideo(null)}
-                className="h-9 w-9 bg-white/10 hover:bg-white/20 text-white border border-white/20 rounded-xl flex items-center justify-center transition-all"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Video Player */}
-            <video
-              src={selectedVideo.fileUrl}
-              controls
-              autoPlay
-              className="w-full max-h-[75vh] object-contain bg-black"
-            />
-
-            {/* Footer */}
-            <div className="p-4 flex items-center gap-3 bg-slate-950/80">
-              <HardDrive size={14} className="text-slate-400" />
-              <span className="text-xs font-bold text-slate-400">
-                {selectedVideo.sizeMb ? `${selectedVideo.sizeMb} MB` : 'Video Recording'}
-              </span>
-              <div className="flex items-center gap-1.5 ml-auto">
-                <div className="h-2 w-2 bg-violet-500 rounded-full animate-pulse" />
-                <span className="text-[10px] font-bold text-violet-400 uppercase tracking-widest">Screen Recording</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ── Live Stream Viewer Modal ─────────────────────────────────────────── */}
+      <LiveStreamModal
+        isOpen={!!viewingLiveEmployee}
+        onClose={() => setViewingLiveEmployee(null)}
+        employee={viewingLiveEmployee}
+        socket={socket}
+      />
 
       {/* Generic Selection Modal (Handles all filter types) */}
       {activeFilterModal && (

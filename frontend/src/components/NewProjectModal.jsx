@@ -8,42 +8,26 @@ export function NewProjectModal({ isOpen, onClose, employees = [], teams = [], i
     const [projectName, setProjectName] = useState('');
     const [projectBillRate, setProjectBillRate] = useState('0');
     const [projectBudget, setProjectBudget] = useState('0');
-    const [searchQuery, setSearchQuery] = useState('');
-    const [selectedEmployees, setSelectedEmployees] = useState([]);
+    const [description, setDescription] = useState('');
     const [showError, setShowError] = useState(false);
 
-    const filteredEmployees = useMemo(() => {
-        return employees.map(emp => ({
-            id: emp.id,
-            name: emp.fullName || emp.name,
-            team: emp.team?.name || emp.team || 'Unassigned'
-        })).filter(emp =>
-            emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            emp.team.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-    }, [employees, searchQuery]);
 
     useEffect(() => {
         if (initialData) {
             setProjectName(initialData.projectName || initialData.name || '');
             setProjectBillRate(String(initialData.billRate || '0'));
             setProjectBudget(String(initialData.budget || initialData.totalCosts || '0'));
-            setSelectedEmployees(initialData.employeeIds || initialData.assignments?.map(a => a.employeeId) || []);
+            setDescription(initialData.description || '');
         } else {
             setProjectName('');
             setProjectBillRate('0');
             setProjectBudget('0');
-            setSelectedEmployees([]);
+            setDescription('');
         }
     }, [initialData, isOpen]);
 
     if (!isOpen) return null;
 
-    const toggleEmployee = (empId) => {
-        setSelectedEmployees(prev =>
-            prev.includes(empId) ? prev.filter(id => id !== empId) : [...prev, empId]
-        );
-    };
 
     const handleSave = async () => {
         if (!projectName.trim()) {
@@ -53,9 +37,9 @@ export function NewProjectModal({ isOpen, onClose, employees = [], teams = [], i
 
         const projectData = {
             name: projectName,
+            description: description,
             billRate: Number(projectBillRate),
             budget: Number(projectBudget),
-            employeeIds: selectedEmployees,
         };
 
         try {
@@ -69,7 +53,8 @@ export function NewProjectModal({ isOpen, onClose, employees = [], teams = [], i
             if (!initialData) {
                 setProjectName('');
                 setProjectBillRate('0');
-                setSelectedEmployees([]);
+                setProjectBudget('0');
+                setDescription('');
             }
             setShowError(false);
         } catch (error) {
@@ -78,7 +63,7 @@ export function NewProjectModal({ isOpen, onClose, employees = [], teams = [], i
     };
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/40 dark:bg-slate-900/80 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
             <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl animate-scale-in overflow-hidden border border-slate-100 dark:border-slate-800">
                 {/* Header */}
@@ -166,104 +151,17 @@ export function NewProjectModal({ isOpen, onClose, employees = [], teams = [], i
                         </div>
                     </div>
 
-                    {/* Employee Selection */}
-                    <div className="space-y-4 pt-2">
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400">Employees on Project</label>
+                    {/* Project Description */}
+                    <div className="space-y-2 pt-2">
+                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Project Description</label>
                         <div className="relative">
-                            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Search employees"
-                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-lg pl-10 pr-4 py-2.5 text-sm dark:text-slate-200 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                            <textarea
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                placeholder="Enter project description..."
+                                rows={6}
+                                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl px-4 py-4 text-sm font-medium dark:text-slate-200 focus:ring-4 focus:ring-primary-500/5 focus:border-primary-500 outline-none transition-all placeholder:text-slate-300 dark:placeholder:text-slate-600 resize-none font-sans"
                             />
-                        </div>
-
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Select Employees</span>
-                                <button
-                                    onClick={() => setSelectedEmployees(filteredEmployees.map(e => e.id))}
-                                    className="text-xs font-black text-primary-600 dark:text-primary-400 uppercase tracking-widest hover:underline"
-                                >
-                                    Select All
-                                </button>
-                            </div>
-
-                            <div className="max-h-60 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-                                {filteredEmployees.map(emp => (
-                                    <div
-                                        key={emp.id}
-                                        onClick={() => toggleEmployee(emp.id)}
-                                        className={`flex items-center justify-between p-3 rounded-lg transition-colors group cursor-pointer border ${selectedEmployees.includes(emp.id)
-                                            ? 'bg-primary-50/50 dark:bg-primary-900/10 border-primary-100 dark:border-primary-800/50'
-                                            : 'bg-white dark:bg-slate-900 border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50'}`}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-10 w-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-black text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
-                                                {emp.name.split(' ').map(n => n[0]).join('')}
-                                            </div>
-                                            <div>
-                                                <span className="text-sm font-bold text-slate-700 dark:text-slate-200 block leading-tight">{emp.name}</span>
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{emp.team}</span>
-                                            </div>
-                                        </div>
-                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedEmployees.includes(emp.id)
-                                            ? 'bg-primary-600 border-primary-600'
-                                            : 'border-slate-200 dark:border-slate-700 group-hover:border-primary-400'}`}>
-                                            {selectedEmployees.includes(emp.id) && <Check size={14} className="text-white" />}
-                                        </div>
-                                    </div>
-                                ))}
-                                {filteredEmployees.length === 0 && (
-                                    <p className="text-center py-4 text-xs text-slate-400 font-bold">No employees found</p>
-                                )}
-                            </div>
-                            {/* Selected Employees Table */}
-                            {selectedEmployees.length > 0 && (
-                                <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Selected Members ({selectedEmployees.length})</span>
-                                    </div>
-                                    <div className="border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden shadow-sm">
-                                        <table className="w-full text-left">
-                                            <thead className="bg-slate-50 dark:bg-slate-800/50">
-                                                <tr>
-                                                    <th className="px-4 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Employee</th>
-                                                    <th className="px-4 py-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">Team</th>
-                                                    <th className="px-4 py-2 w-10"></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                                                {employees.filter(emp => selectedEmployees.includes(emp.id)).map(emp => (
-                                                    <tr key={emp.id} className="bg-white dark:bg-slate-900 group/row hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                                        <td className="px-4 py-3">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="h-8 w-8 rounded-full bg-primary-50 dark:bg-primary-900/20 flex items-center justify-center text-[10px] font-black text-primary-600 dark:text-primary-400 border border-primary-100 dark:border-primary-800/50">
-                                                                    {emp.name.split(' ').map(n => n[0]).join('')}
-                                                                </div>
-                                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{emp.name}</span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">{emp.team}</span>
-                                                        </td>
-                                                        <td className="px-4 py-3 text-right">
-                                                            <button
-                                                                onClick={(e) => { e.stopPropagation(); toggleEmployee(emp.id); }}
-                                                                className="text-rose-500 hover:text-rose-600 p-1 opacity-100 md:opacity-0 group-hover/row:opacity-100 transition-opacity"
-                                                            >
-                                                                <X size={14} />
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>

@@ -7,8 +7,49 @@ import { LiveMapView } from '../components/location/LiveMapView';
 const statusColors = {
     online: 'bg-emerald-400',
     idle: 'bg-amber-400',
+    break: 'bg-indigo-400',
     offline: 'bg-slate-300 dark:bg-slate-600',
 };
+
+const BreakTimeDisplay = ({ breakHours, breakStartedAt, status }) => {
+    const [elapsed, setElapsed] = useState(0);
+
+    useEffect(() => {
+        if (status !== 'break' || !breakStartedAt) {
+            setElapsed(0);
+            return;
+        }
+
+        const calculate = () => {
+            const start = new Date(breakStartedAt).getTime();
+            const now = new Date().getTime();
+            const diff = Math.max(0, Math.floor((now - start) / 1000));
+            setElapsed(diff);
+        };
+
+        calculate();
+        const timer = setInterval(calculate, 1000);
+        return () => clearInterval(timer);
+    }, [breakStartedAt, status]);
+
+    const totalSeconds = Math.floor((breakHours || 0) * 3600) + elapsed;
+    
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    
+    return (
+        <div className="flex items-center gap-1.5">
+            <span className="font-black text-slate-700 dark:text-slate-300">
+                {h}h {m}m {s}s
+            </span>
+            {status === 'break' && (
+                <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" title="Active Break" />
+            )}
+        </div>
+    );
+};
+
 
 const InsightStatCard = ({ title, value, total, icon: Icon, color, subLabel }) => (
     <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-1 flex-1">
@@ -53,19 +94,50 @@ export function RealTimeInsights() {
 
     const onlineEmps = employees.filter(e => e.status === 'online');
     const idleEmps = employees.filter(e => e.status === 'idle');
-    const presentToday = onlineEmps.length + idleEmps.length;
+    const breakEmps = employees.filter(e => e.status === 'break');
+    const presentToday = onlineEmps.length + idleEmps.length + breakEmps.length;
 
     const handleAddEmployee = (emp) => { addEmployee(emp); setIsModalOpen(false); };
 
+    const formatSecs = (s) => {
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = s % 60;
+        return `${h}h ${m}m ${sec}s`;
+    };
+
+    const formatHours = (hours) => {
+        const h = Math.floor(hours);
+        const m = Math.round((hours - h) * 60);
+        return (
+            <div className="flex flex-col items-center">
+                <span className="font-black text-slate-700 dark:text-slate-300">{h}h</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{m.toString().padStart(2, '0')}m</span>
+            </div>
+        );
+    };
+
     const handleDownload = () => {
-        const headers = ['Name', 'Team', 'Status', 'Productivity (%)', 'Utilization (%)'];
-        const rows = filtered.map(e => [
-            e.name,
-            e.team || '—',
-            e.status,
-            e.productivityScore || 0,
-            e.utilizationScore || 0
-        ]);
+        const headers = ['Name', 'Work Time [h]', 'Manual Time [h]', 'Computer Act. [h]', 'Team', 'Status', 'Break Time', 'Productivity (%)', 'Utilization (%)'];
+        const rows = filtered.map(e => {
+            const totalBreakSecs = Math.floor((e.breakHours || 0) * 3600);
+            const formatH = (hrs) => {
+                const h = Math.floor(hrs);
+                const m = Math.round((hrs - h) * 60);
+                return `${h}h ${m}m`;
+            };
+            return [
+                e.name,
+                formatH(e.totalWorkHours || 0),
+                formatH(e.manualHours || 0),
+                formatH(e.computerActivityHours || 0),
+                e.team || '—',
+                e.status,
+                formatSecs(totalBreakSecs),
+                e.productivityScore || 0,
+                e.utilizationScore || 0
+            ];
+        });
         const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
@@ -115,6 +187,7 @@ export function RealTimeInsights() {
                 <InsightStatCard title="Present Today" value={presentToday} total={employees.length} icon={Users} color="text-slate-400" subLabel={`${employees.length} total employees`} />
                 <InsightStatCard title="Currently Active" value={onlineEmps.length} icon={Zap} color="text-emerald-500" subLabel={`${stats.online} online`} />
                 <InsightStatCard title="Idle" value={idleEmps.length} icon={Clock} color="text-amber-500" subLabel="Inactive employees" />
+                <InsightStatCard title="On Break" value={breakEmps.length} icon={Clock} color="text-indigo-500" subLabel="Taking a break" />
                 <InsightStatCard title="Offline" value={stats.offline} icon={TrendingDown} color="text-rose-500" subLabel="Not tracked today" />
                 <InsightStatCard title="Productivity Today" value={`${stats.summary?.productivity ?? 0}%`} icon={Activity} color="text-violet-500" subLabel="vs. active time" />
             </div>
@@ -132,6 +205,7 @@ export function RealTimeInsights() {
                                 <option value="ALL">All Status</option>
                                 <option value="ONLINE">Online</option>
                                 <option value="IDLE">Idle</option>
+                                <option value="BREAK">On Break</option>
                                 <option value="OFFLINE">Offline</option>
                             </select>
 
@@ -168,6 +242,9 @@ export function RealTimeInsights() {
                                     <thead className="text-slate-500 dark:text-slate-400 font-bold border-b border-slate-100 dark:border-slate-800 bg-[#fcfdfe] dark:bg-slate-800/50">
                                         <tr>
                                             <th className="px-6 py-4">Employee Name</th>
+                                            <th className="px-6 py-4 text-center">Work Time [h]</th>
+                                            <th className="px-6 py-4 text-center">Manual Time [h]</th>
+                                            <th className="px-6 py-4 text-center">Computer Act. [h]</th>
                                             <th className="px-6 py-4">Team</th>
                                             <th className="px-6 py-4">Status</th>
                                             <th className="px-6 py-4">Productivity</th>
@@ -193,11 +270,15 @@ export function RealTimeInsights() {
                                                         <span className="font-bold text-slate-800 dark:text-white">{emp.name}</span>
                                                     </div>
                                                 </td>
+                                                <td className="px-6 py-4">{formatHours(emp.totalWorkHours || 0)}</td>
+                                                <td className="px-6 py-4">{formatHours(emp.manualHours || 0)}</td>
+                                                <td className="px-6 py-4">{formatHours(emp.computerActivityHours || 0)}</td>
                                                 <td className="px-6 py-4 font-bold text-slate-600 dark:text-slate-300">{emp.team || '—'}</td>
                                                 <td className="px-6 py-4">
                                                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
                                                         emp.status === 'online' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' :
                                                         emp.status === 'idle' ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400' :
+                                                        emp.status === 'break' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400' :
                                                         'bg-slate-100 text-slate-500 dark:bg-slate-800'
                                                     }`}>
                                                         <span className={`h-1.5 w-1.5 rounded-full ${statusColors[emp.status] || statusColors.offline}`} />
@@ -258,11 +339,18 @@ export function RealTimeInsights() {
                                         <span className={`ml-auto shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
                                             emp.status === 'online' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400' :
                                             emp.status === 'idle' ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400' :
+                                            emp.status === 'break' ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-400' :
                                             'bg-slate-100 text-slate-500 dark:bg-slate-800'
                                         }`}>
                                             <span className={`h-1.5 w-1.5 rounded-full ${statusColors[emp.status] || statusColors.offline}`} />
                                             {emp.status}
                                         </span>
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Daily Break</span>
+                                            <BreakTimeDisplay breakHours={emp.breakHours} breakStartedAt={emp.breakStartedAt} status={emp.status} />
+                                        </div>
                                     </div>
                                     <div className="space-y-2">
                                         <div>

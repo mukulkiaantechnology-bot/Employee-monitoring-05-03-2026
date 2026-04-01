@@ -44,6 +44,16 @@ const attendanceService = {
     createTimeOff: async (data) => {
         const res = await apiClient.post('/attendance/time-off', data);
         return res.data;
+    },
+
+    startBreak: async () => {
+        const res = await apiClient.post('/attendance/start-break');
+        return res.data;
+    },
+
+    endBreak: async () => {
+        const res = await apiClient.post('/attendance/end-break');
+        return res.data;
     }
 };
 

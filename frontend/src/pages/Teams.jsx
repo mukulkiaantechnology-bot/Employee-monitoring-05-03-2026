@@ -6,12 +6,21 @@ import { useEmployeeStore } from '../store/employeeStore';
 import { useAuthStore } from '../store/authStore';
 import { useOrganizationStore } from '../store/organizationStore';
 import { useToast } from '../context/ToastContext';
+import activityService from '../services/activityService';
+import { cn } from '../utils/cn';
+
+const formatHours = (hours) => {
+    const h = Math.floor(hours);
+    const m = Math.round((hours - h) * 60);
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+};
 
 export function Teams() {
     const { teams: contextTeams, fetchTeams, addTeam, updateTeam, deleteTeam, isLoading } = useTeamStore();
     const { employees, fetchEmployees } = useEmployeeStore();
     const { user } = useAuthStore();
     const { organization, fetchOrganization } = useOrganizationStore();
+    const [teamSummaries, setTeamSummaries] = useState({});
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTeam, setEditingTeam] = useState(null);
     const [search, setSearch] = useState('');
@@ -19,27 +28,59 @@ export function Teams() {
     const [openMenu, setOpenMenu] = useState(null);
 
     useEffect(() => {
-        fetchTeams();
-        fetchEmployees();
-        if (!organization) fetchOrganization();
-    }, [fetchTeams, fetchEmployees, fetchOrganization, organization]);
+        const fetchSummaries = async () => {
+            const summaries = {};
+            for (const team of contextTeams) {
+                try {
+                    const res = await activityService.getTeamSummary(team.id);
+                    if (res.success) {
+                        summaries[team.id] = res.data;
+                    }
+                } catch (error) {
+                    console.error(`Failed to fetch summary for team ${team.id}:`, error);
+                }
+            }
+            setTeamSummaries(summaries);
+        };
+
+        if (contextTeams.length > 0) {
+            fetchSummaries();
+        }
+    }, [contextTeams]);
+
+    const findOnlineCount = (team) => {
+        if (!team.employees) return 0;
+        return team.employees.filter(e => e.status === 'ACTIVE').length;
+    };
 
     const teamsData = useMemo(() => contextTeams.map(team => {
         const initials = team.name.substring(0, 2).toUpperCase();
+        const summary = teamSummaries[team.id] || {
+            activeHours: 0,
+            idleHours: 0,
+            manualHours: 0,
+            productiveHours: 0,
+            unproductiveHours: 0,
+            neutralHours: 0,
+            productivityPct: 0
+        };
+
         return {
             ...team,
             initials,
+            onlineCount: findOnlineCount(team),
+            productivity: summary.productivityPct,
             stats: {
-                work: '00:00',
-                comp: '00:00',
-                manual: '00:00',
-                prod: '00:00',
-                unprod: '00:00',
-                neutral: '00:00',
-                idle: '00:00',
+                work: formatHours(summary.activeHours + summary.idleHours + summary.manualHours),
+                comp: formatHours(summary.activeHours + summary.idleHours),
+                manual: formatHours(summary.manualHours),
+                prod: formatHours(summary.productiveHours),
+                unprod: formatHours(summary.unproductiveHours),
+                neutral: formatHours(summary.neutralHours),
+                idle: formatHours(summary.idleHours),
             },
         };
-    }).filter(t => !search || t.name.toLowerCase().includes(search.toLowerCase())), [contextTeams, search]);
+    }).filter(t => !search || t.name.toLowerCase().includes(search.toLowerCase())), [contextTeams, search, teamSummaries]);
 
     const handleCreateTeam = async (teamData) => {
         if (editingTeam) {
@@ -189,7 +230,7 @@ export function Teams() {
                                 </div>
                                 <div className="min-w-0">
                                     <h3 className="font-black text-slate-900 dark:text-white leading-tight text-lg truncate">{team.name}</h3>
-                                    <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider mt-1">{team.memberCount} Members · <span className="text-emerald-500">{team.onlineCount} Active</span></p>
+                                    <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider mt-1">{team.memberCount} Members  </p>
                                 </div>
                             </div>
 

@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { generateSeedData } from '../data/seedEngine';
 import {
     intradayActivity,
     computeSummaryStats,
@@ -36,30 +35,37 @@ const formatTime = (totalSeconds) => {
     return `${h}:${m}:${s}`;
 };
 
+const mapStatus = (status) => {
+    const s = status?.toUpperCase();
+    if (s === 'BACKLOG') return 'Backlog';
+    if (s === 'IN_OPERATIONS') return 'In Operations';
+    if (s === 'QUALITY_ASSURANCE') return 'Quality Assurance';
+    if (s === 'FINALIZED') return 'Finalized';
+    return status;
+};
+
 export function RealTimeProvider({ children }) {
     const { toast } = useToast();
     const [step, setStep] = useState('choice');
     const [copied, setCopied] = useState(false);
-    // Generate seed data once on module load
-    const seedData = useMemo(() => generateSeedData(), []);
 
     const [state, setState] = useState({
-        employees: seedData.employees,
+        employees: [],
         tasks: [],
         projects: [],
         goals: [],
-        teams: seedData.teams,
+        teams: [],
         // Logs
-        activityLogs: seedData.activityLogs,
-        attendanceLogs: seedData.attendanceLogs,
-        appUsageLogs: seedData.appUsageLogs,
-        locationLogs: seedData.locationLogs,
-        payrollData: seedData.payrollData,
+        activityLogs: [],
+        attendanceLogs: [],
+        appUsageLogs: [],
+        locationLogs: [],
+        payrollData: [],
         // UI state
         timeEntries: [],
         notifications: [],
-        alerts: seedData.alerts,
-        screenshots: seedData.screenshots,
+        alerts: [],
+        screenshots: [],
         geofences: [
             { id: 1, name: 'Headquarters', radius: '500m', status: 'Active', enabled: true, color: 'border-blue-500 bg-blue-500/10' },
             { id: 2, name: 'Client Site A', radius: '200m', status: 'Active', enabled: true, color: 'border-purple-500 bg-purple-500/10' },
@@ -71,10 +77,7 @@ export function RealTimeProvider({ children }) {
             { id: 3, name: 'Alex Johnson', type: 'Casual Leave', range: 'Feb 25', status: 'Pending', color: 'bg-amber-50 text-amber-600' },
             { id: 4, name: 'Sarah Brown', type: 'Sick Leave', range: 'Feb 14 - Feb 15', status: 'Rejected', color: 'bg-red-50 text-red-600' },
         ],
-        checkIns: seedData.locationLogs.slice(0, 5).map((l, i) => ({
-            id: i + 1, employeeId: l.employeeId, name: l.name,
-            location: 'Headquarters', type: i < 3 ? 'in' : 'out', time: `0${9 + i}:00 AM`,
-        })),
+        checkIns: [],
         travelStats: { totalDistance: '42.5 km', avgSpeed: '18 km/h', topSpeed: '45 km/h', totalTrips: 12 },
         timer: { isRunning: false, startTime: null, seconds: 0, currentTask: null },
         currentUser: { id: 0, name: 'Admin User', role: 'Admin' },
@@ -151,106 +154,181 @@ export function RealTimeProvider({ children }) {
         return () => clearInterval(timerInterval.current);
     }, [state.timer.isRunning]);
 
-    // Live backend employee sync
-    useEffect(() => {
-        if (isLoading || !isAuthenticated) return;
-
-        const syncEmployees = async () => {
-            if (role !== 'ADMIN' && role !== 'MANAGER') return;
-            try {
-                const res = await employeeService.getEmployees();
-                if (res.success && res.data) {
-                    setState(prev => {
-                        const backendEmployees = res.data.map(emp => {
-                            const name = emp.fullName || emp.name || 'Unknown User';
-                            return {
-                                ...emp,
-                                name: name,
-                                initials: name.split(' ').map(n => n[0]).join('').toUpperCase(),
-                                team: emp.team?.name || emp.team || 'General',
-                                status: emp.status?.toLowerCase() || 'offline',
-                            };
-                        });
-                        return { ...prev, employees: backendEmployees };
+    // ─── SYNC FUNCTIONS ─────────────────────────────────────────────────────
+    const syncEmployees = useCallback(async () => {
+        if (!isAuthenticated || (role !== 'ADMIN' && role !== 'MANAGER')) return;
+        try {
+            const res = await employeeService.getEmployees();
+            if (res.success && res.data) {
+                setState(prev => {
+                    const backendEmployees = res.data.map(emp => {
+                        const name = emp.fullName || emp.name || 'Unknown User';
+                        const st = emp.status?.toLowerCase() || 'offline';
+                        return {
+                            ...emp,
+                            name: name,
+                            initials: name.split(' ').map(n => n[0]).join('').toUpperCase(),
+                            team: emp.team?.name || emp.team || 'General',
+                            status: st === 'active' ? 'online' : st,
+                        };
                     });
-                }
-            } catch (err) {
-                console.error('Failed to sync employees:', err);
+                    return { ...prev, employees: backendEmployees };
+                });
             }
-        };
+        } catch (err) {
+            console.error('Failed to sync employees:', err);
+        }
+    }, [isAuthenticated, role]);
 
-        syncEmployees();
-    }, [isLoading, isAuthenticated]);
-
-    // Live backend team sync
-    useEffect(() => {
-        if (isLoading || !isAuthenticated) return;
-
-        const syncTeams = async () => {
-            if (role !== 'ADMIN' && role !== 'MANAGER') return;
-            try {
-                const res = await teamService.getTeams();
-                if (res.success && res.data) {
-                    setState(prev => ({
-                        ...prev,
-                        teams: res.data.map(t => ({ ...t, isSeed: false }))
-                    }));
-                }
-            } catch (err) {
-                console.error('Failed to sync teams:', err);
+    const syncTeams = useCallback(async () => {
+        if (!isAuthenticated || (role !== 'ADMIN' && role !== 'MANAGER')) return;
+        try {
+            const res = await teamService.getTeams();
+            if (res.success && res.data) {
+                setState(prev => ({
+                    ...prev,
+                    teams: res.data.map(t => ({ ...t, isSeed: false }))
+                }));
             }
-        };
+        } catch (err) {
+            console.error('Failed to sync teams:', err);
+        }
+    }, [isAuthenticated, role]);
 
-        syncTeams();
-    }, [isLoading, isAuthenticated]);
-
-    // Live backend activity sync
     const { dateRange, selectedTeam, selectedEmployee } = useFilterStore();
+    const syncLogs = useCallback(async () => {
+        if (!isAuthenticated) return;
+        try {
+            const params = {
+                startDate: dateRange.start,
+                endDate: dateRange.end,
+                teamId: selectedTeam,
+                employeeId: selectedEmployee
+            };
+            
+            let res;
+            if (role === 'ADMIN' || role === 'MANAGER') {
+                res = await activityService.getOrganizationSummary(params);
+            } else if (role === 'EMPLOYEE' && user?.id) {
+                res = await activityService.getEmployeeSummary(user.id, params);
+                if (res.success && res.data && !Array.isArray(res.data)) {
+                    res.data = [res.data];
+                }
+            } else {
+                return;
+            }
 
+            if (res && res.success && res.data) {
+                setState(prev => ({ ...prev, activityLogs: res.data }));
+            }
+        } catch (err) {
+            if (err.response?.status !== 403) {
+                console.error('Failed to sync activity logs:', err);
+            }
+        }
+    }, [isAuthenticated, role, user, dateRange, selectedTeam, selectedEmployee]);
+
+    const syncTasks = useCallback(async () => {
+        if (!isAuthenticated) return;
+        try {
+            const res = await taskService.getTasks(role === 'EMPLOYEE' ? user?.employeeId : null);
+            if (res.success && res.data) {
+                setState(prev => ({
+                    ...prev,
+                    tasks: res.data.map(task => ({
+                        id: task.id,
+                        title: task.name,
+                        project: task.project?.name || 'No Project',
+                        projectId: task.projectId,
+                        priority: task.priority || 'Medium',
+                        assignee: task.employee ? task.employee.fullName : 'Unassigned',
+                        assigneeId: task.employeeId,
+                        assigneeStatus: task.employee?.status?.toLowerCase() || 'offline',
+                        status: mapStatus(task.status),
+                        progress: task.status === 'FINALIZED' ? 100 : (task.status === 'QUALITY_ASSURANCE' ? 80 : (task.status === 'IN_OPERATIONS' ? 40 : 0)),
+                        dueDate: task.dueDate ? task.dueDate.split('T')[0] : 'No Date',
+                        timeSpent: (() => {
+                            let totalHrs = 0;
+                            state.activityLogs.forEach(log => {
+                                if (log.taskHours && log.taskHours[task.id]) {
+                                    totalHrs += log.taskHours[task.id];
+                                }
+                            });
+                            return Math.round(totalHrs * 10) / 10 + 'h';
+                        })(),
+                        description: task.description || ''
+                    }))
+                }));
+            }
+        } catch (err) {
+            console.error('Failed to sync tasks:', err);
+        }
+    }, [isAuthenticated]);
+
+    const syncProjects = useCallback(async () => {
+        if (!isAuthenticated) return;
+        try {
+            const res = await projectService.getProjects();
+            if (res.success && res.data) {
+                const projectsData = Array.isArray(res.data) ? res.data : (res.data.projects || []);
+                setState(prev => ({
+                    ...prev,
+                    projects: projectsData.map(p => ({
+                        id: p.id,
+                        name: p.projectName || p.name,
+                        client: p.client || 'Internal',
+                        progress: parseInt(p.progress) || 0,
+                        status: p.status || 'Active',
+                        color: p.color || 'bg-indigo-500',
+                        taskCount: p.tasks || 0,
+                        memberIds: p.assignments?.map(a => a.employeeId) || [],
+                        isSeed: false
+                    }))
+                }));
+            }
+        } catch (err) {
+            console.error('Failed to sync projects:', err);
+        }
+    }, [isAuthenticated]);
+
+    const syncGoals = useCallback(async () => {
+        if (!isAuthenticated) return;
+        try {
+            const res = await goalService.getGoals();
+            if (res.success && res.data) {
+                setState(prev => ({ ...prev, goals: res.data }));
+            }
+        } catch (err) {
+            console.error('Failed to sync goals:', err);
+        }
+    }, [isAuthenticated]);
+
+    // ─── POLLING INTERVALS ──────────────────────────────────────────────────
     useEffect(() => {
         if (isLoading || !isAuthenticated) return;
+        syncEmployees();
+        syncTeams();
+        syncTasks();
+        syncProjects();
+        syncGoals();
+        syncLogs();
 
-        const syncLogs = async () => {
-            try {
-                const params = {
-                    startDate: dateRange.start,
-                    endDate: dateRange.end,
-                    teamId: selectedTeam,
-                    employeeId: selectedEmployee
-                };
-                
-                let res;
-                if (role === 'ADMIN' || role === 'MANAGER') {
-                    res = await activityService.getOrganizationSummary(params);
-                } else if (role === 'EMPLOYEE' && user?.id) {
-                    res = await activityService.getEmployeeSummary(user.id, params);
-                    // Standardize response for employee (backend might return single object vs array)
-                    if (res.success && res.data && !Array.isArray(res.data)) {
-                        res.data = [res.data];
-                    }
-                } else {
-                    return;
-                }
+        const empInt = setInterval(syncEmployees, 5000);
+        const logInt = setInterval(syncLogs, 5000);
+        const taskInt = setInterval(syncTasks, 5000);
+        const projInt = setInterval(syncProjects, 5000);
+        const goalInt = setInterval(syncGoals, 10000);
 
-                if (res && res.success && res.data) {
-                    setState(prev => ({
-                        ...prev,
-                        activityLogs: res.data
-                    }));
-                }
-            } catch (err) {
-                // Silently handle 403 or other sync errors to avoid console noise for users
-                if (err.response?.status !== 403) {
-                    console.error('Failed to sync activity logs:', err);
-                }
-            }
+        return () => {
+            clearInterval(empInt);
+            clearInterval(logInt);
+            clearInterval(taskInt);
+            clearInterval(projInt);
+            clearInterval(goalInt);
         };
+    }, [isLoading, isAuthenticated, syncEmployees, syncTeams, syncTasks, syncProjects, syncGoals, syncLogs]);
 
-        const interval = setInterval(syncLogs, 30000); // Sync every 30s
-        syncLogs(); // Initial sync
-
-        return () => clearInterval(interval);
-    }, [isLoading, isAuthenticated, dateRange, selectedTeam, selectedEmployee]);
+    const [socketInstance, setSocketInstance] = useState(null);
 
     // WebSocket Integration
     useEffect(() => {
@@ -260,37 +338,24 @@ export function RealTimeProvider({ children }) {
             auth: { token: useAuthStore.getState().token },
             transports: ['websocket']
         });
+        setSocketInstance(socket);
 
         socket.on('connect', () => {
             console.log('RealTimeContext: Connected to socket');
             
-            // Fetch initial online statuses
-            const fetchOnline = async () => {
-                try {
-                    const res = await axios.get(`${import.meta.env.VITE_API_URL}/monitoring/online`, {
-                        headers: { Authorization: `Bearer ${useAuthStore.getState().token}` }
-                    });
-                    if (res.data.success) {
-                        setState(prev => ({
-                            ...prev,
-                            employees: prev.employees.map(e => {
-                                const isOnline = res.data.data.some(oe => oe.id === e.id);
-                                return { ...e, status: isOnline ? 'online' : 'offline' };
-                            })
-                        }));
-                    }
-                } catch (err) {
-                    console.error('Failed to fetch online employees:', err);
-                }
-            };
-            fetchOnline();
+            // Initial fetch of everything to be safe
+            syncEmployees();
+            syncLogs();
+            syncTasks();
+            syncProjects();
+            syncGoals();
         });
 
         socket.on('employee:status', ({ employeeId, status }) => {
             setState(prev => ({
                 ...prev,
                 employees: prev.employees.map(e => 
-                    e.id === employeeId ? { ...e, status: status.toLowerCase() } : e
+                    e.id === employeeId ? { ...e, status: status.toLowerCase() === 'active' ? 'online' : status.toLowerCase() } : e
                 )
             }));
         });
@@ -318,6 +383,28 @@ export function RealTimeProvider({ children }) {
             }));
         });
 
+        socket.on('attendance:update', (data) => {
+            console.log('RealTimeContext: Attendance updated:', data);
+            syncEmployees();
+            syncLogs();
+        });
+
+        socket.on('task:update', (data) => {
+            console.log('RealTimeContext: Task updated:', data);
+            syncTasks();
+        });
+
+        socket.on('project:update', (data) => {
+            console.log('RealTimeContext: Project updated:', data);
+            syncProjects();
+        });
+
+        socket.on('team:update', (data) => {
+            console.log('RealTimeContext: Team updated:', data);
+            syncTeams();
+            syncEmployees(); // Teams change might affect employee assignments visibility
+        });
+
         socket.on('goal:new', (data) => {
             setState(prev => ({
                 ...prev,
@@ -329,104 +416,6 @@ export function RealTimeProvider({ children }) {
         return () => socket.disconnect();
     }, [isLoading, isAuthenticated, user]);
 
-    // Live backend tasks sync
-    useEffect(() => {
-        if (isLoading || !isAuthenticated) return;
-
-        const syncTasks = async () => {
-            try {
-                const res = await taskService.getTasks();
-                if (res.success && res.data) {
-                    setState(prev => ({
-                        ...prev,
-                        tasks: res.data.map(task => ({
-                            id: task.id,
-                            title: task.name,
-                            project: task.project.name,
-                            projectId: task.projectId,
-                            priority: task.priority,
-                            assignee: task.employee ? task.employee.fullName : 'Unassigned',
-                            assigneeId: task.employeeId,
-                            status: task.status === 'BACKLOG' ? 'To Do' : (task.status === 'IN_PROGRESS' ? 'In Progress' : (task.status === 'QA' ? 'Review' : 'Completed')),
-                            progress: task.status === 'COMPLETED' ? 100 : (task.status === 'QA' ? 80 : (task.status === 'IN_PROGRESS' ? 40 : 0)),
-                            dueDate: task.dueDate ? task.dueDate.split('T')[0] : 'No Date',
-                            timeSpent: '0h' // Simplified for now
-                        }))
-                    }));
-                }
-            } catch (err) {
-                console.error('Failed to sync tasks:', err);
-            }
-        };
-
-        const interval = setInterval(syncTasks, 30000);
-        syncTasks();
-
-        return () => clearInterval(interval);
-    }, [isLoading, isAuthenticated]);
-
-    const handleCopy = () => {
-        navigator.clipboard.writeText("https://app.insightful.io/#/installation/company/12345");
-        setCopied(true);
-        toast.success("Installation URL copied to clipboard!");
-        setTimeout(() => setCopied(false), 2000);
-    };
-
-    // Live backend projects sync
-    useEffect(() => {
-        if (isLoading || !isAuthenticated) return;
-
-        const syncProjects = async () => {
-            try {
-                const res = await projectService.getProjects();
-                if (res.success && res.data) {
-                    setState(prev => {
-                        const backendProjects = res.data.map(p => ({
-                            id: p.id,
-                            name: p.projectName || p.name,
-                            client: p.client || 'Internal',
-                            progress: parseInt(p.progress) || 0,
-                            status: p.status || 'Active',
-                            color: p.color || 'bg-indigo-500',
-                            taskCount: p.tasks || 0,
-                            memberIds: p.assignments?.map(a => a.employeeId) || [],
-                            isSeed: false
-                        }));
-
-                        return { ...prev, projects: backendProjects };
-                    });
-                }
-            } catch (err) {
-                console.error('Failed to sync projects:', err);
-            }
-        };
-
-        const interval = setInterval(syncProjects, 30000);
-        syncProjects();
-
-        return () => clearInterval(interval);
-    }, [isLoading, isAuthenticated]);
-
-    // Live backend goals sync
-    useEffect(() => {
-        if (isLoading || !isAuthenticated) return;
-
-        const syncGoals = async () => {
-            try {
-                const res = await goalService.getGoals();
-                if (res.success && res.data) {
-                    setState(prev => ({ ...prev, goals: res.data }));
-                }
-            } catch (err) {
-                console.error('Failed to sync goals:', err);
-            }
-        };
-
-        const interval = setInterval(syncGoals, 60000); // Sync every minute
-        syncGoals();
-
-        return () => clearInterval(interval);
-    }, [isLoading, isAuthenticated]);
 
 
     // ─── COMPUTED ANALYTICS ──────────────────────────────────────────────────
@@ -440,11 +429,20 @@ export function RealTimeProvider({ children }) {
             const log = todayLogs.find(l => l.employeeId === emp.id);
             const fullName = emp.fullName || emp.name || 'Unknown User';
 
-            // Determine status based on presence of log today
-            let status = emp.status || 'offline';
-            if (log) {
+            // Determine status based on presence of log today or employee's current status
+            let status = emp.status?.toLowerCase() || 'offline';
+            if (status === 'active') status = 'online';
+            
+            if (status !== 'break' && log) {
                 status = log.activeHours > 0 ? 'online' : (log.idleHours > 0 ? 'idle' : 'offline');
             }
+
+            // Find latest break start time if on break
+            let breakStartedAt = log?.breakStartedAt || null;
+            let breakHours = log?.breakHours || 0;
+            const manualHours = log?.manualHours || 0;
+            const activeHours = log?.activeHours || 0;
+            const idleHours = log?.idleHours || 0;
 
             return {
                 ...emp,
@@ -452,6 +450,13 @@ export function RealTimeProvider({ children }) {
                 initials: fullName.split(' ').map(n => n[0]).join('').toUpperCase(),
                 team: emp.team?.name || emp.team || 'General',
                 status,
+                breakStartedAt,
+                breakHours,
+                manualHours,
+                activeHours,
+                idleHours,
+                totalWorkHours: activeHours + idleHours + manualHours,
+                computerActivityHours: activeHours + idleHours,
                 productive: log ? `${String(Math.floor(log.productiveHours)).padStart(2, '0')}:${String(Math.round((log.productiveHours % 1) * 60)).padStart(2, '0')}` : '00:00',
                 unproductive: log ? `${String(Math.floor(log.unproductiveHours)).padStart(2, '0')}:${String(Math.round((log.unproductiveHours % 1) * 60)).padStart(2, '0')}` : '00:00',
                 utilization: log ? log.utilizationPct : (emp.utilizationScore || 0),
@@ -665,17 +670,85 @@ export function RealTimeProvider({ children }) {
         setState(prev => ({ ...prev, timeEntries: prev.timeEntries.filter(e => e.id !== id) }));
     }, []);
 
+    // Task Timer Actions
+    const startTask = useCallback((taskId) => {
+        setState(prev => ({
+            ...prev,
+            timer: {
+                ...prev.timer,
+                isRunning: true,
+                currentTask: taskId,
+                seconds: 0,
+                startTime: new Date()
+            }
+        }));
+        addNotification('Task tracking started', 'success');
+    }, [addNotification]);
+
+    const stopTask = useCallback(async () => {
+        const { currentTask, seconds } = state.timer;
+        if (currentTask && seconds > 0) {
+            try {
+                const currentEmp = state.employees.find(e => e.email === user?.email);
+                await activityService.logActivity({
+                    employeeId: currentEmp?.id || user?.id,
+                    organizationId: currentEmp?.organizationId || user?.organizationId || 'default-org-id',
+                    activityType: 'ACTIVE',
+                    duration: seconds,
+                    taskId: currentTask,
+                    appWebsite: 'Web Dashboard'
+                });
+                // Sync tasks to reflect new time
+                syncTasks();
+            } catch (err) {
+                console.error('Failed to log final task activity:', err);
+            }
+        }
+        setState(prev => ({
+            ...prev,
+            timer: { ...prev.timer, isRunning: false, currentTask: null, seconds: 0 }
+        }));
+        addNotification('Task tracking stopped', 'success');
+    }, [state.timer, user, state.employees, syncTasks, addNotification]);
+
+    // Periodic Task Logging (every 60 seconds)
+    useEffect(() => {
+        let interval;
+        if (state.timer.isRunning && state.timer.currentTask) {
+            interval = setInterval(async () => {
+                try {
+                    const currentEmp = state.employees.find(e => e.email === user?.email);
+                    await activityService.logActivity({
+                        employeeId: currentEmp?.id || user?.id,
+                        organizationId: currentEmp?.organizationId || user?.organizationId || 'default-org-id',
+                        activityType: 'ACTIVE',
+                        duration: 60,
+                        taskId: state.timer.currentTask,
+                        appWebsite: 'Web Dashboard (Heartbeat)'
+                    });
+                } catch (err) {
+                    console.error('Task heartbeat failed:', err);
+                }
+            }, 60000);
+        }
+        return () => clearInterval(interval);
+    }, [state.timer.isRunning, state.timer.currentTask, user, state.employees]);
+
+    // Tasks
     // Tasks
     const addTask = useCallback(async (task) => {
+        const tempId = `temp-${Date.now()}`;
         try {
-            // Map frontend statuses back to backend enums
             const statusMap = {
-                'To Do': 'BACKLOG',
-                'In Progress': 'IN_PROGRESS',
-                'Review': 'QA',
-                'Completed': 'COMPLETED'
+                'Backlog': 'BACKLOG',
+                'In Operations': 'IN_OPERATIONS',
+                'Quality Assurance': 'QUALITY_ASSURANCE',
+                'Finalized': 'FINALIZED',
+                'BACKLOG': 'BACKLOG',
+                'IN_OPERATIONS': 'IN_OPERATIONS',
+                'QUALITY_ASSURANCE': 'QUALITY_ASSURANCE',
+                'FINALIZED': 'FINALIZED'
             };
-
             const backendTask = {
                 name: task.title,
                 projectId: task.projectId,
@@ -685,30 +758,68 @@ export function RealTimeProvider({ children }) {
                 dueDate: task.dueDate
             };
 
+            // Optimistic Update
+                const optimisticTask = {
+                    id: tempId,
+                    title: task.title,
+                    project: task.project || 'Internal',
+                    projectId: task.projectId,
+                    priority: task.priority || 'Medium',
+                    assignee: task.assignee || 'Unassigned',
+                    assigneeId: task.assigneeId,
+                    assigneeStatus: 'active', // New tasks are usually assigned to active users
+                    status: mapStatus(task.status || 'BACKLOG'),
+                progress: task.status?.toUpperCase() === 'FINALIZED' ? 100 : (task.status?.toUpperCase() === 'QUALITY_ASSURANCE' ? 80 : (task.status?.toUpperCase() === 'IN_OPERATIONS' ? 40 : 0)),
+                dueDate: task.dueDate ? task.dueDate.split('T')[0] : 'No Date',
+                timeSpent: '0h',
+                description: task.description || '',
+                isOptimistic: true
+            };
+
+            setState(prev => ({ ...prev, tasks: [optimisticTask, ...prev.tasks] }));
+
             const res = await taskService.createTask(backendTask);
-            if (res.success) {
+            if (res.success && res.data) {
+                const b = res.data;
                 const newTask = {
-                    ...task,
-                    id: res.data.id,
-                    status: task.status || 'To Do'
+                    id: b.id,
+                    title: b.name,
+                    project: b.project?.name || task.project || 'Internal',
+                    projectId: b.projectId,
+                    priority: b.priority,
+                    assignee: b.employee ? b.employee.fullName : (task.assignee || 'Unassigned'),
+                    assigneeId: b.employeeId,
+                    assigneeStatus: b.employee?.status?.toLowerCase() || 'offline',
+                    status: mapStatus(b.status),
+                    progress: b.status === 'FINALIZED' ? 100 : (b.status === 'QUALITY_ASSURANCE' ? 80 : (b.status === 'IN_OPERATIONS' ? 40 : 0)),
+                    dueDate: b.dueDate ? b.dueDate.split('T')[0] : (task.dueDate || 'No Date'),
+                    timeSpent: '0h',
+                    description: b.description || ''
                 };
-                setState(prev => ({ ...prev, tasks: [newTask, ...prev.tasks] }));
-                addNotification(`Task "${task.title}" created`, 'success');
+                setState(prev => ({
+                    ...prev,
+                    tasks: prev.tasks.map(t => t.id === tempId ? newTask : t)
+                }));
+                addNotification(`Task "${newTask.title}" created`, 'success');
+            } else {
+                // Rollback
+                setState(prev => ({ ...prev, tasks: prev.tasks.filter(t => t.id !== tempId) }));
+                addNotification('Failed to create task', 'error');
             }
         } catch (error) {
             console.error('Failed to add task:', error);
-            // Error is handled by apiClient global toast
+            // Rollback
+            setState(prev => ({ ...prev, tasks: prev.tasks.filter(t => t.id !== tempId) }));
         }
     }, [addNotification]);
 
     const updateTaskStatus = useCallback(async (taskId, status, progress) => {
         try {
-            // Map frontend statuses back to backend enums
             const statusMap = {
-                'To Do': 'BACKLOG',
-                'In Progress': 'IN_PROGRESS',
-                'Review': 'QA',
-                'Completed': 'COMPLETED'
+                'Backlog': 'BACKLOG',
+                'In Operations': 'IN_OPERATIONS',
+                'Quality Assurance': 'QUALITY_ASSURANCE',
+                'Finalized': 'FINALIZED'
             };
 
             const backendStatus = statusMap[status] || 'BACKLOG';
@@ -719,9 +830,8 @@ export function RealTimeProvider({ children }) {
                     const task = prev.tasks.find(t => t.id === taskId);
                     if (!task) return prev;
 
-                    // If task is moving to Completed, boost assignee productivity
                     let updatedEmployees = prev.employees;
-                    if (status === 'Completed' && task.status !== 'Completed') {
+                    if (status === 'Finalized' && task.status !== 'Finalized') {
                         updatedEmployees = prev.employees.map(e => {
                             if (e.id === task.assigneeId || e.name === task.assignee) {
                                 const newScore = Math.min(99, (e.productivityScore || 85) + 2);
@@ -734,16 +844,19 @@ export function RealTimeProvider({ children }) {
                     return {
                         ...prev,
                         employees: updatedEmployees,
-                        tasks: prev.tasks.map(t => t.id === taskId ? { ...t, status, progress: progress ?? (status === 'Completed' ? 100 : t.progress) } : t)
+                        tasks: prev.tasks.map(t => t.id === taskId ? { 
+                            ...t, 
+                            status: mapStatus(status), 
+                            progress: progress ?? (status === 'Finalized' ? 100 : (status === 'Quality Assurance' ? 80 : (status === 'In Operations' ? 40 : 0))) 
+                        } : t)
                     };
                 });
-                if (status === 'Completed') {
-                    addNotification(`Task completed! Productivity score increased for assignee.`, 'success');
+                if (status === 'Finalized') {
+                    addNotification(`Task finalized! Productivity score increased for assignee.`, 'success');
                 }
             }
         } catch (error) {
             console.error('Failed to update task status:', error);
-            // Error is handled by apiClient global toast
         }
     }, [addNotification]);
 
@@ -763,29 +876,44 @@ export function RealTimeProvider({ children }) {
     const updateTask = useCallback(async (id, taskData) => {
         try {
             const statusMap = {
-                'To Do': 'BACKLOG',
-                'In Progress': 'IN_PROGRESS',
-                'Review': 'QA',
-                'Completed': 'COMPLETED'
+                'Backlog': 'BACKLOG',
+                'In Operations': 'IN_OPERATIONS',
+                'Quality Assurance': 'QUALITY_ASSURANCE',
+                'Finalized': 'FINALIZED',
+                // Also accept uppercase as keys
+                'BACKLOG': 'BACKLOG',
+                'IN_OPERATIONS': 'IN_OPERATIONS',
+                'QUALITY_ASSURANCE': 'QUALITY_ASSURANCE',
+                'FINALIZED': 'FINALIZED'
             };
             const backendPayload = {
                 name: taskData.title,
                 priority: taskData.priority?.toUpperCase() || 'MEDIUM',
-                status: statusMap[taskData.status] || undefined,
-                dueDate: taskData.dueDate || undefined,
+                status: statusMap[taskData.status] || taskData.status || undefined,
+                dueDate: taskData.dueDate && taskData.dueDate !== 'No Date' ? new Date(taskData.dueDate).toISOString() : undefined,
                 employeeId: taskData.assigneeId || undefined,
             };
             const res = await taskService.updateTask(id, backendPayload);
             if (res.success) {
                 setState(prev => ({
                     ...prev,
-                    tasks: prev.tasks.map(t => t.id === id ? { ...t, ...taskData } : t)
+                    tasks: prev.tasks.map(t => {
+                        if (t.id === id) {
+                            const updatedStatus = mapStatus(taskData.status || t.status);
+                            return { 
+                                ...t, 
+                                ...taskData,
+                                status: updatedStatus,
+                                progress: taskData.progress ?? (updatedStatus === 'Finalized' ? 100 : (updatedStatus === 'Quality Assurance' ? 80 : (updatedStatus === 'In Operations' ? 40 : t.progress)))
+                            };
+                        }
+                        return t;
+                    })
                 }));
                 addNotification(`Task "${taskData.title}" updated`, 'success');
             }
         } catch (error) {
             console.error('Failed to update task:', error);
-            // Error is handled by apiClient global toast
         }
     }, [addNotification]);
 
@@ -814,7 +942,7 @@ export function RealTimeProvider({ children }) {
                 assignee: emp.name,
                 assigneeId: emp.id,
                 team: emp.team,
-                status: i < 2 ? 'Completed' : 'To Do',
+                status: i < 2 ? 'Finalized' : 'Backlog',
                 progress: i < 2 ? 100 : 0,
                 timeSpent: `${Math.floor(Math.random() * 8) + 2}h`,
                 dueDate: '2026-03-15'
@@ -988,6 +1116,7 @@ export function RealTimeProvider({ children }) {
         addEmployee, updateEmployee, deleteEmployee, mergeEmployees,
         addTeam, updateTeam, deleteTeam,
         toggleTimer, startTimer, stopTimer, pauseTimer,
+        startTask, stopTask, timer: state.timer,
         addTimeEntry, updateTimeEntry, deleteTimeEntry,
         addTask, updateTaskStatus, deleteTask, updateTask,
         addProject,
@@ -1000,11 +1129,13 @@ export function RealTimeProvider({ children }) {
         setSelectedDate,
         addCheckIn,
         addNotification, markAllNotificationsRead, markNotificationAsRead, deleteNotification,
+        socket: socketInstance,
     }), [
-        state, filteredData, stats, isLoading,
+        state, filteredData, stats, isLoading, socketInstance,
         addEmployee, updateEmployee, deleteEmployee, mergeEmployees,
         addTeam, updateTeam, deleteTeam,
         toggleTimer, startTimer, stopTimer, pauseTimer,
+        startTask, stopTask,
         addTimeEntry, updateTimeEntry, deleteTimeEntry,
         addTask, updateTaskStatus, deleteTask, updateTask,
         addProject, addGoal, deleteGoal, updateGoal, deleteScreenshot, addGeofence, toggleGeofence,

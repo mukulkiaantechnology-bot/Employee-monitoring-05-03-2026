@@ -2,15 +2,17 @@ import { create } from 'zustand';
 
 // ─── Date Helpers ────────────────────────────────────────────────────────────
 
-const toYMD = (d) => d.toISOString().split('T')[0];
-const today = () => {
-    const d = new Date();
-    return toYMD(d);
+const toYMD = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
 };
+const today = () => toYMD(new Date());
 const yesterday  = () => { const d = new Date(); d.setDate(d.getDate()-1); return toYMD(d); };
 const last7Start = () => { const d = new Date(); d.setDate(d.getDate()-6); return toYMD(d); };
 const last30Start= () => { const d = new Date(); d.setDate(d.getDate()-29); return toYMD(d); };
-const thisMonthStart = () => { const d = new Date(); d.setDate(1); return toYMD(d); };
+const thisMonthStart = () => { const d = new Date(new Date().getFullYear(), new Date().getMonth(), 1); return toYMD(d); };
 
 export function getDateRangeForPreset(preset) {
     const t = today();
@@ -27,7 +29,7 @@ export function getDateRangeForPreset(preset) {
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
-const INITIAL = getDateRangeForPreset('this_month');
+const INITIAL = getDateRangeForPreset('today');
 
 export const useFilterStore = create((set) => ({
     dateRange: INITIAL,      // { start: 'YYYY-MM-DD', end: 'YYYY-MM-DD' }

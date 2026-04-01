@@ -27,6 +27,8 @@ import {
     Shield,
     Star,
     ArrowRight,
+    Play,
+    Square,
     X
 } from 'lucide-react';
 import { FilterDropdown } from '../components/FilterDropdown';
@@ -133,7 +135,7 @@ const CreateTaskModal = ({ isOpen, onClose, onSave, defaultStatus = 'To Do', emp
                             />
                             {showSuggestions && (
                                 <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl max-h-40 overflow-y-auto z-50">
-                                    {employees.filter(e => e.name.toLowerCase().includes(assignee.toLowerCase())).map(e => (
+                                    {employees.filter(e => e.status !== 'deactivated' && e.name.toLowerCase().includes(assignee.toLowerCase())).map(e => (
                                         <div
                                             key={e.id}
                                             onClick={() => {
@@ -168,10 +170,11 @@ const CreateTaskModal = ({ isOpen, onClose, onSave, defaultStatus = 'To Do', emp
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Status</label>
-                            <select value={status} onChange={e => setStatus(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm">
-                                <option value="To Do">Backlog</option>
-                                <option value="In Progress">In Operations</option>
-                                <option value="Review">Quality Assurance</option>
+                            <select value={status} onChange={e => setStatus(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm text-slate-700 dark:text-slate-300">
+                                <option value="BACKLOG">Backlog</option>
+                                <option value="IN_OPERATIONS">In Operations</option>
+                                <option value="QUALITY_ASSURANCE">Quality Assurance</option>
+                                <option value="FINALIZED">Finalized</option>
                             </select>
                         </div>
                         <div>
@@ -327,7 +330,7 @@ const EditTaskModal = ({ isOpen, onClose, onSave, task, employees = [], projects
     const [assigneeId, setAssigneeId] = useState(task?.assigneeId || '');
     const [priority, setPriority] = useState(task?.priority || 'Medium');
     const [dueDate, setDueDate] = useState(task?.dueDate && task?.dueDate !== 'No Date' ? task.dueDate : '');
-    const [status, setStatus] = useState(task?.status || 'To Do');
+    const [status, setStatus] = useState(task?.status || 'Backlog');
     const [showSuggestions, setShowSuggestions] = useState(false);
 
     // Reset form whenever task changes
@@ -338,7 +341,7 @@ const EditTaskModal = ({ isOpen, onClose, onSave, task, employees = [], projects
             setAssigneeId(task.assigneeId || '');
             setPriority(task.priority || 'Medium');
             setDueDate(task.dueDate && task.dueDate !== 'No Date' ? task.dueDate : '');
-            setStatus(task.status || 'To Do');
+            setStatus(task.status || 'Backlog');
         }
     }, [task]);
 
@@ -384,7 +387,7 @@ const EditTaskModal = ({ isOpen, onClose, onSave, task, employees = [], projects
                             />
                             {showSuggestions && (
                                 <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl shadow-xl max-h-40 overflow-y-auto z-50">
-                                    {employees.filter(e => e.name.toLowerCase().includes(assignee.toLowerCase())).map(e => (
+                                    {employees.filter(e => e.status !== 'deactivated' && e.name.toLowerCase().includes(assignee.toLowerCase())).map(e => (
                                         <div key={e.id} onClick={() => { setAssignee(e.name); setAssigneeId(e.id); setShowSuggestions(false); }}
                                             className="p-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 cursor-pointer flex items-center gap-2 transition-colors">
                                             <div className="h-6 w-6 rounded-full bg-slate-200 overflow-hidden flex-shrink-0">
@@ -409,11 +412,11 @@ const EditTaskModal = ({ isOpen, onClose, onSave, task, employees = [], projects
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Status</label>
-                            <select value={status} onChange={e => setStatus(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm">
-                                <option value="To Do">Backlog</option>
-                                <option value="In Progress">In Operations</option>
-                                <option value="Review">Quality Assurance</option>
-                                <option value="Completed">Finalized</option>
+                            <select value={status} onChange={e => setStatus(e.target.value)} className="w-full p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 font-bold text-sm text-slate-700 dark:text-slate-300">
+                                <option value="BACKLOG">Backlog</option>
+                                <option value="IN_OPERATIONS">In Operations</option>
+                                <option value="QUALITY_ASSURANCE">Quality Assurance</option>
+                                <option value="FINALIZED">Finalized</option>
                             </select>
                         </div>
                         <div>
@@ -550,13 +553,12 @@ const KPICard = ({ title, value, subValue, trend, icon: Icon, color, delay }) =>
     </div>
 );
 
-const KanbanColumn = ({ title, tasks, status, color, onAdd, updateTaskStatus, onEdit, onDelete }) => {
+const KanbanColumn = ({ title, tasks, status, color, onAdd, updateTaskStatus, onEdit, onDelete, startTask, stopTask, timer, role }) => {
     // Determine gradient based on column color/status
     const getGradient = () => {
-        if (color.includes('slate')) return 'from-slate-300 to-transparent';
-        if (color.includes('blue')) return 'from-indigo-500 to-transparent';
-        if (color.includes('amber')) return 'from-amber-400 to-transparent';
-        if (color.includes('emerald')) return 'from-emerald-500 to-transparent';
+        if (status === 'IN_OPERATIONS') return 'from-blue-500 to-transparent';
+        if (status === 'FINALIZED') return 'from-emerald-500 to-transparent';
+        if (status === 'QUALITY_ASSURANCE') return 'from-amber-400 to-transparent';
         return 'from-slate-400 to-transparent';
     };
 
@@ -599,18 +601,12 @@ const KanbanColumn = ({ title, tasks, status, color, onAdd, updateTaskStatus, on
                     const getCardStyle = (status) => {
                         const baseStyle = "border-[1.5px] rounded-[16px] transition-all duration-300";
                         switch (status) {
-                            case 'To Do': // Backlog (Light Gray)
-                                return `${baseStyle} border-slate-200 shadow-[0_0_0_1px_rgba(226,232,240,0.15)] hover:shadow-[0_6px_18px_rgba(226,232,240,0.18)]`;
-
-                            case 'In Progress': // Operations (Blue)
+                            case 'IN_OPERATIONS':
                                 return `${baseStyle} border-blue-500 shadow-[0_0_0_1px_rgba(59,130,246,0.15)] hover:shadow-[0_6px_18px_rgba(59,130,246,0.18)]`;
-
-                            case 'Review': // QA (Yellow/Amber)
-                                return `${baseStyle} border-amber-400 shadow-[0_0_0_1px_rgba(251,191,36,0.15)] hover:shadow-[0_6px_18px_rgba(251,191,36,0.18)]`;
-
-                            case 'Completed': // Finalized (Green)
+                            case 'FINALIZED':
                                 return `${baseStyle} border-emerald-500 shadow-[0_0_0_1px_rgba(16,185,129,0.15)] hover:shadow-[0_6px_18px_rgba(16,185,129,0.18)]`;
-
+                            case 'QUALITY_ASSURANCE':
+                                return `${baseStyle} border-amber-400 shadow-[0_0_0_1px_rgba(251,191,36,0.15)] hover:shadow-[0_6px_18px_rgba(251,191,36,0.18)]`;
                             default:
                                 return `${baseStyle} border-slate-200 shadow-sm`;
                         }
@@ -626,7 +622,13 @@ const KanbanColumn = ({ title, tasks, status, color, onAdd, updateTaskStatus, on
                             style={{ animationDelay: `${index * 75}ms`, animationDuration: '400ms' }}
                         >
                             <div className="flex justify-between items-start mb-4">
-                                <span className="px-2.5 py-1 rounded-full bg-slate-50/80 dark:bg-slate-800/50 text-[9px] font-black text-slate-500 uppercase tracking-widest border border-slate-100 dark:border-slate-700/50 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/20 group-hover:text-indigo-600 group-hover:border-indigo-100 dark:group-hover:border-indigo-800 transition-all">
+                                <span className={cn(
+                                    "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all",
+                                    status === 'IN_OPERATIONS' ? "bg-blue-50 text-blue-600 border-blue-100" :
+                                    status === 'FINALIZED' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                                    status === 'QUALITY_ASSURANCE' ? "bg-amber-50 text-amber-600 border-amber-100" :
+                                    "bg-slate-50 text-slate-500 border-slate-100"
+                                )}>
                                     {task.project}
                                 </span>
                             </div>
@@ -648,8 +650,33 @@ const KanbanColumn = ({ title, tasks, status, color, onAdd, updateTaskStatus, on
                                 </div>
                                 <div className="flex items-center gap-1.5 text-slate-400 group-hover:text-indigo-500 dark:group-hover:text-indigo-400 transition-colors bg-slate-50 dark:bg-slate-800/50 px-2 py-1 rounded-md">
                                     <Clock size={12} strokeWidth={2.5} />
-                                    <span className="text-[9px] font-black tracking-widest">{task.timeSpent || '0h'}</span>
+                                    <span className="text-[10px] font-black">{task.timeSpent || '0h'}</span>
                                 </div>
+                                {role === 'EMPLOYEE' && (
+                                    <div className="flex gap-1 ml-auto">
+                                        {timer.isRunning && timer.currentTask === task.id ? (
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); stopTask(); }}
+                                                className="h-8 w-8 rounded-lg bg-red-500 text-white flex items-center justify-center hover:bg-red-600 transition-colors shadow-lg shadow-red-500/20"
+                                            >
+                                                <Square size={14} fill="currentColor" />
+                                            </button>
+                                        ) : (
+                                            <button 
+                                                disabled={timer.isRunning}
+                                                onClick={(e) => { e.stopPropagation(); startTask(task.id); }}
+                                                className={cn(
+                                                    "h-8 w-8 rounded-lg flex items-center justify-center transition-all shadow-lg",
+                                                    timer.isRunning 
+                                                        ? "bg-slate-100 text-slate-300 cursor-not-allowed" 
+                                                        : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-600/20"
+                                                )}
+                                            >
+                                                <Play size={14} fill="currentColor" />
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Edit / Delete Actions */}
@@ -689,7 +716,7 @@ const KanbanColumn = ({ title, tasks, status, color, onAdd, updateTaskStatus, on
 // --- Content Page Implementation ---
 
 export function TasksProjects() {
-    const { role } = useAuthStore();
+    const { role, user } = useAuthStore();
     const {
         tasks,
         projects,
@@ -707,6 +734,9 @@ export function TasksProjects() {
         addGoal,
         deleteGoal,
         updateGoal,
+        startTask,
+        stopTask,
+        timer,
     } = useRealTime();
 
     const { quickFilter, dateRange, selectedEmployee, selectedTeam } = useFilterStore();
@@ -832,6 +862,7 @@ export function TasksProjects() {
         // dateRange from filterStore already has the resolved start/end for the active preset
         const hasDateFilter = quickFilter !== 'today';
         return tasks.filter(t => {
+            if (t.assigneeStatus === 'deactivated') return false;
             // Search filter
             const matchesSearch = t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 t.project.toLowerCase().includes(searchQuery.toLowerCase());
@@ -855,13 +886,13 @@ export function TasksProjects() {
         });
     }, [tasks, searchQuery, quickFilter, dateRange, selectedEmployee, selectedTeam, employees]);
 
-    const getTasksByStatus = (status) => filteredTasks.filter(t => t.status === status || (status === 'To Do' && t.status === 'Pending'));
+    const getTasksByStatus = (status) => filteredTasks.filter(t => t.status === status);
 
     // 1. Calculate dynamic performance metrics
 
     // Performance derived stats
     const derivedStats = useMemo(() => {
-        const completedTasks = tasks.filter(t => t.status === 'Completed').length;
+        const completedTasks = tasks.filter(t => t.status === 'Finalized').length;
         const totalProductivity = stats?.empMetrics?.reduce((acc, emp) => acc + (emp.productivityScore || 0), 0) || 0;
         const avgProductivity = stats?.empMetrics?.length > 0 ? (totalProductivity / stats.empMetrics.length).toFixed(1) : '0';
         const totalBillableHours = stats?.empMetrics?.reduce((acc, emp) => acc + (emp.productiveHours || 0), 0) || 0;
@@ -878,7 +909,14 @@ export function TasksProjects() {
     // Enhanced Performance KPIs for the table
     const enhancedPerformanceKPIs = useMemo(() => {
         if (!stats?.empMetrics) return [];
-        return stats.empMetrics.map(emp => ({
+        let metrics = stats.empMetrics;
+        
+        // RBAC: Employees should only see their own performance metrics
+        if (role === 'EMPLOYEE' && user?.employeeId) {
+            metrics = metrics.filter(emp => emp.id === user.employeeId);
+        }
+
+        return metrics.map(emp => ({
             id: emp.id,
             employee: emp.name,
             avatar: emp.avatar,
@@ -888,7 +926,7 @@ export function TasksProjects() {
             overall: Math.round((emp.productivity + emp.utilization + 90) / 3),
             role: emp.role || 'Contributor'
         })).sort((a, b) => b.overall - a.overall);
-    }, [stats?.empMetrics]);
+    }, [stats?.empMetrics, role, user?.employeeId]);
 
     // Dynamic Radar Data
     const radarData = useMemo(() => {
@@ -903,18 +941,34 @@ export function TasksProjects() {
             ];
         }
 
-        const avgProd = stats.empMetrics.reduce((a, b) => a + (b.productivity || 0), 0) / stats.empMetrics.length;
-        const avgUtil = stats.empMetrics.reduce((a, b) => a + (b.utilization || 0), 0) / stats.empMetrics.length;
+        // RBAC: For employees, show individual stats. For admins/managers, show team avg.
+        let values;
+        if (role === 'EMPLOYEE' && user?.employeeId) {
+            const myMetrics = stats.empMetrics.find(m => m.id === user.employeeId);
+            if (myMetrics) {
+                values = {
+                    productivity: myMetrics.productivity || 0,
+                    utilization: myMetrics.utilization || 0
+                };
+            }
+        }
+
+        if (!values) {
+            values = {
+                productivity: stats.empMetrics.reduce((a, b) => a + (b.productivity || 0), 0) / stats.empMetrics.length,
+                utilization: stats.empMetrics.reduce((a, b) => a + (b.utilization || 0), 0) / stats.empMetrics.length
+            };
+        }
 
         return [
-            { subject: 'Quality', A: Math.round(avgProd * 0.95), fullMark: 100 },
-            { subject: 'Velocity', A: Math.round(avgProd), fullMark: 100 },
+            { subject: 'Quality', A: Math.round(values.productivity * 0.95), fullMark: 100 },
+            { subject: 'Velocity', A: Math.round(values.productivity), fullMark: 100 },
             { subject: 'Communication', A: 94, fullMark: 100 },
-            { subject: 'Reliability', A: Math.round(avgUtil), fullMark: 100 },
-            { subject: 'Output', A: Math.round((avgProd + avgUtil) / 2), fullMark: 100 },
+            { subject: 'Reliability', A: Math.round(values.utilization), fullMark: 100 },
+            { subject: 'Output', A: Math.round((values.productivity + values.utilization) / 2), fullMark: 100 },
             { subject: 'Punctuality', A: 92, fullMark: 100 },
         ];
-    }, [stats?.empMetrics]);
+    }, [stats?.empMetrics, role, user?.employeeId]);
 
     const productivityChartData = stats?.productivityTrend || [
         { name: 'Mon', value: 85 }, { name: 'Tue', value: 92 }, { name: 'Wed', value: 78 },
@@ -999,10 +1053,9 @@ export function TasksProjects() {
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                 />
                             </div>
-                            <GlobalCalendar />
                             <FilterDropdown />
                             {(role === 'ADMIN' || role === 'MANAGER') && (
-                                <button onClick={() => openTaskModal('To Do')} className="h-14 md:h-16 px-6 md:px-10 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[1.25rem] md:rounded-[1.75rem] font-black text-[10px] md:text-xs uppercase tracking-widest shadow-xl hover:scale-102 active:scale-95 transition-all flex items-center justify-center gap-3">
+                                <button onClick={() => openTaskModal('Working on it')} className="h-14 md:h-16 px-6 md:px-10 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[1.25rem] md:rounded-[1.75rem] font-black text-[10px] md:text-xs uppercase tracking-widest shadow-xl hover:scale-102 active:scale-95 transition-all flex items-center justify-center gap-3">
                                     <Plus size={18} strokeWidth={3} />
                                     <span>Assign Task</span>
                                 </button>
@@ -1010,11 +1063,11 @@ export function TasksProjects() {
 
                         </div>
 
-                        <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-4 pb-10 w-full">
-                            <KanbanColumn title="Backlog" tasks={getTasksByStatus('To Do')} status="To Do" color="bg-slate-200" updateTaskStatus={updateTaskStatus} onEdit={handleEditTask} onDelete={handleDeleteTask} />
-                            <KanbanColumn title="In Operations" tasks={getTasksByStatus('In Progress')} status="In Progress" color="bg-blue-500" updateTaskStatus={updateTaskStatus} onEdit={handleEditTask} onDelete={handleDeleteTask} />
-                            <KanbanColumn title="Quality Assurance" tasks={getTasksByStatus('Review')} status="Review" color="bg-amber-400" updateTaskStatus={updateTaskStatus} onEdit={handleEditTask} onDelete={handleDeleteTask} />
-                            <KanbanColumn title="Finalized" tasks={getTasksByStatus('Completed')} status="Completed" color="bg-emerald-500" updateTaskStatus={updateTaskStatus} onEdit={handleEditTask} onDelete={handleDeleteTask} />
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 pb-10 w-full overflow-x-auto">
+                            <KanbanColumn title="Backlog" tasks={getTasksByStatus('Backlog')} status="BACKLOG" color="bg-slate-400" updateTaskStatus={updateTaskStatus} onEdit={handleEditTask} onDelete={handleDeleteTask} startTask={startTask} stopTask={stopTask} timer={timer} role={role} />
+                            <KanbanColumn title="In Operations" tasks={getTasksByStatus('In Operations')} status="IN_OPERATIONS" color="bg-blue-500" updateTaskStatus={updateTaskStatus} onEdit={handleEditTask} onDelete={handleDeleteTask} startTask={startTask} stopTask={stopTask} timer={timer} role={role} />
+                            <KanbanColumn title="Quality Assurance" tasks={getTasksByStatus('Quality Assurance')} status="QUALITY_ASSURANCE" color="bg-amber-400" updateTaskStatus={updateTaskStatus} onEdit={handleEditTask} onDelete={handleDeleteTask} startTask={startTask} stopTask={stopTask} timer={timer} role={role} />
+                            <KanbanColumn title="Finalized" tasks={getTasksByStatus('Finalized')} status="FINALIZED" color="bg-emerald-500" updateTaskStatus={updateTaskStatus} onEdit={handleEditTask} onDelete={handleDeleteTask} startTask={startTask} stopTask={stopTask} timer={timer} role={role} />
                         </div>
 
                         {/* Edit Task Modal */}

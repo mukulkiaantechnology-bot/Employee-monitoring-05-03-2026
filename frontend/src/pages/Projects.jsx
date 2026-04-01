@@ -9,9 +9,11 @@ import {
     LayoutGrid,
     Download,
     Edit3,
-    Trash2
+    Trash2,
+    Eye
 } from 'lucide-react';
 import { NewProjectModal } from '../components/NewProjectModal';
+import { ProjectDetailModal } from '../components/ProjectDetailModal';
 import { FilterDropdown } from '../components/FilterDropdown';
 import { GlobalCalendar } from '../components/GlobalCalendar';
 import { useRealTime } from '../hooks/RealTimeContext';
@@ -27,6 +29,7 @@ export function Projects() {
     const { integrations, fetchIntegrations } = useIntegrationStore();
     const { role } = useAuthStore();
     const [editingProject, setEditingProject] = useState(null);
+    const [viewingProject, setViewingProject] = useState(null);
     const rolePath = role ? `/${role.toLowerCase()}` : '';
     const [activeTab, setActiveTab] = useState('Insightful');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -43,9 +46,9 @@ export function Projects() {
 
     const handleDownload = () => {
         const rows = [
-            ['Project Name', 'Assignees', 'Tasks', 'Total time [h]', 'Clocked time [h]', 'Manual time [h]', 'Total Costs'],
+            ['Project Name', 'Assignees', 'Tasks', 'Bill Rate', 'Total Costs'],
             ...projects.map(p => [
-                p.projectName, p.assignees, p.tasks, p.totalTime, p.clockedTime, p.manualTime, `$${p.totalCosts}`
+                p.projectName, p.assignees, p.tasks, `$${p.billRate}`, `$${p.totalCosts}`
             ])
         ];
         const csv = rows.map(r => r.join(',')).join('\n');
@@ -62,8 +65,7 @@ export function Projects() {
     ];
 
     const tableHeaders = [
-        'Project Name', 'Assignees', 'Tasks', 'Total time [h]',
-        'Clocked time [h]', 'Manual time [h]', 'Bill Rate', 'Total Costs'
+        'Project Name', 'Assignees', 'Tasks', 'Bill Rate', 'Total Costs'
     ];
 
     return (
@@ -224,12 +226,9 @@ export function Projects() {
                         {/* Table Layout (Hidden on Mobile) */}
                         <div className="hidden lg:block">
                             <div className="grid grid-cols-12 px-6 py-4 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest text-center border-b border-slate-100 dark:border-slate-800">
-                                <div className="text-left col-span-3">Project Name</div>
-                                <div className="col-span-1">Assignees</div>
-                                <div className="col-span-1">Tasks</div>
-                                <div className="col-span-1">Total [H]</div>
-                                <div className="col-span-1">Clocked [H]</div>
-                                <div className="col-span-1">Manual [H]</div>
+                                <div className="text-left col-span-4">Project Name</div>
+                                <div className="col-span-2">Assignees</div>
+                                <div className="col-span-2">Tasks</div>
                                 <div className="col-span-1">Rate</div>
                                 <div className="col-span-1">Costs</div>
                                 <div className="col-span-2 text-right pr-4">Actions</div>
@@ -256,7 +255,7 @@ export function Projects() {
                                 return filtered.map((project, idx) => (
                                     <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[1.5rem] lg:rounded-2xl p-5 md:p-6 lg:p-4 hover:shadow-xl hover:border-primary-100 dark:hover:border-primary-900/30 transition-all group lg:grid lg:grid-cols-12 lg:items-center">
                                         {/* Desktop-only hidden / Mobile visible labels */}
-                                        <div className="lg:col-span-3 flex items-center gap-4 mb-4 lg:mb-0">
+                                        <div className="lg:col-span-4 flex items-center gap-4 mb-4 lg:mb-0">
                                             <div className="h-12 w-12 lg:h-9 lg:lg:w-9 rounded-2xl lg:rounded-xl bg-primary-600 flex items-center justify-center text-xs lg:text-[10px] font-black text-white shadow-lg shadow-primary-200 dark:shadow-none transition-transform group-hover:scale-105">
                                                 {(project.projectName || project.name || 'PR').substring(0, 2).toUpperCase()}
                                             </div>
@@ -266,30 +265,15 @@ export function Projects() {
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-9 gap-4 lg:gap-0 lg:col-span-9 items-center">
+                                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-4 lg:gap-0 lg:col-span-8 items-center">
                                             {/* Assignees */}
-                                            <div className="flex flex-col lg:items-center gap-1 lg:col-span-1">
+                                            <div className="flex flex-col lg:items-center gap-1 lg:col-span-2">
                                                 <span className="lg:hidden text-[9px] font-black text-slate-400 uppercase tracking-widest">Assignees</span>
                                                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{project.assignees}</span>
                                             </div>
                                             {/* Tasks */}
-                                            <div className="hidden lg:flex flex-col lg:items-center gap-1 lg:col-span-1">
+                                            <div className="hidden lg:flex flex-col lg:items-center gap-1 lg:col-span-2">
                                                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{project.tasks}</span>
-                                            </div>
-                                            {/* Total Time */}
-                                            <div className="flex flex-col lg:items-center gap-1 lg:col-span-1">
-                                                <span className="lg:hidden text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Time</span>
-                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{project.totalTime}</span>
-                                            </div>
-                                            {/* Clocked Time */}
-                                            <div className="flex flex-col lg:items-center gap-1 lg:col-span-1">
-                                                <span className="lg:hidden text-[9px] font-black text-slate-400 uppercase tracking-widest">Clocked</span>
-                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{project.clockedTime}</span>
-                                            </div>
-                                            {/* Manual Time */}
-                                            <div className="hidden md:flex flex-col lg:items-center gap-1 lg:col-span-1">
-                                                <span className="lg:hidden text-[9px] font-black text-slate-400 uppercase tracking-widest">Manual</span>
-                                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{project.manualTime}</span>
                                             </div>
                                             {/* Bill Rate */}
                                             <div className="flex flex-col lg:items-center gap-1 lg:col-span-1">
@@ -305,6 +289,16 @@ export function Projects() {
                                             {/* Actions */}
                                             {(role === 'ADMIN' || role === 'MANAGER') ? (
                                                 <div className="flex items-center justify-end gap-2 lg:col-span-2 text-right pr-2">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setViewingProject(project);
+                                                        }}
+                                                        className="p-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all font-bold text-[10px] flex items-center gap-1"
+                                                        title="View Project Details"
+                                                    >
+                                                        <Eye size={16} />
+                                                    </button>
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
@@ -350,6 +344,12 @@ export function Projects() {
                 initialData={editingProject}
                 employees={employees}
                 teams={teams}
+            />
+
+            <ProjectDetailModal 
+                isOpen={!!viewingProject}
+                onClose={() => setViewingProject(null)}
+                project={viewingProject}
             />
         </div>
     );

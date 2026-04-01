@@ -576,7 +576,7 @@ const EmployeeActionsDrawer = ({ isOpen, onClose, employee, onUpdateStatus }) =>
                                 </button>
                             ) : (
                                 <button
-                                    onClick={() => onUpdateStatus(employee.id, 'deactivated')}
+                                    onClick={() => onUpdateStatus(employee.id, 'DEACTIVATED')}
                                     className="w-full flex items-center justify-between p-4 rounded-2xl border-2 border-rose-100 bg-rose-50/50 hover:bg-rose-50 text-rose-700 transition-all group"
                                 >
                                     <div className="flex items-center gap-4">
@@ -1007,8 +1007,7 @@ export function EmployeeManagement() {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(8);
     const [visibleColumns, setVisibleColumns] = useState([
-        'User', 'Team', 'Location', 'Work Time', 'Manual Time', 'Computer Act.',
-        'Productive', 'Unproductive', 'Neutral', 'Idle', 'Break', 'Utilization',
+        'User', 'Team', 'Location', 'Productive', 'Unproductive', 'Neutral', 'Idle', 'Break', 'Utilization',
         'Agent Version', 'Created'
     ]);
 
@@ -1024,10 +1023,14 @@ export function EmployeeManagement() {
         const matchesSearch = (emp.name?.toLowerCase() ?? '').includes(q) ||
             (teamName?.toLowerCase() ?? '').includes(q) ||
             (emp.email?.toLowerCase() ?? '').includes(q);
-        const matchesTab = activeTab === 'Active' ? ['active', 'idle', 'offline', 'online'].includes(emp.status) :
-            activeTab === 'Pending' ? ['pending', 'invited'].includes(emp.status) :
-                activeTab === 'Deactivated' ? emp.status === 'deactivated' :
-                    emp.status === 'merged';
+        
+        const status = emp.status?.toLowerCase() || '';
+        const matchesTab = activeTab === 'All' ? true :
+            activeTab === 'Active' ? ['active', 'idle', 'offline', 'online', 'break'].includes(status) :
+            activeTab === 'Pending' ? ['pending', 'invited'].includes(status) :
+            activeTab === 'Deactivated' ? status === 'deactivated' :
+            status === 'merged';
+            
         return matchesSearch && matchesTab;
     });
 
@@ -1127,7 +1130,7 @@ export function EmployeeManagement() {
                 {/* Tabs */}
                 <div className="px-6 md:px-8 pt-6 overflow-x-auto">
                     <div className="flex items-center gap-8 border-b border-slate-100 dark:border-slate-800 min-w-max">
-                        {['Active', 'Pending', 'Deactivated', 'Merged'].map((tab) => (
+                        {['All', 'Active', 'Pending', 'Deactivated', 'Merged'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => { setActiveTab(tab); setCurrentPage(1); }}
@@ -1179,8 +1182,7 @@ export function EmployeeManagement() {
                                         <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Visible Columns</h4>
                                         <div className="space-y-3 max-h-64 overflow-y-auto pr-2 scrollbar-thin">
                                             {[
-                                                'Identifier', 'Alias ID', 'User', 'Team', 'Location', 'Work Time',
-                                                'Manual Time', 'Computer Act.', 'Productive', 'Unproductive',
+                                                'Identifier', 'Alias ID', 'User', 'Team', 'Location', 'Productive', 'Unproductive',
                                                 'Neutral', 'Idle', 'Break', 'Utilization', 'Agent Version', 'Created'
                                             ].map(col => (
                                                 <label key={col} className="flex items-center gap-3 cursor-pointer group">

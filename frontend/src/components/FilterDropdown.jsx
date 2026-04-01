@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, ChevronRight, User, Users, MapPin, X } from 'lucide-react';
+import { Plus, ChevronRight, User, Users, X } from 'lucide-react';
 import { useRealTime } from '../hooks/RealTimeContext';
 import { useFilterStore } from '../store/filterStore';
 
@@ -24,7 +24,6 @@ export function FilterDropdown() {
     const menuItems = [
         { id: 'Employee', label: 'Employee', icon: User },
         { id: 'Teams', label: 'Teams', icon: Users },
-        { id: 'Work Locations', label: 'Work Locations', icon: MapPin },
     ];
 
     const handleSelect = (type, id) => {
@@ -137,9 +136,7 @@ export function FilterDropdown() {
                                 ))}
                             </div>
                         </>
-                    ) : (
-                        <div className="px-4 py-4 text-xs font-bold text-slate-400 text-center italic">Coming Soon</div>
-                    )}
+                    ) : null}
                 </div>
             )}
         </div>

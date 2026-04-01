@@ -10,6 +10,10 @@ export const useAuthStore = create(
             role: null, // "ADMIN" | "MANAGER" | "EMPLOYEE"
             isAuthenticated: false,
             token: null,
+            activeAttendance: null, // Track active work session
+            isClockedIn: false,
+            isOnBreak: false,
+            isTrackerActive: false,
 
             setSession: (userData) => {
                 const user = userData.user || userData;
@@ -18,7 +22,10 @@ export const useAuthStore = create(
                     role: user.role?.toUpperCase(),
                     isAuthenticated: true,
                     token: localStorage.getItem('token'),
-                    agentStatus: user.agentStatus
+                    agentStatus: user.agentStatus,
+                    activeAttendance: user.activeAttendance || null,
+                    isClockedIn: !!user.activeAttendance,
+                    isOnBreak: user.status === 'BREAK'
                 });
             },
 
@@ -32,7 +39,11 @@ export const useAuthStore = create(
                             role: userData.role?.toUpperCase(),
                             isAuthenticated: true,
                             token: response.data.token,
-                            agentStatus: userData.agentStatus
+                            agentStatus: userData.agentStatus,
+                            activeAttendance: userData.activeAttendance || null,
+                            isClockedIn: !!userData.activeAttendance,
+                            isOnBreak: userData.status === 'BREAK',
+                            isTrackerActive: false
                         });
                         toast.success('Login successful');
                         return response.data;
@@ -45,7 +56,7 @@ export const useAuthStore = create(
 
             logout: async () => {
                 await authService.logout();
-                set({ user: null, role: null, isAuthenticated: false, token: null });
+                set({ user: null, role: null, isAuthenticated: false, token: null, activeAttendance: null, isClockedIn: false, isOnBreak: false, isTrackerActive: false });
             },
 
             switchRole: (newRole) => {
@@ -54,6 +65,63 @@ export const useAuthStore = create(
                     user: state.user ? { ...state.user, role: newRole } : null
                 }));
             },
+
+            // Attendance Actions
+            clockIn: async () => {
+                const { default: attendanceService } = await import('../services/attendanceService');
+                try {
+                    const response = await attendanceService.clockIn();
+                    if (response.success) {
+                        set({ activeAttendance: response.data, isClockedIn: true });
+                        toast.success('Work session started');
+                    }
+                    return response;
+                } catch (error) {
+                    toast.error(error.response?.data?.message || 'Failed to clock in');
+                    throw error;
+                }
+            },
+
+            clockOut: async () => {
+                const { default: attendanceService } = await import('../services/attendanceService');
+                try {
+                    const response = await attendanceService.clockOut();
+                    if (response.success) {
+                        set({ activeAttendance: null, isClockedIn: false, isOnBreak: false });
+                        toast.success('Work session ended');
+                    }
+                    return response;
+                } catch (error) {
+                    toast.error(error.response?.data?.message || 'Failed to clock out');
+                    throw error;
+                }
+            },
+
+            toggleBreak: async () => {
+                const { default: attendanceService } = await import('../services/attendanceService');
+                const isOnBreak = get().isOnBreak;
+                try {
+                    let response;
+                    if (!isOnBreak) {
+                        response = await attendanceService.startBreak();
+                        if (response.success) {
+                            set({ isOnBreak: true });
+                            toast.success('Break started');
+                        }
+                    } else {
+                        response = await attendanceService.endBreak();
+                        if (response.success) {
+                            set({ isOnBreak: false });
+                            toast.success('Break ended');
+                        }
+                    }
+                    return response;
+                } catch (error) {
+                    toast.error(error.response?.data?.message || 'Failed to toggle break');
+                    throw error;
+                }
+            },
+            setTrackerActive: (status) => set({ isTrackerActive: status }),
 
             hasAccess: (moduleKey) => {
                 const role = get().role?.toUpperCase();

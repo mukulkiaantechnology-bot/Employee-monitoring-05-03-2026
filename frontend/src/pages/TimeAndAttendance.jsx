@@ -30,9 +30,11 @@ import useAttendanceStore from '../store/attendanceStore';
 import { useFilterStore } from '../store/filterStore';
 import { format, addDays, startOfWeek, parseISO, isWithinInterval, isSameDay } from 'date-fns';
 import { createPortal } from 'react-dom';
+import { useAuthStore } from '../store/authStore';
 
 export function TimeAndAttendance() {
     const { employees } = useRealTime();
+    const { role } = useAuthStore();
     const [activeTab, setActiveTab] = useState('Timesheets');
     const [viewMode, setViewMode] = useState('Day View');
     const [isManualTimeModalOpen, setIsManualTimeModalOpen] = useState(false);
@@ -73,10 +75,33 @@ export function TimeAndAttendance() {
             employeeId: selectedEmployee
         };
         fetchTimesheets(params);
-        fetchManualTimes(params);
+        if (role === 'ADMIN' || role === 'MANAGER') {
+            fetchManualTimes(params);
+        }
         fetchShifts(params);
         fetchTimeOffs(params);
     }, [dateRange, selectedTeam, selectedEmployee, fetchTimesheets, fetchManualTimes, fetchShifts, fetchTimeOffs]);
+
+    // Socket-based real-time refresh
+    const { socket } = useRealTime();
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleAttendanceUpdate = (data) => {
+            console.log('Real-time attendance update received:', data);
+            // Refresh timesheets if on the relevant tab or if it's for today
+            const params = {
+                startDate: dateRange?.start,
+                endDate: dateRange?.end,
+                teamId: selectedTeam,
+                employeeId: selectedEmployee
+            };
+            fetchTimesheets(params);
+        };
+
+        socket.on('attendance:update', handleAttendanceUpdate);
+        return () => socket.off('attendance:update', handleAttendanceUpdate);
+    }, [socket, dateRange, selectedTeam, selectedEmployee, fetchTimesheets]);
 
     // Build the 7-day grid starting from the start of the filter week (or today's week)
     const gridDays = useMemo(() => {
@@ -238,17 +263,24 @@ export function TimeAndAttendance() {
             {/* Tabs */}
             <div className="overflow-x-auto mb-8">
                 <div className="flex items-center gap-10 border-b border-slate-100 dark:border-slate-800 min-w-max">
-                    {['Timesheets', 'Attendance', 'Manual Time', 'Schedules'].map(tab => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`pb-4 text-sm font-black transition-all relative ${activeTab === tab ? 'text-primary-600 dark:text-primary-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
-                                }`}
-                        >
-                            {tab}
-                            {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-primary-600 rounded-full" />}
-                        </button>
-                    ))}
+                    {['Timesheets', 'Attendance', 'Manual Time', 'Schedules']
+                        .filter(tab => {
+                            if (tab === 'Manual Time') {
+                                return role === 'ADMIN' || role === 'MANAGER';
+                            }
+                            return true;
+                        })
+                        .map(tab => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                className={`pb-4 text-sm font-black transition-all relative ${activeTab === tab ? 'text-primary-600 dark:text-primary-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                                    }`}
+                            >
+                                {tab}
+                                {activeTab === tab && <div className="absolute bottom-0 left-0 w-full h-[3px] bg-primary-600 rounded-full" />}
+                            </button>
+                        ))}
                 </div>
             </div>
 
@@ -325,6 +357,8 @@ export function TimeAndAttendance() {
                                 <th className="px-6 py-4">Team Description</th>
                                 <th className="px-6 py-4">Date</th>
                                 <th className="px-6 py-4">Clock-in</th>
+                                <th className="px-6 py-4">Clock-out</th>
+                                <th className="px-6 py-4">Total Hours</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -353,14 +387,20 @@ export function TimeAndAttendance() {
                                     <td className="px-6 py-6 text-xs font-bold text-slate-800 dark:text-slate-300">
                                         <div className="flex items-center gap-1 group">
                                             {row.clockIn ? format(new Date(row.clockIn), 'hh:mm a') : '--'}
-                                            {row.clockIn && <Play size={10} className="text-primary-500 fill-primary-500 rotate-90" />}
+                                            {row.clockIn && !row.clockOut && <Play size={10} className="text-primary-500 fill-primary-500 rotate-90" />}
                                         </div>
+                                    </td>
+                                    <td className="px-6 py-6 text-xs font-bold text-slate-800 dark:text-slate-300">
+                                        {row.clockOut ? format(new Date(row.clockOut), 'hh:mm a') : '--'}
+                                    </td>
+                                    <td className="px-6 py-6 text-xs font-bold text-slate-800 dark:text-slate-300">
+                                        {row.duration ? `${Math.floor(row.duration / 3600)}h ${Math.floor((row.duration % 3600) / 60)}m` : (row.clockIn && !row.clockOut ? 'In Progress' : '--')}
                                     </td>
                                 </tr>
                             ))}
                             {!loading && timesheets.length === 0 && (
                                 <tr>
-                                    <td colSpan="6" className="px-6 py-20 text-center text-slate-400 font-bold">No attendance records found</td>
+                                    <td colSpan="8" className="px-6 py-20 text-center text-slate-400 font-bold">No attendance records found</td>
                                 </tr>
                             )}
                         </tbody>

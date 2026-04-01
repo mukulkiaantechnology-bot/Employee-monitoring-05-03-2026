@@ -62,9 +62,20 @@ const login = async (email, password) => {
     });
 
     if (!user) {
-        // Log failed login (no user found)
-        // Note: In a real app, you might want to log this without organizationId if not found
         throw new Error('Invalid email or password');
+    }
+
+    // Check if account is deactivated
+    if (user.employee && user.employee.status.toUpperCase() === 'DEACTIVATED') {
+        const { createAuditLog } = require('../../utils/audit.util');
+        await createAuditLog({
+            organizationId: user.employee?.organizationId,
+            userId: user.employeeId,
+            action: 'User Login',
+            status: 'Denied',
+            metadata: { reason: 'Account de-activated' }
+        });
+        throw new Error('Your account has been deactivated. Please contact your administrator.');
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -110,6 +121,13 @@ const login = async (email, password) => {
     if (user.role === 'EMPLOYEE' && user.employeeId) {
         const { getAgentStatus } = require('../agent/agent.service');
         agentStatus = await getAgentStatus(user.employeeId);
+        
+        // Fetch active attendance session (any open session for this employee)
+        const activeAttendance = await prisma.attendance.findFirst({
+            where: { employeeId: user.employeeId, clockOut: null },
+            orderBy: { clockIn: 'desc' }
+        });
+        user.activeAttendance = activeAttendance;
     }
 
     return {
@@ -124,7 +142,8 @@ const login = async (email, password) => {
             employeeId: user.employeeId,
             organizationId: user.employee?.organizationId,
             teamId: user.employee?.teamId,
-            agentStatus: agentStatus
+            agentStatus: agentStatus,
+            activeAttendance: user.activeAttendance
         },
     };
 };
@@ -172,6 +191,12 @@ const getMe = async (userId) => {
         if (user.role === 'EMPLOYEE') {
             const { getAgentStatus } = require('../agent/agent.service');
             user.agentStatus = await getAgentStatus(user.employeeId);
+            
+            // Add active attendance (any open session)
+            user.activeAttendance = await prisma.attendance.findFirst({
+                where: { employeeId: user.employeeId, clockOut: null },
+                orderBy: { clockIn: 'desc' }
+            });
         }
     } else {
         // Provide fallbacks for users without employee record (like seeded admins)

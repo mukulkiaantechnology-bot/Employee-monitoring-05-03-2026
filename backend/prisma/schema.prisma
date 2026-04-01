@@ -18,6 +18,7 @@ enum ActivityType {
   IDLE
   MANUAL
   SYSTEM
+  BREAK
 }
 
 enum ProductivityType {
@@ -28,9 +29,9 @@ enum ProductivityType {
 
 enum TaskStatus {
   BACKLOG
-  IN_PROGRESS
-  QA
-  COMPLETED
+  IN_OPERATIONS
+  QUALITY_ASSURANCE
+  FINALIZED
 }
 
 enum TaskPriority {
@@ -79,6 +80,7 @@ enum EmployeeStatus {
   ACTIVE
   OFFLINE
   IDLE
+  BREAK
   DEACTIVATED
   MERGED
 }
@@ -201,6 +203,7 @@ model Employee {
 model Project {
   id             String              @id @default(uuid())
   name           String
+  description    String?             @db.Text
   billableRate   Float               @default(0.0)
   budget         Float               @default(0.0)
   organization   Organization        @relation(fields: [organizationId], references: [id])
@@ -228,9 +231,9 @@ model ProjectAssignment {
 
 model ProjectTimeLog {
   id         String   @id @default(uuid())
-  project    Project  @relation(fields: [projectId], references: [id])
+  project    Project  @relation(fields: [projectId], references: [id], map: "ptl_project_id_fkey")
   projectId  String
-  employee   Employee @relation(fields: [employeeId], references: [id])
+  employee   Employee @relation(fields: [employeeId], references: [id], map: "ptl_employee_id_fkey")
   employeeId String
   duration   Int      // in seconds
   type       String   // "CLOCKED" or "MANUAL"
@@ -253,6 +256,7 @@ model Task {
   organizationId String
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+  activityLogs   ActivityLog[]
 
   @@map("tasks")
 }
@@ -336,6 +340,8 @@ model ActivityLog {
   appWebsite     String?          @default("Unknown")
   employee       Employee         @relation(fields: [employeeId], references: [id])
   employeeId     String
+  task           Task?            @relation(fields: [taskId], references: [id])
+  taskId         String?
   organization   Organization     @relation(fields: [organizationId], references: [id])
   organizationId String
   createdAt      DateTime         @default(now())

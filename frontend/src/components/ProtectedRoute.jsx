@@ -3,7 +3,7 @@ import { useAuthStore } from '../store/authStore';
 
 export function ProtectedRoute({ children }) {
     const location = useLocation();
-    const { isAuthenticated, role, agentStatus } = useAuthStore();
+    const { isAuthenticated, role, agentStatus, isClockedIn } = useAuthStore();
 
     if (!isAuthenticated) {
         return <Navigate to="/login" state={{ from: location }} replace />;
@@ -17,9 +17,9 @@ export function ProtectedRoute({ children }) {
     //     return <Navigate to="/agent-required" replace />;
     // }
 
-    // if (isAuthenticated && isEmployee && agentStatus?.active && isAgentRequiredPage) {
-    //     return <Navigate to="/employee" replace />;
-    // }
+    // Mandatory Work Session Check for Employees
+    // We let WebTrackerAgent handle the blocking overlay globally, 
+    // but we can still prevent access to specific logic if needed.
 
     // // If they are on the agent required page and are supposed to be there, let them render it
     // if (isAuthenticated && isEmployee && !agentStatus?.active && isAgentRequiredPage) {

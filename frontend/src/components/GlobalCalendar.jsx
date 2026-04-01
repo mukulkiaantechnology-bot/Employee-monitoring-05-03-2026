@@ -15,7 +15,13 @@ const PRESETS = [
 const DAYS  = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 const MONTHS= ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-function toYMD(d) { return d.toISOString().split('T')[0]; }
+function toYMD(d) {
+    if (!d) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
 
 function CalendarGrid({ viewDate, setViewDate, rangeStart, rangeEnd, onPickDate }) {
     const year  = viewDate.getFullYear();

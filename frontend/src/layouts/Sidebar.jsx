@@ -17,7 +17,9 @@ import {
     ChevronRight,
     Monitor,
     Zap,
-    X
+    X,
+    LogOut,
+    Power
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -26,14 +28,12 @@ import { useAuthStore } from '../store/authStore';
 const cn = (...inputs) => twMerge(clsx(inputs));
 
 const navItems = [
-    { name: 'Productivity Trends', icon: LayoutDashboard, path: '/', key: 'dashboard' },
+    { name: 'Dashboard', icon: LayoutDashboard, path: '/', key: 'dashboard' },
     { name: 'Real-time Insights', icon: Zap, path: '/real-time', key: 'realtime' },
-    // { name: 'Alerts', icon: Bell, path: '/alerts', key: 'alerts' },
     { name: 'Employees', icon: Users, path: '/employees', key: 'employees' },
     { name: 'Teams', icon: Users, path: '/teams', key: 'teams' },
-    { name: 'Screenshot Monitoring', icon: Monitor, path: '/screenshots', key: 'screenshots' },
+    { name: 'Screenshots', icon: Monitor, path: '/screenshots', key: 'screenshots' },
     { name: 'Time & Attendance', icon: Clock, path: '/time-attendance', key: 'timeAttendance' },
-    // { name: 'Monitoring', icon: Monitor, path: '/monitoring', key: 'activity' },
     { name: 'Projects', icon: CheckSquare, path: '/projects', key: 'projects' },
     { name: 'Tasks', icon: CheckSquare, path: '/tasks', key: 'tasks' },
     { name: 'Payroll', icon: CreditCard, path: '/payroll', key: 'payroll' },
@@ -51,7 +51,7 @@ const reportSubItems = [
 
 export function Sidebar({ collapsed, setCollapsed, onMobileClose }) {
     const [reportsOpen, setReportsOpen] = React.useState(false);
-    const { hasAccess, role } = useAuthStore();
+    const { hasAccess, role, isClockedIn, clockOut } = useAuthStore();
     const location = React.useRef(window.location.pathname);
 
     const rolePath = role ? `/${role.toLowerCase()}` : '';
@@ -93,9 +93,9 @@ export function Sidebar({ collapsed, setCollapsed, onMobileClose }) {
             <div className="flex h-16 items-center justify-between px-4 mt-6">
                 {!collapsed && (
                     <div className="group cursor-pointer animate-in fade-in duration-500">
-                        <h2 className="text-2xl font-black leading-none tracking-tighter bg-gradient-to-r from-primary-600 via-primary-400 to-primary-600 bg-[length:200%_auto] animate-gradient-x bg-clip-text text-transparent transition-transform duration-300 group-hover:scale-105 group-hover:brightness-110">
-                            EMPLOYEE<br />
-                            MANAGEMENT
+                        <h2 className="text-xl font-black leading-tight tracking-tighter bg-gradient-to-r from-primary-600 via-primary-400 to-primary-600 bg-[length:200%_auto] animate-gradient-x bg-clip-text text-transparent transition-transform duration-300 group-hover:scale-105 group-hover:brightness-110">
+                            Employee Performance Software<br />
+                            <span className="text-sm opacity-80">- DSP Consultants</span>
                         </h2>
                         <div className="h-1 w-0 bg-primary-600 transition-all duration-300 group-hover:w-full mt-1 rounded-full opacity-50"></div>
                     </div>
@@ -119,8 +119,7 @@ export function Sidebar({ collapsed, setCollapsed, onMobileClose }) {
                     // In our case, if 'reports' is allowed (Admin or Manager), we show it.
                     const isReportsAllowed = hasAccess('reports');
 
-                    // Simple logic: if this is the first item after 'Tasks', inject Reports
-                    const showReportsBefore = item.key === 'payroll' || item.key === 'settings';
+                    // Simple logic: if this is the first item after 'Projects & Tasks', inject Reports
                     const isLastItemInGroup = item.key === 'tasks';
 
                     return (
@@ -198,6 +197,31 @@ export function Sidebar({ collapsed, setCollapsed, onMobileClose }) {
                     );
                 })}
             </nav>
+
+            {/* Bottom Actions for Employee Work Session */}
+            {!collapsed && role === 'EMPLOYEE' && isClockedIn && (
+                <div className="absolute bottom-4 left-4 right-4 p-4 rounded-2xl bg-rose-50 dark:bg-rose-900/10 border border-rose-100 dark:border-rose-900/30 animate-in slide-in-from-bottom-2 duration-500">
+                    <p className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase tracking-widest mb-3 text-center">Active Session</p>
+                    <button
+                        onClick={clockOut}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rose-600 text-white font-bold text-xs uppercase tracking-widest hover:bg-rose-700 active:scale-95 transition-all shadow-lg shadow-rose-500/30"
+                    >
+                        <LogOut size={16} />
+                        End Session
+                    </button>
+                </div>
+            )}
+            {collapsed && role === 'EMPLOYEE' && isClockedIn && (
+                <div className="absolute bottom-4 left-0 right-0 flex justify-center p-2">
+                    <button
+                        onClick={clockOut}
+                        className="h-10 w-10 flex items-center justify-center rounded-xl bg-rose-600 text-white hover:bg-rose-700 active:scale-95 transition-all shadow-lg shadow-rose-500/30"
+                        title="End Session"
+                    >
+                        <Power size={20} />
+                    </button>
+                </div>
+            )}
 
             <button
                 onClick={() => setCollapsed(!collapsed)}
